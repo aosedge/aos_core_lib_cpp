@@ -7,11 +7,11 @@
 #ifndef AOS_CORE_CM_UPDATEMANAGER_UNITSTATUSHANDLER_HPP_
 #define AOS_CORE_CM_UPDATEMANAGER_UNITSTATUSHANDLER_HPP_
 
-#include <core/cm/imagemanager/itf/itemstatusprovider.hpp>
 #include <core/cm/nodeinfoprovider/itf/nodeinfoprovider.hpp>
 #include <core/cm/unitconfig/itf/unitconfig.hpp>
 #include <core/common/cloudconnection/itf/cloudconnection.hpp>
 #include <core/common/iamclient/itf/identprovider.hpp>
+#include <core/common/imagemanager/itf/itemstatusprovider.hpp>
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/memory.hpp>
@@ -31,7 +31,7 @@ namespace aos::cm::updatemanager {
  * Unit status handler.
  */
 class UnitStatusHandler : private nodeinfoprovider::NodeInfoListenerItf,
-                          private imagemanager::ItemStatusListenerItf,
+                          private common::imagemanager::ItemStatusListenerItf,
                           private instancestatusprovider::ListenerItf,
                           private iamclient::SubjectsListenerItf,
                           private cloudconnection::ConnectionListenerItf {
@@ -52,8 +52,8 @@ public:
      */
     Error Init(AllocatorItf& allocator, const Config& config, iamclient::IdentProviderItf& identProvider,
         unitconfig::UnitConfigItf& unitConfig, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-        imagemanager::ItemStatusProviderItf& itemStatusProvider,
-        instancestatusprovider::ProviderItf& instanceStatusProvider,
+        common::imagemanager::ItemStatusProviderItf& itemStatusProvider,
+        instancestatusprovider::ProviderItf&         instanceStatusProvider,
         cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender);
 
     /**
@@ -96,9 +96,9 @@ private:
     // nodeinfoprovider::NodeInfoListenerItf implementation
     void OnNodeInfoChanged(const UnitNodeInfo& info) override;
 
-    // imagemanager::ItemStatusListenerItf implementation
-    void OnItemsStatusesChanged(const Array<UpdateItemStatus>& statuses) override;
-    void OnItemRemoved(const String& itemID) override;
+    // common::imagemanager::ItemStatusListenerItf implementation
+    void OnItemStatusChanged(const UpdateItemStatus& status) override;
+    void OnItemRemovedFromCache(const String& id, const String& version) override;
 
     // instancestatusprovider::ListenerItf implementation
     void OnInstancesStatusesChanged(const Array<InstanceStatus>& statuses) override;
@@ -122,13 +122,13 @@ private:
     Error SetItemsForPreinstalledInstances();
     void  LogUnitStatus();
 
-    iamclient::IdentProviderItf*           mIdentProvider {};
-    unitconfig::UnitConfigItf*             mUnitConfig {};
-    nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider {};
-    imagemanager::ItemStatusProviderItf*   mItemStatusProvider {};
-    instancestatusprovider::ProviderItf*   mInstanceStatusProvider {};
-    cloudconnection::CloudConnectionItf*   mCloudConnection {};
-    SenderItf*                             mSender {};
+    iamclient::IdentProviderItf*                 mIdentProvider {};
+    unitconfig::UnitConfigItf*                   mUnitConfig {};
+    nodeinfoprovider::NodeInfoProviderItf*       mNodeInfoProvider {};
+    common::imagemanager::ItemStatusProviderItf* mItemStatusProvider {};
+    instancestatusprovider::ProviderItf*         mInstanceStatusProvider {};
+    cloudconnection::CloudConnectionItf*         mCloudConnection {};
+    SenderItf*                                   mSender {};
 
     Mutex                                             mMutex;
     UnitStatus                                        mUnitStatus;
