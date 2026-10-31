@@ -8,7 +8,6 @@
 #define AOS_CORE_CM_COMMUNICATION_ITF_COMMUNICATION_HPP_
 
 #include <core/cm/alerts/itf/sender.hpp>
-#include <core/cm/imagemanager/itf/blobinfoprovider.hpp>
 #include <core/cm/launcher/itf/sender.hpp>
 #include <core/cm/monitoring/itf/sender.hpp>
 #include <core/cm/rootcerts/itf/sender.hpp>
@@ -16,6 +15,7 @@
 #include <core/cm/storagestate/itf/sender.hpp>
 #include <core/cm/updatemanager/itf/sender.hpp>
 #include <core/common/cloudconnection/itf/cloudconnection.hpp>
+#include <core/common/imagemanager/itf/blobinfoprovider.hpp>
 
 namespace aos::cm::communication {
 
@@ -28,7 +28,7 @@ namespace aos::cm::communication {
  */
 class CommunicationItf : public alerts::SenderItf,
                          public launcher::SenderItf,
-                         public imagemanager::BlobInfoProviderItf,
+                         public common::imagemanager::BlobInfoProviderItf,
                          public monitoring::SenderItf,
                          public rootcerts::SenderItf,
                          public smcontroller::SenderItf,
