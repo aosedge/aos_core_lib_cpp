@@ -118,6 +118,11 @@ Error ImageManager::DownloadBlob(CancelContext& ctx, const String& path, const B
         return err;
     }
 
+    StartDownload(blobInfo.mDigest);
+
+    auto finishDownload
+        = DeferRelease([this, &blobInfo, &downloadPath]() { FinishDownload(blobInfo.mDigest, downloadPath); });
+
     if (auto err = DownloadFile(ctx, downloadPath, blobInfo); !err.IsNone()) {
         return err;
     }
@@ -133,7 +138,135 @@ RetWithError<size_t> ImageManager::RemoveDownloadedBlob(const String& digest)
 {
     LOG_DBG() << "Remove downloaded blob" << Log::Field("digest", digest);
 
-    return {0, ErrorEnum::eNotSupported};
+    StaticString<cFilePathLen> downloadPath;
+
+    if (auto err = GetDownloadPath(digest, downloadPath); !err.IsNone()) {
+        return {0, err};
+    }
+
+    auto [size, err] = GetFileSize(downloadPath);
+    if (!err.IsNone()) {
+        return {0, err};
+    }
+
+    if (err = fs::RemoveAll(downloadPath); !err.IsNone()) {
+        return {0, AOS_ERROR_WRAP(err)};
+    }
+
+    return {size, ErrorEnum::eNone};
+}
+
+void ImageManager::StartDownload(const String& digest)
+{
+    LockGuard spaceLock {mDownloadSpaceMutex};
+
+    const bool firstDownload = mNumDownloads++ == 0;
+
+    if (auto err = mDownloadSpaceAllocator->RestoreOutdatedItem(digest, "");
+        !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+        LOG_ERR() << "Failed to restore download file" << Log::Field("digest", digest) << Log::Field(err);
+    }
+
+    if (firstDownload) {
+        RegisterDownloadFiles(digest);
+    }
+}
+
+void ImageManager::FinishDownload(const String& digest, const String& downloadPath)
+{
+    LockGuard spaceLock {mDownloadSpaceMutex};
+
+    mNumDownloads--;
+
+    auto [exists, err] = fs::FileExist(downloadPath);
+    if (!err.IsNone()) {
+        LOG_ERR() << "Failed to check download file" << Log::Field("path", downloadPath) << Log::Field(err);
+
+        return;
+    }
+
+    if (!exists) {
+        return;
+    }
+
+    const auto now = Time::Now();
+
+    if (err = fs::SetFileMTime(downloadPath, now); !err.IsNone()) {
+        LOG_ERR() << "Failed to set download file modification time" << Log::Field("path", downloadPath)
+                  << Log::Field(err);
+    }
+
+    if (err = mDownloadSpaceAllocator->AddOutdatedItem(digest, "", now); !err.IsNone()) {
+        LOG_ERR() << "Failed to add outdated download file" << Log::Field("digest", digest) << Log::Field(err);
+    }
+}
+
+void ImageManager::RegisterDownloadFiles(const String& currentDigest)
+{
+    LOG_DBG() << "Register download files";
+
+    for (auto algIt = fs::DirIterator(mConfig.mDownloadPath); algIt.Next();) {
+        const auto algPath = fs::JoinPath(mConfig.mDownloadPath, algIt->mPath);
+
+        if (!algIt->mIsDir) {
+            RemoveInvalidDownloadFile(algPath);
+
+            continue;
+        }
+
+        for (auto fileIt = fs::DirIterator(algPath); fileIt.Next();) {
+            const auto                    filePath = fs::JoinPath(algPath, fileIt->mPath);
+            StaticString<oci::cDigestLen> digest;
+            StaticString<oci::cDigestLen> algorithm;
+            StaticString<oci::cDigestLen> hash;
+
+            if (algIt->mPath.Size() + 1 + fileIt->mPath.Size() <= digest.MaxSize()) {
+                digest.Append(algIt->mPath).Append(":").Append(fileIt->mPath);
+            }
+
+            if (fileIt->mIsDir || !ParseDigest(digest, algorithm, hash).IsNone()) {
+                RemoveInvalidDownloadFile(filePath);
+
+                continue;
+            }
+
+            if (digest == currentDigest) {
+                continue;
+            }
+
+            auto [modifyTime, err] = fs::GetFileMTime(filePath);
+            if (!err.IsNone()) {
+                LOG_ERR() << "Failed to get download file modification time" << Log::Field("path", filePath)
+                          << Log::Field(err);
+
+                continue;
+            }
+
+            if (err = mDownloadSpaceAllocator->AddOutdatedItem(digest, "", modifyTime); !err.IsNone()) {
+                LOG_ERR() << "Failed to add outdated download file" << Log::Field("digest", digest) << Log::Field(err);
+            }
+        }
+    }
+}
+
+void ImageManager::RemoveInvalidDownloadFile(const String& path)
+{
+    LOG_WRN() << "Remove invalid download file" << Log::Field("path", path);
+
+    auto [size, err] = fs::CalculateSize(*mAllocator, path);
+    if (!err.IsNone()) {
+        LOG_ERR() << "Failed to get invalid download file size" << Log::Field("path", path) << Log::Field(err);
+
+        return;
+    }
+
+    if (err = fs::RemoveAll(path); !err.IsNone()) {
+        LOG_ERR() << "Failed to remove invalid download file" << Log::Field("path", path) << Log::Field(err);
+
+        return;
+    }
+
+    mDownloadSpaceAllocator->FreeSpace(size);
 }
 
 Error ImageManager::GetDownloadPath(const String& digest, String& downloadPath) const

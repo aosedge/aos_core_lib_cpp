@@ -8,6 +8,7 @@
 #define AOS_CORE_CM_IMAGEMANAGER_IMAGEMANAGER_HPP_
 
 #include <core/cm/fileserver/itf/fileserver.hpp>
+#include <core/common/consts.hpp>
 #include <core/common/crypto/itf/cryptohelper.hpp>
 #include <core/common/downloader/itf/downloader.hpp>
 #include <core/common/imagemanager/imagemanager.hpp>
@@ -125,6 +126,11 @@ private:
     Error                DownloadBlob(CancelContext& ctx, const String& path, const BlobInfo& blobInfo) override;
     RetWithError<size_t> RemoveDownloadedBlob(const String& digest);
 
+    void StartDownload(const String& digest);
+    void FinishDownload(const String& digest, const String& downloadPath);
+    void RegisterDownloadFiles(const String& currentDigest);
+    void RemoveInvalidDownloadFile(const String& path);
+
     Error                GetDownloadPath(const String& digest, String& downloadPath) const;
     RetWithError<size_t> GetFileSize(const String& path) const;
     RetWithError<size_t> PrepareDownloadFile(const String& downloadPath, size_t size);
@@ -148,6 +154,9 @@ private:
     Mutex                             mCertsMutex;
     crypto::CertificateInfoArray      mCertificates;
     crypto::CertificateChainInfoArray mCertificateChains;
+
+    Mutex  mDownloadSpaceMutex;
+    size_t mNumDownloads {};
 
     DownloadItemRemover mDownloadItemRemover {*this};
 };
