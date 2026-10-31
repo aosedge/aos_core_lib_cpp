@@ -94,9 +94,46 @@ Error ImageManager::GetBlobInfo(const String& digest, BlobInfo& blobInfo)
 {
     LOG_DBG() << "Get blob info" << Log::Field("digest", digest);
 
-    (void)blobInfo;
+    StaticString<cFilePathLen> path;
 
-    return ErrorEnum::eNotSupported;
+    if (auto err = GetBlobPath(digest, path); !err.IsNone()) {
+        return err;
+    }
+
+    auto [used, err] = mStorage->IsBlobUsed(digest);
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (!used) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "blob not used"));
+    }
+
+    auto [size, sizeErr] = fs::CalculateSize(*mAllocator, path);
+    if (!sizeErr.IsNone()) {
+        return AOS_ERROR_WRAP(sizeErr);
+    }
+
+    StaticString<cURLLen> url;
+
+    if (err = mFileServer->TranslateFilePathURL(path, url); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    blobInfo.mDigest = digest;
+    blobInfo.mSize   = size;
+
+    blobInfo.mSHA256.Clear();
+    blobInfo.mURLs.Clear();
+
+    if (err = blobInfo.mURLs.PushBack(url); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    blobInfo.mDecryptInfo.Reset();
+    blobInfo.mSignInfo.Reset();
+
+    return ErrorEnum::eNone;
 }
 
 /***********************************************************************************************************************
