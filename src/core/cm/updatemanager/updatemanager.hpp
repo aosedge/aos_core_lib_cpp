@@ -8,6 +8,7 @@
 #define AOS_CORE_CM_UPDATEMANAGER_UPDATEMANAGER_HPP_
 
 #include <core/cm/imagemanager/itf/imagemanager.hpp>
+#include <core/common/imagemanager/itf/itemstatusprovider.hpp>
 
 #include "itf/updatemanager.hpp"
 
@@ -34,6 +35,7 @@ public:
      * @param unitConfig unit config interface.
      * @param nodeInfoProvider node info provider.
      * @param imageManager image manager.
+     * @param itemStatusProvider item status provider.
      * @param launcher launcher interface.
      * @param cloudConnection cloud connection.
      * @param sender unit status sender.
@@ -43,8 +45,8 @@ public:
     Error Init(AllocatorItf& allocator, const Config& config, iamclient::IdentProviderItf& identProvider,
         iamclient::NodeHandlerItf& nodeHandler, unitconfig::UnitConfigItf& unitConfig,
         nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider, imagemanager::ImageManagerItf& imageManager,
-        launcher::LauncherItf& launcher, cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender,
-        StorageItf& storage);
+        common::imagemanager::ItemStatusProviderItf& itemStatusProvider, launcher::LauncherItf& launcher,
+        cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender, StorageItf& storage);
 
     /**
      * Starts update manager.
