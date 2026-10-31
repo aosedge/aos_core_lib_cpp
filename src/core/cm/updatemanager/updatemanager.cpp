@@ -17,19 +17,19 @@ namespace aos::cm::updatemanager {
 Error UpdateManager::Init(AllocatorItf& allocator, const Config& config, iamclient::IdentProviderItf& identProvider,
     iamclient::NodeHandlerItf& nodeHandler, unitconfig::UnitConfigItf& unitConfig,
     nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider, imagemanager::ImageManagerItf& imageManager,
-    launcher::LauncherItf& launcher, cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender,
-    StorageItf& storage)
+    common::imagemanager::ItemStatusProviderItf& itemStatusProvider, launcher::LauncherItf& launcher,
+    cloudconnection::CloudConnectionItf& cloudConnection, SenderItf& sender, StorageItf& storage)
 {
     LOG_DBG() << "Init update manager";
 
-    if (auto err = mDesiredStatusHandler.Init(
-            allocator, nodeHandler, unitConfig, imageManager, launcher, mUnitStatusHandler, storage);
+    if (auto err = mDesiredStatusHandler.Init(allocator, nodeHandler, unitConfig, imageManager, itemStatusProvider,
+            launcher, mUnitStatusHandler, storage);
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mUnitStatusHandler.Init(allocator, config, identProvider, unitConfig, nodeInfoProvider, imageManager,
-            launcher, cloudConnection, sender);
+    if (auto err = mUnitStatusHandler.Init(allocator, config, identProvider, unitConfig, nodeInfoProvider,
+            itemStatusProvider, launcher, cloudConnection, sender);
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
