@@ -592,6 +592,43 @@ TEST_F(FSTest, CalculateSize)
     EXPECT_EQ(size, 0);
 }
 
+TEST_F(FSTest, GetFileMTime)
+{
+    const auto testFile = cBaseTestDir / "modify-time-test.txt";
+
+    CreateFile(testFile.c_str());
+
+    auto [modifyTime, err] = fs::GetFileMTime(testFile.c_str());
+    ASSERT_TRUE(err.IsNone());
+
+    const auto now = Time::Now();
+
+    EXPECT_LE(modifyTime.Sub(now), Time::cSeconds);
+    EXPECT_LE(now.Sub(modifyTime), 5 * Time::cSeconds);
+
+    auto missing = fs::GetFileMTime((cBaseTestDir / "not-existing-file").c_str());
+    EXPECT_TRUE(missing.mError.Is(Error(ENOENT)));
+}
+
+TEST_F(FSTest, SetFileMTime)
+{
+    const auto testFile   = cBaseTestDir / "set-modify-time-test.txt";
+    const auto modifyTime = Time::Unix(1000000000, 500);
+
+    CreateFile(testFile.c_str());
+
+    auto err = fs::SetFileMTime(testFile.c_str(), modifyTime);
+    ASSERT_TRUE(err.IsNone());
+
+    auto [readTime, readErr] = fs::GetFileMTime(testFile.c_str());
+    ASSERT_TRUE(readErr.IsNone());
+
+    EXPECT_EQ(readTime.UnixTime().tv_sec, modifyTime.UnixTime().tv_sec);
+
+    err = fs::SetFileMTime((cBaseTestDir / "not-existing-file").c_str(), modifyTime);
+    EXPECT_TRUE(err.Is(Error(ENOENT)));
+}
+
 TEST_F(FSTest, CalculateNoMemory)
 {
     constexpr auto cFilesInDir   = 5;
