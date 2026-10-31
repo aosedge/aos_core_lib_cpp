@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <future>
 #include <iterator>
@@ -51,10 +52,15 @@ constexpr auto cTestDir          = "/tmp/cm_imagemanager_test";
 constexpr auto cTestImagePath    = "/tmp/cm_imagemanager_test/images";
 constexpr auto cTestDownloadPath = "/tmp/cm_imagemanager_test/downloads";
 constexpr auto cTestItemID       = "item1";
+constexpr auto cTestItemID2      = "item2";
 constexpr auto cTestVersion      = "1.0.0";
 constexpr auto cImageConfigType  = "application/vnd.oci.image.config.v1+json";
 constexpr auto cTestLayerType    = "application/vnd.oci.image.layer.v1.tar+gzip";
 constexpr auto cTestDiffID       = "sha256:00000000000000000000000000000000000000000000000000000000000000ff";
+constexpr auto cTestDiffID2      = "sha256:00000000000000000000000000000000000000000000000000000000000000fe";
+constexpr auto cLeftoverHash1    = "1111111111111111111111111111111111111111111111111111111111111111";
+constexpr auto cLeftoverHash2    = "2222222222222222222222222222222222222222222222222222222222222222";
+constexpr auto cPastTime         = 1000000000;
 constexpr auto cItemCacheTTL     = 10 * Time::cSeconds;
 constexpr auto cWaitTimeout      = std::chrono::seconds(5);
 constexpr auto cDownloadTimeout  = 5 * Time::cSeconds;
@@ -105,6 +111,25 @@ bool FileExists(const std::string& path)
     return exists;
 }
 
+void SetModifyTime(const std::string& path, time_t sec)
+{
+    auto err = fs::SetFileMTime(path.c_str(), Time::Unix(sec));
+    ASSERT_TRUE(err.IsNone()) << "Failed to set modify time: " << tests::utils::ErrorToStr(err);
+}
+
+Time GetModifyTime(const std::string& path)
+{
+    auto [modifyTime, err] = fs::GetFileMTime(path.c_str());
+    EXPECT_TRUE(err.IsNone()) << "Failed to get modify time: " << tests::utils::ErrorToStr(err);
+
+    return modifyTime;
+}
+
+bool IsNow(const Time& time)
+{
+    return std::llabs(Time::Now().Sub(time).Nanoseconds()) <= (5 * Time::cSeconds).Nanoseconds();
+}
+
 /**
  * Test blob.
  */
@@ -133,6 +158,15 @@ std::ostream& operator<<(std::ostream& os, const SpaceEvent& event)
 {
     return os << "{" << event.mAllocatedSize << ", " << event.mName << ", " << event.mArg << "}";
 }
+
+/**
+ * Outdated download item.
+ */
+struct OutdatedItem {
+    std::string mDigest;
+    Time        mTimestamp;
+    size_t      mSpaceEventIndex {};
+};
 
 } // namespace
 
@@ -194,11 +228,21 @@ protected:
             .WillByDefault(Invoke([this](size_t size) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
                 return {CreateDownloadSpace(size), ErrorEnum::eNone};
             }));
+        ON_CALL(mDownloadSpaceAllocator, AddOutdatedItem(_, _, _))
+            .WillByDefault(Invoke([this](const String& id, const String&, const Time& timestamp) {
+                std::lock_guard lock {mMutex};
+
+                mOutdatedItems.push_back({id.CStr(), timestamp, mSpaceEvents.size()});
+
+                return ErrorEnum::eNone;
+            }));
         ON_CALL(mListener, OnItemStatusChanged(_)).WillByDefault(Invoke([this](const UpdateItemStatus& status) {
             std::lock_guard lock {mMutex};
 
             mStates.push_back(status.mState.GetValue());
         }));
+
+        EXPECT_CALL(mDownloadSpaceAllocator, RestoreOutdatedItem(_, String(""))).Times(AnyNumber());
 
         Config config;
 
@@ -287,6 +331,52 @@ protected:
 
     void SetUpOCISpec()
     {
+        AddImage(mIndex, mManifest, mConfig, mLayer, cTestDiffID);
+
+        ON_CALL(mOCISpec, LoadImageIndex(_, _))
+            .WillByDefault(Invoke([this](const String& path, oci::ImageIndex& result) -> Error {
+                std::lock_guard lock {mMutex};
+
+                auto it = mImageIndexes.find(path.CStr());
+                if (it == mImageIndexes.end()) {
+                    return ErrorEnum::eNotFound;
+                }
+
+                result = *it->second;
+
+                return ErrorEnum::eNone;
+            }));
+        ON_CALL(mOCISpec, LoadImageManifest(_, _))
+            .WillByDefault(Invoke([this](const String& path, oci::ImageManifest& result) -> Error {
+                std::lock_guard lock {mMutex};
+
+                auto it = mImageManifests.find(path.CStr());
+                if (it == mImageManifests.end()) {
+                    return ErrorEnum::eNotFound;
+                }
+
+                result = *it->second;
+
+                return ErrorEnum::eNone;
+            }));
+        ON_CALL(mOCISpec, LoadImageConfig(_, _))
+            .WillByDefault(Invoke([this](const String& path, oci::ImageConfig& result) -> Error {
+                std::lock_guard lock {mMutex};
+
+                auto it = mImageConfigs.find(path.CStr());
+                if (it == mImageConfigs.end()) {
+                    return ErrorEnum::eNotFound;
+                }
+
+                result = *it->second;
+
+                return ErrorEnum::eNone;
+            }));
+    }
+
+    void AddImage(const TestBlob& indexBlob, const TestBlob& manifestBlob, const TestBlob& configBlob,
+        const TestBlob& layerBlob, const char* diffID)
+    {
         auto index = std::make_shared<oci::ImageIndex>();
 
         index->mMediaType = oci::cMediaTypeImageIndex;
@@ -294,54 +384,30 @@ protected:
         oci::IndexContentDescriptor manifestDescriptor;
 
         static_cast<oci::ContentDescriptor&>(manifestDescriptor) = oci::ContentDescriptor {
-            oci::cMediaTypeImageManifest, mManifest.mDigest.c_str(), mManifest.mContent.size()};
+            oci::cMediaTypeImageManifest, manifestBlob.mDigest.c_str(), manifestBlob.mContent.size()};
 
         EXPECT_TRUE(index->mManifests.PushBack(manifestDescriptor).IsNone());
 
         auto manifest = std::make_shared<oci::ImageManifest>();
 
         manifest->mMediaType = oci::cMediaTypeImageManifest;
-        manifest->mConfig = oci::ContentDescriptor {cImageConfigType, mConfig.mDigest.c_str(), mConfig.mContent.size()};
+        manifest->mConfig
+            = oci::ContentDescriptor {cImageConfigType, configBlob.mDigest.c_str(), configBlob.mContent.size()};
 
         EXPECT_TRUE(
             manifest->mLayers
-                .PushBack(oci::ContentDescriptor {cTestLayerType, mLayer.mDigest.c_str(), mLayer.mContent.size()})
+                .PushBack(oci::ContentDescriptor {cTestLayerType, layerBlob.mDigest.c_str(), layerBlob.mContent.size()})
                 .IsNone());
 
         auto imageConfig = std::make_shared<oci::ImageConfig>();
 
-        EXPECT_TRUE(imageConfig->mRootfs.mDiffIDs.EmplaceBack(cTestDiffID).IsNone());
+        EXPECT_TRUE(imageConfig->mRootfs.mDiffIDs.EmplaceBack(diffID).IsNone());
 
-        ON_CALL(mOCISpec, LoadImageIndex(_, _))
-            .WillByDefault(Invoke([this, index](const String& path, oci::ImageIndex& result) -> Error {
-                if (path != mIndex.mPath.c_str()) {
-                    return ErrorEnum::eNotFound;
-                }
+        std::lock_guard lock {mMutex};
 
-                result = *index;
-
-                return ErrorEnum::eNone;
-            }));
-        ON_CALL(mOCISpec, LoadImageManifest(_, _))
-            .WillByDefault(Invoke([this, manifest](const String& path, oci::ImageManifest& result) -> Error {
-                if (path != mManifest.mPath.c_str()) {
-                    return ErrorEnum::eNotFound;
-                }
-
-                result = *manifest;
-
-                return ErrorEnum::eNone;
-            }));
-        ON_CALL(mOCISpec, LoadImageConfig(_, _))
-            .WillByDefault(Invoke([this, imageConfig](const String& path, oci::ImageConfig& result) -> Error {
-                if (path != mConfig.mPath.c_str()) {
-                    return ErrorEnum::eNotFound;
-                }
-
-                result = *imageConfig;
-
-                return ErrorEnum::eNone;
-            }));
+        mImageIndexes[indexBlob.mPath]      = index;
+        mImageManifests[manifestBlob.mPath] = manifest;
+        mImageConfigs[configBlob.mPath]     = imageConfig;
     }
 
     Error DownloadContent(const String& digest, const String& path)
@@ -433,14 +499,46 @@ protected:
         }
     }
 
-    UpdateItemInfo MakeItemInfo() const
+    void ExpectRegisterDownloads(const std::vector<const TestBlob*>& blobs)
+    {
+        for (const auto* blob : blobs) {
+            EXPECT_CALL(mDownloadSpaceAllocator, AddOutdatedItem(String(blob->mDigest.c_str()), String(""), _))
+                .Times(AtLeast(1));
+        }
+    }
+
+    std::vector<OutdatedItem> GetOutdatedItems(const std::string& digest)
+    {
+        std::lock_guard lock {mMutex};
+
+        std::vector<OutdatedItem> items;
+
+        std::copy_if(mOutdatedItems.begin(), mOutdatedItems.end(), std::back_inserter(items),
+            [&digest](const OutdatedItem& item) { return item.mDigest == digest; });
+
+        return items;
+    }
+
+    std::optional<size_t> GetSpaceEventIndex(const SpaceEvent& event)
+    {
+        std::lock_guard lock {mMutex};
+
+        auto it = std::find(mSpaceEvents.begin(), mSpaceEvents.end(), event);
+        if (it == mSpaceEvents.end()) {
+            return std::nullopt;
+        }
+
+        return static_cast<size_t>(std::distance(mSpaceEvents.begin(), it));
+    }
+
+    UpdateItemInfo MakeItemInfo(const char* itemID = cTestItemID, const TestBlob* index = nullptr) const
     {
         UpdateItemInfo itemInfo;
 
-        itemInfo.mItemID      = cTestItemID;
+        itemInfo.mItemID      = itemID;
         itemInfo.mType        = UpdateItemTypeEnum::eService;
         itemInfo.mVersion     = cTestVersion;
-        itemInfo.mIndexDigest = mIndex.mDigest.c_str();
+        itemInfo.mIndexDigest = (index != nullptr ? *index : mIndex).mDigest.c_str();
 
         return itemInfo;
     }
@@ -554,7 +652,12 @@ protected:
     std::map<std::string, std::shared_ptr<BlobInfo>> mBlobInfos;
     std::map<std::string, std::string>               mDownloadContents;
     std::vector<SpaceEvent>                          mSpaceEvents;
+    std::vector<OutdatedItem>                        mOutdatedItems;
     std::vector<ItemStateEnum>                       mStates;
+
+    std::map<std::string, std::shared_ptr<oci::ImageIndex>>    mImageIndexes;
+    std::map<std::string, std::shared_ptr<oci::ImageManifest>> mImageManifests;
+    std::map<std::string, std::shared_ptr<oci::ImageConfig>>   mImageConfigs;
 };
 
 /***********************************************************************************************************************
@@ -578,6 +681,7 @@ TEST_F(CMImageManagerTest, SetCertsReplacesPrevious)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     ExpectDownloads(GetBlobs());
+    ExpectRegisterDownloads(GetBlobs());
     ExpectValidateSigns(signInfo, *newChain, *newCerts);
 
     err = Install();
@@ -616,6 +720,7 @@ TEST_F(CMImageManagerTest, SetCertsNoMemory)
     EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
 
     ExpectDownloads(GetBlobs());
+    ExpectRegisterDownloads(GetBlobs());
     ExpectValidateSigns(signInfo, *chains, *certs);
 
     err = Install();
@@ -639,6 +744,7 @@ TEST_F(CMImageManagerTest, SetCertsWaitsForSignVerification)
     ASSERT_TRUE(mImageManager.SetCerts(*certs, *chains).IsNone());
 
     ExpectDownloads(GetBlobs());
+    ExpectRegisterDownloads(GetBlobs());
 
     EXPECT_CALL(mCryptoHelper, ValidateSigns(String(mLayer.mPath.c_str()), Eq(signInfo), _, _))
         .WillOnce(Invoke([&entered, releaseFuture](const String&, const crypto::SignInfo&,
@@ -682,6 +788,7 @@ TEST_F(CMImageManagerTest, InstallDownloadsBlobs)
     }
 
     ExpectDownloads(GetBlobs());
+    ExpectRegisterDownloads(GetBlobs());
 
     EXPECT_CALL(mCryptoHelper, Decrypt(_, _, _)).Times(0);
     EXPECT_CALL(mCryptoHelper, ValidateSigns(_, _, _, _)).Times(0);
@@ -721,6 +828,7 @@ TEST_F(CMImageManagerTest, InstallDecryptsBlob)
 
     SetDownloadContent(mLayer, encrypted);
     ExpectDownloads(GetBlobs());
+    ExpectRegisterDownloads(GetBlobs());
 
     EXPECT_CALL(mCryptoHelper, Decrypt(_, _, _)).Times(0);
     EXPECT_CALL(
@@ -753,6 +861,7 @@ TEST_F(CMImageManagerTest, InstallVerifiesSigns)
     ASSERT_TRUE(mImageManager.SetCerts(*certs, *chains).IsNone());
 
     ExpectDownloads(GetBlobs());
+    ExpectRegisterDownloads(GetBlobs());
 
     EXPECT_CALL(mCryptoHelper, ValidateSigns(_, _, _, _)).Times(0);
     ExpectValidateSigns(signInfo, *chains, *certs);
@@ -777,6 +886,7 @@ TEST_F(CMImageManagerTest, InstallSignVerificationFails)
     ASSERT_TRUE(mImageManager.SetCerts(*certs, *chains).IsNone());
 
     ExpectDownloads(GetBlobs());
+    ExpectRegisterDownloads({&mIndex, &mManifest, &mConfig});
     ExpectValidateSigns(signInfo, *chains, *certs, ErrorEnum::eFailed);
 
     EXPECT_CALL(mDownloadSpaceAllocator, FreeSpace(mLayer.mContent.size())).Times(1);
@@ -795,6 +905,7 @@ TEST_F(CMImageManagerTest, InstallChecksumMismatch)
     ASSERT_TRUE(GetBlobInfo(mLayer).mSHA256.Resize(crypto::cSHA256Size, 0xaa).IsNone());
 
     ExpectDownloads(GetBlobs());
+    ExpectRegisterDownloads({&mIndex, &mManifest, &mConfig});
 
     EXPECT_CALL(mDownloadSpaceAllocator, FreeSpace(mLayer.mContent.size())).Times(1);
 
@@ -817,6 +928,7 @@ TEST_F(CMImageManagerTest, InstallDecryptFails)
     GetBlobInfo(mLayer).mDecryptInfo.SetValue(decryptInfo);
 
     ExpectDownloads(GetBlobs());
+    ExpectRegisterDownloads({&mIndex, &mManifest, &mConfig});
 
     EXPECT_CALL(mCryptoHelper, Decrypt(String(mLayer.mDownloadPath.c_str()), String(mLayer.mPath.c_str()), _))
         .WillOnce(Return(Error(ErrorEnum::eFailed, "decrypt failed")));
@@ -837,6 +949,7 @@ TEST_F(CMImageManagerTest, InstallCopyFailsKeepsDownload)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     ExpectDownloads(GetBlobs());
+    ExpectRegisterDownloads(GetBlobs());
 
     EXPECT_CALL(mDownloadSpaceAllocator, FreeSpace(_)).Times(0);
 
@@ -872,6 +985,7 @@ TEST_F(CMImageManagerTest, InstallDownloadSizeMismatch)
     constexpr size_t cPartSize = 7;
 
     ExpectDownloads({&mIndex, &mManifest, &mConfig});
+    ExpectRegisterDownloads({&mIndex, &mManifest, &mConfig});
 
     EXPECT_CALL(mDownloadSpaceAllocator, AllocateSpace(mLayer.mContent.size())).Times(1);
     EXPECT_CALL(mDownloader, Download(_, String(mLayer.mDigest.c_str()), _, String(mLayer.mDownloadPath.c_str())))
@@ -900,7 +1014,18 @@ TEST_F(CMImageManagerTest, InstallResumesPartialDownload)
     WriteFile(mLayer.mDownloadPath, mLayer.mContent.substr(0, cPartSize));
 
     ExpectDownloads({&mIndex, &mManifest, &mConfig});
-    ExpectDownload(mLayer, mLayer.mContent.size() - cPartSize);
+    ExpectRegisterDownloads(GetBlobs());
+
+    {
+        InSequence sequence;
+
+        EXPECT_CALL(mDownloadSpaceAllocator, RestoreOutdatedItem(String(mLayer.mDigest.c_str()), String("")))
+            .WillOnce(Return(ErrorEnum::eNone));
+        EXPECT_CALL(mDownloadSpaceAllocator, AllocateSpace(mLayer.mContent.size() - cPartSize)).Times(1);
+    }
+
+    EXPECT_CALL(mDownloader, Download(_, String(mLayer.mDigest.c_str()), _, String(mLayer.mDownloadPath.c_str())))
+        .Times(1);
 
     auto err = Install();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
@@ -918,12 +1043,38 @@ TEST_F(CMImageManagerTest, InstallReusesCompleteDownload)
     WriteFile(mLayer.mDownloadPath, mLayer.mContent);
 
     ExpectDownloads({&mIndex, &mManifest, &mConfig});
+    ExpectRegisterDownloads(GetBlobs());
 
     auto err = Install();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_EQ(ReadFile(mLayer.mPath), mLayer.mContent);
     EXPECT_TRUE(FileExists(mLayer.mDownloadPath));
+
+    ExpectItemState(ItemStateEnum::eInstalled);
+}
+
+TEST_F(CMImageManagerTest, FinishDownloadTouchesReusedFile)
+{
+    WriteFile(mLayer.mDownloadPath, mLayer.mContent);
+    SetModifyTime(mLayer.mDownloadPath, cPastTime);
+
+    const auto oldTime = GetModifyTime(mLayer.mDownloadPath);
+
+    ExpectDownloads({&mIndex, &mManifest, &mConfig});
+    ExpectRegisterDownloads(GetBlobs());
+
+    auto err = Install();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    const auto newTime = GetModifyTime(mLayer.mDownloadPath);
+
+    EXPECT_TRUE(IsNow(newTime));
+
+    const auto items = GetOutdatedItems(mLayer.mDigest);
+    ASSERT_FALSE(items.empty());
+    EXPECT_EQ(items.back().mTimestamp.UnixTime().tv_sec, newTime.UnixTime().tv_sec);
+    EXPECT_NE(items.back().mTimestamp.UnixTime().tv_sec, oldTime.UnixTime().tv_sec);
 
     ExpectItemState(ItemStateEnum::eInstalled);
 }
@@ -935,6 +1086,7 @@ TEST_F(CMImageManagerTest, InstallRemovesOversizedDownload)
     WriteFile(mLayer.mDownloadPath, oversized);
 
     ExpectDownloads({&mIndex, &mManifest, &mConfig});
+    ExpectRegisterDownloads(GetBlobs());
 
     {
         InSequence sequence;
@@ -957,6 +1109,7 @@ TEST_F(CMImageManagerTest, InstallDownloadFails)
     constexpr size_t cPartSize = 7;
 
     ExpectDownloads({&mIndex, &mManifest, &mConfig});
+    ExpectRegisterDownloads(GetBlobs());
 
     EXPECT_CALL(mDownloadSpaceAllocator, AllocateSpace(mLayer.mContent.size())).Times(1);
     EXPECT_CALL(mDownloader, Download(_, String(mLayer.mDigest.c_str()), _, String(mLayer.mDownloadPath.c_str())))
@@ -988,6 +1141,7 @@ TEST_F(CMImageManagerTest, InstallDownloadFailsResume)
     WriteFile(mLayer.mDownloadPath, mLayer.mContent.substr(0, cPartSize));
 
     ExpectDownloads({&mIndex, &mManifest, &mConfig});
+    ExpectRegisterDownloads(GetBlobs());
 
     EXPECT_CALL(mDownloadSpaceAllocator, AllocateSpace(allocateSize)).Times(1);
     EXPECT_CALL(mDownloader, Download(_, String(mLayer.mDigest.c_str()), _, String(mLayer.mDownloadPath.c_str())))
@@ -1018,6 +1172,7 @@ TEST_F(CMImageManagerTest, InstallDownloadFailsAfterRestart)
     WriteFile(mLayer.mDownloadPath, mLayer.mContent.substr(0, cPartSize));
 
     ExpectDownloads({&mIndex, &mManifest, &mConfig});
+    ExpectRegisterDownloads(GetBlobs());
 
     EXPECT_CALL(mDownloadSpaceAllocator, AllocateSpace(allocateSize)).Times(1);
     EXPECT_CALL(mDownloader, Download(_, String(mLayer.mDigest.c_str()), _, String(mLayer.mDownloadPath.c_str())))
@@ -1051,6 +1206,7 @@ TEST_F(CMImageManagerTest, InstallAllocateSpaceFails)
     WriteFile(mLayer.mDownloadPath, mLayer.mContent.substr(0, cPartSize));
 
     ExpectDownloads({&mIndex, &mManifest, &mConfig});
+    ExpectRegisterDownloads(GetBlobs());
 
     EXPECT_CALL(mDownloadSpaceAllocator, AllocateSpace(mLayer.mContent.size() - cPartSize))
         .WillOnce(Invoke([](size_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
@@ -1072,6 +1228,7 @@ TEST_F(CMImageManagerTest, CancelDuringDownload)
     std::promise<void> started;
 
     ExpectDownloads({&mIndex, &mManifest, &mConfig});
+    ExpectRegisterDownloads(GetBlobs());
 
     EXPECT_CALL(mDownloadSpaceAllocator, AllocateSpace(mLayer.mContent.size())).Times(1);
     EXPECT_CALL(mDownloader, Download(_, String(mLayer.mDigest.c_str()), _, String(mLayer.mDownloadPath.c_str())))
@@ -1136,6 +1293,271 @@ TEST_F(CMImageManagerTest, CancelStopsNextBlobDownload)
     }
 
     ExpectItemState(ItemStateEnum::eFailed, ErrorEnum::eCanceled);
+}
+
+TEST_F(CMImageManagerTest, InstallRegistersDownloadFiles)
+{
+    ExpectDownloads(GetBlobs());
+    ExpectRegisterDownloads(GetBlobs());
+
+    auto err = Install();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    for (const auto* blob : GetBlobs()) {
+        const auto acceptIndex = GetSpaceEventIndex({blob->mContent.size(), "accept", 0});
+        ASSERT_TRUE(acceptIndex.has_value()) << blob->mDigest;
+
+        const auto items = GetOutdatedItems(blob->mDigest);
+        ASSERT_FALSE(items.empty()) << blob->mDigest;
+
+        for (const auto& item : items) {
+            EXPECT_GT(item.mSpaceEventIndex, *acceptIndex) << blob->mDigest;
+            EXPECT_TRUE(IsNow(item.mTimestamp)) << blob->mDigest;
+        }
+    }
+
+    ExpectItemState(ItemStateEnum::eInstalled);
+}
+
+TEST_F(CMImageManagerTest, InstallRegistersLeftoverDownloads)
+{
+    const auto leftover1       = std::string(cTestDownloadPath) + "/sha256/" + cLeftoverHash1;
+    const auto leftover2       = std::string(cTestDownloadPath) + "/sha256/" + cLeftoverHash2;
+    const auto leftoverDigest1 = std::string("sha256:") + cLeftoverHash1;
+    const auto leftoverDigest2 = std::string("sha256:") + cLeftoverHash2;
+    const auto invalidName     = std::string(cTestDownloadPath) + "/sha256/NOT-A-HASH";
+    const auto invalidAlgFile  = std::string(cTestDownloadPath) + "/junk";
+    const auto invalidContent  = std::string("invalid");
+    const auto junkContent     = std::string("junk content");
+
+    WriteFile(leftover1, "leftover 1");
+    WriteFile(leftover2, "leftover 2");
+    WriteFile(invalidName, invalidContent);
+    WriteFile(invalidAlgFile, junkContent);
+    WriteFile(mIndex.mDownloadPath, mIndex.mContent);
+
+    SetModifyTime(leftover1, cPastTime);
+    SetModifyTime(leftover2, cPastTime + 1);
+    SetModifyTime(mIndex.mDownloadPath, cPastTime + 2);
+
+    const auto modifyTime1 = GetModifyTime(leftover1);
+    const auto modifyTime2 = GetModifyTime(leftover2);
+    const auto indexTime   = GetModifyTime(mIndex.mDownloadPath);
+
+    ExpectDownloads({&mManifest, &mConfig, &mLayer});
+    ExpectRegisterDownloads(GetBlobs());
+
+    EXPECT_CALL(mDownloadSpaceAllocator, AddOutdatedItem(String(leftoverDigest1.c_str()), String(""), Eq(modifyTime1)))
+        .Times(AtLeast(1));
+    EXPECT_CALL(mDownloadSpaceAllocator, AddOutdatedItem(String(leftoverDigest2.c_str()), String(""), Eq(modifyTime2)))
+        .Times(AtLeast(1));
+    EXPECT_CALL(mDownloadSpaceAllocator, FreeSpace(invalidContent.size())).Times(1);
+    EXPECT_CALL(mDownloadSpaceAllocator, FreeSpace(junkContent.size())).Times(1);
+
+    auto err = Install();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(FileExists(leftover1));
+    EXPECT_TRUE(FileExists(leftover2));
+    EXPECT_FALSE(FileExists(invalidName));
+    EXPECT_FALSE(FileExists(invalidAlgFile));
+    EXPECT_EQ(ReadFile(mIndex.mPath), mIndex.mContent);
+
+    const auto indexItems = GetOutdatedItems(mIndex.mDigest);
+    ASSERT_FALSE(indexItems.empty());
+    EXPECT_TRUE(IsNow(indexItems.front().mTimestamp));
+    EXPECT_FALSE(indexItems.front().mTimestamp == indexTime);
+
+    ExpectItemState(ItemStateEnum::eInstalled);
+}
+
+TEST_F(CMImageManagerTest, InstallRestoresBeforeScan)
+{
+    const auto leftover       = std::string(cTestDownloadPath) + "/sha256/" + cLeftoverHash1;
+    const auto leftoverDigest = std::string("sha256:") + cLeftoverHash1;
+
+    WriteFile(leftover, "leftover");
+
+    ExpectDownloads(GetBlobs());
+    ExpectRegisterDownloads(GetBlobs());
+
+    {
+        InSequence sequence;
+
+        EXPECT_CALL(mDownloadSpaceAllocator, RestoreOutdatedItem(String(mIndex.mDigest.c_str()), String("")))
+            .WillOnce(Return(ErrorEnum::eNotFound));
+        EXPECT_CALL(mDownloadSpaceAllocator, AddOutdatedItem(String(leftoverDigest.c_str()), String(""), _))
+            .Times(AtLeast(1));
+    }
+
+    auto err = Install();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(FileExists(leftover));
+
+    ExpectItemState(ItemStateEnum::eInstalled);
+}
+
+TEST_F(CMImageManagerTest, InstallRestoresCurrentDownload)
+{
+    const auto index2         = AddBlob("second image index blob content: index of manifests");
+    const auto manifest2      = AddBlob("second image manifest blob content");
+    const auto config2        = AddBlob("second image config: config");
+    const auto layer2         = AddBlob("second image layer blob");
+    const auto leftover       = std::string(cTestDownloadPath) + "/sha256/" + cLeftoverHash1;
+    const auto leftoverDigest = std::string("sha256:") + cLeftoverHash1;
+    const auto blobs2         = std::vector<const TestBlob*>({&index2, &manifest2, &config2, &layer2});
+
+    AddImage(index2, manifest2, config2, layer2, cTestDiffID2);
+
+    std::promise<void> started;
+    std::promise<void> release;
+    auto               releaseFuture = release.get_future().share();
+
+    ExpectDownloads({&mManifest, &mConfig, &mLayer});
+    ExpectDownloads(blobs2);
+    ExpectRegisterDownloads(GetBlobs());
+    ExpectRegisterDownloads(blobs2);
+
+    EXPECT_CALL(mDownloadSpaceAllocator, AllocateSpace(mIndex.mContent.size())).Times(1);
+    EXPECT_CALL(mDownloader, Download(_, String(mIndex.mDigest.c_str()), _, String(mIndex.mDownloadPath.c_str())))
+        .WillOnce(Invoke([this, &started, releaseFuture](CancelContext&, const String& digest,
+                             const Array<StaticString<cURLLen>>&, const String&        path) {
+            started.set_value();
+            releaseFuture.wait();
+
+            return DownloadContent(digest, path);
+        }));
+    EXPECT_CALL(mDownloadSpaceAllocator, AddOutdatedItem(String(leftoverDigest.c_str()), String(""), _))
+        .Times(AnyNumber());
+
+    for (const auto* blob : blobs2) {
+        EXPECT_CALL(mDownloadSpaceAllocator, RestoreOutdatedItem(String(blob->mDigest.c_str()), String("")))
+            .WillOnce(Return(ErrorEnum::eNotFound));
+    }
+
+    auto install1 = std::async(std::launch::async, [this]() { return Install(); });
+
+    ASSERT_EQ(started.get_future().wait_for(cWaitTimeout), std::future_status::ready);
+
+    WriteFile(leftover, "leftover");
+
+    auto install2 = std::async(std::launch::async,
+        [this, &index2]() { return mImageManager.InstallItem(MakeItemInfo(cTestItemID2, &index2)); });
+
+    const auto install2Status = install2.wait_for(cWaitTimeout);
+
+    EXPECT_EQ(install1.wait_for(std::chrono::milliseconds(0)), std::future_status::timeout);
+    EXPECT_TRUE(GetOutdatedItems(leftoverDigest).empty());
+
+    release.set_value();
+
+    ASSERT_EQ(install2Status, std::future_status::ready);
+
+    auto err = install2.get();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(install1.wait_for(cWaitTimeout), std::future_status::ready);
+
+    err = install1.get();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    for (const auto* blob : blobs2) {
+        EXPECT_EQ(ReadFile(blob->mPath), blob->mContent) << blob->mDigest;
+    }
+
+    ExpectItemState(ItemStateEnum::eInstalled);
+}
+
+TEST_F(CMImageManagerTest, BrokenDownloadNotRegistered)
+{
+    ASSERT_TRUE(GetBlobInfo(mLayer).mSHA256.Resize(crypto::cSHA256Size, 0xaa).IsNone());
+
+    ExpectDownloads(GetBlobs());
+    ExpectRegisterDownloads({&mIndex, &mManifest, &mConfig});
+
+    EXPECT_CALL(mDownloadSpaceAllocator, AddOutdatedItem(String(mLayer.mDigest.c_str()), _, _)).Times(0);
+    EXPECT_CALL(mDownloadSpaceAllocator, FreeSpace(mLayer.mContent.size())).Times(1);
+
+    auto err = Install();
+    EXPECT_TRUE(err.Is(ErrorEnum::eInvalidChecksum)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_FALSE(FileExists(mLayer.mDownloadPath));
+    EXPECT_TRUE(GetOutdatedItems(mLayer.mDigest).empty());
+
+    ExpectItemState(ItemStateEnum::eFailed, ErrorEnum::eInvalidChecksum);
+}
+
+TEST_F(CMImageManagerTest, CanceledDownloadRegistered)
+{
+    std::promise<void> started;
+
+    ExpectDownloads({&mIndex, &mManifest, &mConfig});
+    ExpectRegisterDownloads(GetBlobs());
+
+    EXPECT_CALL(mDownloadSpaceAllocator, AllocateSpace(mLayer.mContent.size())).Times(1);
+    EXPECT_CALL(mDownloader, Download(_, String(mLayer.mDigest.c_str()), _, String(mLayer.mDownloadPath.c_str())))
+        .WillOnce(Invoke(
+            [&started](CancelContext& ctx, const String&, const Array<StaticString<cURLLen>>&, const String& path) {
+                WriteFile(path.CStr(), "partial");
+                started.set_value();
+
+                return ctx.Wait(cDownloadTimeout);
+            }));
+
+    auto install = std::async(std::launch::async, [this]() { return Install(); });
+
+    ASSERT_EQ(started.get_future().wait_for(cWaitTimeout), std::future_status::ready);
+
+    EXPECT_TRUE(GetOutdatedItems(mLayer.mDigest).empty());
+
+    auto err = mImageManager.Cancel();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(install.wait_for(cWaitTimeout), std::future_status::ready);
+
+    err = install.get();
+    EXPECT_TRUE(err.Is(ErrorEnum::eCanceled)) << tests::utils::ErrorToStr(err);
+
+    const auto items = GetOutdatedItems(mLayer.mDigest);
+    ASSERT_EQ(items.size(), 1);
+    EXPECT_TRUE(IsNow(items.front().mTimestamp));
+    EXPECT_EQ(ReadFile(mLayer.mDownloadPath), "partial");
+}
+
+TEST_F(CMImageManagerTest, DownloadItemRemoverRemovesFile)
+{
+    WriteFile(mLayer.mDownloadPath, mLayer.mContent);
+    WriteFile(mLayer.mPath, mLayer.mContent);
+
+    EXPECT_CALL(mDownloadSpaceAllocator, RestoreOutdatedItem(_, _)).Times(0);
+
+    auto [size, err] = mImageManager.GetDownloadItemRemover().RemoveItem(mLayer.mDigest.c_str(), "");
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(size, mLayer.mContent.size());
+    EXPECT_FALSE(FileExists(mLayer.mDownloadPath));
+    EXPECT_EQ(ReadFile(mLayer.mPath), mLayer.mContent);
+}
+
+TEST_F(CMImageManagerTest, DownloadItemRemoverMissingFile)
+{
+    EXPECT_CALL(mDownloadSpaceAllocator, RestoreOutdatedItem(_, _)).Times(0);
+
+    auto [size, err] = mImageManager.GetDownloadItemRemover().RemoveItem(mLayer.mDigest.c_str(), "");
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(size, 0);
+}
+
+TEST_F(CMImageManagerTest, DownloadItemRemoverMalformedDigest)
+{
+    EXPECT_CALL(mDownloadSpaceAllocator, RestoreOutdatedItem(_, _)).Times(0);
+
+    auto [size, err] = mImageManager.GetDownloadItemRemover().RemoveItem("sha256:../../x", "");
+    EXPECT_TRUE(err.Is(ErrorEnum::eInvalidArgument)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(size, 0);
 }
 
 } // namespace aos::cm::imagemanager
