@@ -620,6 +620,28 @@ RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path)
     return {size};
 }
 
+RetWithError<Time> GetFileMTime(const String& path)
+{
+    struct stat st;
+
+    if (auto ret = stat(path.CStr(), &st); ret != 0) {
+        return {Time(), AOS_ERROR_WRAP(Error(errno))};
+    }
+
+    return {Time::Unix(st.st_mtim.tv_sec, st.st_mtim.tv_nsec)};
+}
+
+Error SetFileMTime(const String& path, const Time& time)
+{
+    const timespec times[2] = {time.UnixTime(), time.UnixTime()};
+
+    if (auto ret = utimensat(AT_FDCWD, path.CStr(), times, 0); ret != 0) {
+        return AOS_ERROR_WRAP(Error(errno));
+    }
+
+    return ErrorEnum::eNone;
+}
+
 /***********************************************************************************************************************
  * File implementation
  **********************************************************************************************************************/
