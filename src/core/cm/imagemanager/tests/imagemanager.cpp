@@ -1560,4 +1560,127 @@ TEST_F(CMImageManagerTest, DownloadItemRemoverMalformedDigest)
     EXPECT_EQ(size, 0);
 }
 
+TEST_F(CMImageManagerTest, GetBlobInfoReturnsStoredBlob)
+{
+    ExpectDownloads(GetBlobs());
+    ExpectRegisterDownloads(GetBlobs());
+
+    auto err = Install();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    const auto url = "https://cm/blobs/" + mLayer.mDigest.substr(mLayer.mDigest.find(':') + 1);
+
+    BlobInfo blobInfo;
+
+    blobInfo.mDigest = "sha256:garbage";
+    blobInfo.mSize   = 1;
+    blobInfo.mDecryptInfo.SetValue(crypto::DecryptInfo {});
+    blobInfo.mSignInfo.SetValue(MakeSignInfo());
+
+    ASSERT_TRUE(blobInfo.mURLs.EmplaceBack("https://example.com/garbage").IsNone());
+    ASSERT_TRUE(blobInfo.mSHA256.PushBack(0xff).IsNone());
+
+    EXPECT_CALL(mFileServer, TranslateFilePathURL(String(mLayer.mPath.c_str()), _))
+        .WillOnce(Invoke([&url](const String&, String& outURL) { return outURL.Assign(url.c_str()); }));
+
+    err = mImageManager.GetBlobInfo(mLayer.mDigest.c_str(), blobInfo);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(blobInfo.mDigest, String(mLayer.mDigest.c_str()));
+    EXPECT_EQ(blobInfo.mSize, mLayer.mContent.size());
+    EXPECT_TRUE(blobInfo.mSHA256.IsEmpty());
+    ASSERT_EQ(blobInfo.mURLs.Size(), 1);
+    EXPECT_EQ(blobInfo.mURLs[0], String(url.c_str()));
+    EXPECT_FALSE(blobInfo.mDecryptInfo.HasValue());
+    EXPECT_FALSE(blobInfo.mSignInfo.HasValue());
+}
+
+TEST_F(CMImageManagerTest, GetBlobInfoUnusedBlob)
+{
+    WriteFile(mLayer.mPath, mLayer.mContent);
+
+    EXPECT_CALL(mFileServer, TranslateFilePathURL(_, _)).Times(0);
+
+    BlobInfo blobInfo;
+
+    auto err = mImageManager.GetBlobInfo(mLayer.mDigest.c_str(), blobInfo);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(CMImageManagerTest, GetBlobInfoRemovedItem)
+{
+    ExpectDownloads(GetBlobs());
+    ExpectRegisterDownloads(GetBlobs());
+
+    auto err = Install();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mImageManager.RemoveItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ExpectItemState(ItemStateEnum::eRemoved);
+
+    EXPECT_CALL(mFileServer, TranslateFilePathURL(String(mLayer.mPath.c_str()), _)).WillOnce(Return(ErrorEnum::eNone));
+
+    BlobInfo blobInfo;
+
+    err = mImageManager.GetBlobInfo(mLayer.mDigest.c_str(), blobInfo);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(blobInfo.mSize, mLayer.mContent.size());
+}
+
+TEST_F(CMImageManagerTest, GetBlobInfoMalformedDigest)
+{
+    EXPECT_CALL(mFileServer, TranslateFilePathURL(_, _)).Times(0);
+
+    BlobInfo blobInfo;
+
+    auto err = mImageManager.GetBlobInfo("not-a-digest", blobInfo);
+    EXPECT_TRUE(err.Is(ErrorEnum::eInvalidArgument)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(CMImageManagerTest, GetBlobInfoMissingFile)
+{
+    ExpectDownloads(GetBlobs());
+    ExpectRegisterDownloads(GetBlobs());
+
+    auto err = Install();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = fs::RemoveAll(mLayer.mPath.c_str());
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mFileServer, TranslateFilePathURL(_, _)).Times(0);
+
+    BlobInfo blobInfo;
+
+    err = mImageManager.GetBlobInfo(mLayer.mDigest.c_str(), blobInfo);
+    EXPECT_FALSE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    EXPECT_FALSE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(CMImageManagerTest, GetBlobInfoFileServerFails)
+{
+    ExpectDownloads(GetBlobs());
+    ExpectRegisterDownloads(GetBlobs());
+
+    auto err = Install();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mFileServer, TranslateFilePathURL(String(mLayer.mPath.c_str()), _))
+        .WillOnce(Return(ErrorEnum::eFailed));
+
+    BlobInfo blobInfo;
+
+    blobInfo.mDigest = "sha256:unchanged";
+    blobInfo.mSize   = 42;
+
+    err = mImageManager.GetBlobInfo(mLayer.mDigest.c_str(), blobInfo);
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(blobInfo.mDigest, "sha256:unchanged");
+    EXPECT_EQ(blobInfo.mSize, 42U);
+    EXPECT_TRUE(blobInfo.mURLs.IsEmpty());
+}
+
 } // namespace aos::cm::imagemanager
