@@ -125,6 +125,17 @@ private:
     Error                DownloadBlob(CancelContext& ctx, const String& path, const BlobInfo& blobInfo) override;
     RetWithError<size_t> RemoveDownloadedBlob(const String& digest);
 
+    Error                GetDownloadPath(const String& digest, String& downloadPath) const;
+    RetWithError<size_t> GetFileSize(const String& path) const;
+    RetWithError<size_t> PrepareDownloadFile(const String& downloadPath, size_t size);
+    Error                DownloadFile(CancelContext& ctx, const String& downloadPath, const BlobInfo& blobInfo);
+    void  AcceptDownloadedSpace(spaceallocator::SpaceItf& space, const String& downloadPath, size_t existingSize);
+    void  RemoveDownloadFile(const String& downloadPath, size_t size);
+    Error ProcessDownloadFile(const String& downloadPath, const String& path, const BlobInfo& blobInfo);
+    Error ValidateDownloadFile(const String& downloadPath, const BlobInfo& blobInfo);
+    Error DecryptBlob(const String& downloadPath, const String& path, const BlobInfo& blobInfo);
+    Error ValidateBlobSigns(const String& downloadPath, const String& path, const BlobInfo& blobInfo);
+
     Config                             mConfig;
     common::imagemanager::StorageItf*  mStorage {};
     spaceallocator::SpaceAllocatorItf* mDownloadSpaceAllocator {};
@@ -133,6 +144,10 @@ private:
     fileserver::FileServerItf*         mFileServer {};
     fs::FileInfoProviderItf*           mFileInfoProvider {};
     AllocatorItf*                      mAllocator {};
+
+    Mutex                             mCertsMutex;
+    crypto::CertificateInfoArray      mCertificates;
+    crypto::CertificateChainInfoArray mCertificateChains;
 
     DownloadItemRemover mDownloadItemRemover {*this};
 };
