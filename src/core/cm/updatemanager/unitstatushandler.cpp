@@ -16,7 +16,7 @@ namespace aos::cm::updatemanager {
 
 Error UnitStatusHandler::Init(AllocatorItf& allocator, const Config& config, iamclient::IdentProviderItf& identProvider,
     unitconfig::UnitConfigItf& unitConfig, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-    imagemanager::ItemStatusProviderItf& itemStatusProvider,
+    common::imagemanager::ItemStatusProviderItf& itemStatusProvider,
     instancestatusprovider::ProviderItf& instanceStatusProvider, cloudconnection::CloudConnectionItf& cloudConnection,
     SenderItf& sender)
 {
@@ -239,44 +239,40 @@ void UnitStatusHandler::OnNodeInfoChanged(const UnitNodeInfo& info)
     StartTimer();
 }
 
-void UnitStatusHandler::OnItemsStatusesChanged(const Array<UpdateItemStatus>& statuses)
+void UnitStatusHandler::OnItemStatusChanged(const UpdateItemStatus& status)
 {
     LockGuard lock {mMutex};
 
-    for (const auto& status : statuses) {
-        LOG_DBG() << "Item status changed" << Log::Field("id", status.mItemID) << Log::Field("type", status.mType)
-                  << Log::Field("version", status.mVersion) << Log::Field("state", status.mState)
-                  << Log::Field(status.mError);
-    }
+    LOG_DBG() << "Item status changed" << Log::Field("id", status.mItemID) << Log::Field("type", status.mType)
+              << Log::Field("version", status.mVersion) << Log::Field("state", status.mState)
+              << Log::Field(status.mError);
 
     if (!mCloudConnected || mIsStatusProcessing) {
         return;
     }
 
-    if (!mUnitStatus.mUpdateItems.HasValue() && !statuses.IsEmpty()) {
+    if (!mUnitStatus.mUpdateItems.HasValue()) {
         mUnitStatus.mUpdateItems.EmplaceValue();
     }
 
-    for (const auto& status : statuses) {
-        auto it = mUnitStatus.mUpdateItems->FindIf([&status](const UpdateItemStatus& itemStatus) {
+    if (auto it = mUnitStatus.mUpdateItems->FindIf([&status](const UpdateItemStatus& itemStatus) {
             return itemStatus.mItemID == status.mItemID && itemStatus.mVersion == status.mVersion;
         });
-        if (it == mUnitStatus.mUpdateItems->end()) {
-            if (auto err = mUnitStatus.mUpdateItems->EmplaceBack(status); !err.IsNone()) {
-                LOG_ERR() << "Failed to emplace update item status" << Log::Field(err);
-                return;
-            }
-        }
-
+        it != mUnitStatus.mUpdateItems->end()) {
         *it = status;
+    } else if (auto err = mUnitStatus.mUpdateItems->EmplaceBack(status); !err.IsNone()) {
+        LOG_ERR() << "Failed to emplace update item status" << Log::Field(err);
+
+        return;
     }
 
     StartTimer();
 }
 
-void UnitStatusHandler::OnItemRemoved(const String& itemID)
+void UnitStatusHandler::OnItemRemovedFromCache(const String& id, const String& version)
 {
-    (void)itemID;
+    (void)id;
+    (void)version;
 }
 
 void UnitStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus>& statuses)
@@ -457,7 +453,7 @@ Error UnitStatusHandler::SetUpdateItemsStatus()
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    if (auto err = mItemStatusProvider->GetUpdateItemsStatuses(*itemsStatuses); !err.IsNone()) {
+    if (auto err = mItemStatusProvider->GetItemsStatuses(*itemsStatuses); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
