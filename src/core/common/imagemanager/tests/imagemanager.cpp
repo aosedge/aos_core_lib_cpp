@@ -233,9 +233,13 @@ public:
         bool operator==(const LayerCall& rhs) const { return mDigest == rhs.mDigest && mDiffDigest == rhs.mDiffDigest; }
     };
 
-    Error Install(const InstallItemInfo& itemInfo) { return InstallItem(itemInfo); }
-    Error Remove(const String& itemID, const String& version) { return RemoveItem(itemID, version); }
-    Error CancelItems() { return Cancel(); }
+    Error        Install(const InstallItemInfo& itemInfo) { return InstallItem(itemInfo); }
+    Error        Remove(const String& itemID, const String& version) { return RemoveItem(itemID, version); }
+    Error        CancelItems() { return Cancel(); }
+    static Error ParseDigestItem(const String& digest, String& algorithm, String& hash)
+    {
+        return ParseDigest(digest, algorithm, hash);
+    }
 
     Error ValidateLayer(const String& path, const oci::ContentDescriptor& descriptor, const String& diffID) override
     {
@@ -437,6 +441,33 @@ TEST_F(CommonImageManagerTest, GetBlobPathMalformedDigest)
         auto err = mImageManager.GetBlobPath(digest, path);
         EXPECT_TRUE(err.Is(ErrorEnum::eInvalidArgument)) << digest << ": " << tests::utils::ErrorToStr(err);
     }
+}
+
+TEST_F(CommonImageManagerTest, ParseDigest)
+{
+    StaticString<oci::cDigestLen> algorithm;
+    StaticString<oci::cDigestLen> hash;
+
+    auto err = TestImageManager::ParseDigestItem(cTestDigest, algorithm, hash);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    EXPECT_STREQ(algorithm.CStr(), "sha256");
+    EXPECT_STREQ(hash.CStr(), cTestHash);
+
+    for (const auto* digest : {"", "sha256", ":hash", "sha256:", "SHA256:hash", "sha256:../hash", "../sha256:hash"}) {
+        err = TestImageManager::ParseDigestItem(digest, algorithm, hash);
+        EXPECT_TRUE(err.Is(ErrorEnum::eInvalidArgument)) << digest;
+    }
+
+    // The whole digest has to fit the digest length, not only its parts.
+    const auto tooLong = "sha256:" + std::string(oci::cDigestLen, '0');
+
+    err = TestImageManager::ParseDigestItem(tooLong.c_str(), algorithm, hash);
+    EXPECT_TRUE(err.Is(ErrorEnum::eInvalidArgument)) << tests::utils::ErrorToStr(err);
+
+    const auto longest = "sha256:" + std::string(oci::cDigestLen - strlen("sha256:"), '0');
+
+    err = TestImageManager::ParseDigestItem(longest.c_str(), algorithm, hash);
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
 TEST_F(CommonImageManagerTest, SubscribeListenerTwice)

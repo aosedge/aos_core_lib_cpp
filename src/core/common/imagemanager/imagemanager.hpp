@@ -197,6 +197,16 @@ protected:
     Error Cancel();
 
     /**
+     * Parses digest into the algorithm and the hash. The derived image managers use it to build the paths from digests.
+     *
+     * @param digest digest in the <algorithm>:<hash> format.
+     * @param[out] algorithm digest algorithm.
+     * @param[out] hash digest hash.
+     * @return Error: eInvalidArgument if the digest is malformed or longer than oci::cDigestLen.
+     */
+    static Error ParseDigest(const String& digest, String& algorithm, String& hash);
+
+    /**
      * Returns space allocator.
      *
      * @return spaceallocator::SpaceAllocatorItf&.
