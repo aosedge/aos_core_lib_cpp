@@ -16,47 +16,6 @@ namespace {
  * Static
  **********************************************************************************************************************/
 
-Error ParseDigest(const String& digest, String& algorithm, String& hash)
-{
-    // The blob paths are limited by the whole digest length, not by the lengths of its parts.
-    if (digest.Size() > oci::cDigestLen) {
-        return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "malformed digest"));
-    }
-
-    auto [pos, err] = digest.FindSubstr(0, ":");
-    if (!err.IsNone() || pos == 0 || pos + 1 >= digest.Size()) {
-        return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "malformed digest"));
-    }
-
-    if (err = algorithm.Assign(String(digest.CStr(), pos)); !err.IsNone()) {
-        return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "malformed digest"));
-    }
-
-    if (err = hash.Assign(String(digest.CStr() + pos + 1, digest.Size() - pos - 1)); !err.IsNone()) {
-        return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "malformed digest"));
-    }
-
-    const auto isLowerAlnum = [](char ch) { return (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9'); };
-
-    if (!isLowerAlnum(algorithm[0])) {
-        return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "malformed digest"));
-    }
-
-    for (const auto ch : algorithm) {
-        if (!(isLowerAlnum(ch) || ch == '+' || ch == '.' || ch == '_' || ch == '-')) {
-            return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "malformed digest"));
-        }
-    }
-
-    for (const auto ch : hash) {
-        if (!isLowerAlnum(ch)) {
-            return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "malformed digest"));
-        }
-    }
-
-    return ErrorEnum::eNone;
-}
-
 RetWithError<crypto::Hash> GetSupportedHash(const String& hashName)
 {
     StaticString<crypto::cAlgLen> upperHash;
@@ -267,6 +226,47 @@ Error ImageManager::GetLayerPath(const String& diffID, String& path) const
 /***********************************************************************************************************************
  * Protected
  **********************************************************************************************************************/
+
+Error ImageManager::ParseDigest(const String& digest, String& algorithm, String& hash)
+{
+    // The blob paths are limited by the whole digest length, not by the lengths of its parts.
+    if (digest.Size() > oci::cDigestLen) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "malformed digest"));
+    }
+
+    auto [pos, err] = digest.FindSubstr(0, ":");
+    if (!err.IsNone() || pos == 0 || pos + 1 >= digest.Size()) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "malformed digest"));
+    }
+
+    if (err = algorithm.Assign(String(digest.CStr(), pos)); !err.IsNone()) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "malformed digest"));
+    }
+
+    if (err = hash.Assign(String(digest.CStr() + pos + 1, digest.Size() - pos - 1)); !err.IsNone()) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "malformed digest"));
+    }
+
+    const auto isLowerAlnum = [](char ch) { return (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9'); };
+
+    if (!isLowerAlnum(algorithm[0])) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "malformed digest"));
+    }
+
+    for (const auto ch : algorithm) {
+        if (!(isLowerAlnum(ch) || ch == '+' || ch == '.' || ch == '_' || ch == '-')) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "malformed digest"));
+        }
+    }
+
+    for (const auto ch : hash) {
+        if (!isLowerAlnum(ch)) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "malformed digest"));
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
 
 Error ImageManager::Init(const Config& config, BlobInfoProviderItf& blobInfoProvider, StorageItf& storage,
     spaceallocator::SpaceAllocatorItf& spaceAllocator, fs::FileInfoProviderItf& fileInfoProvider,
