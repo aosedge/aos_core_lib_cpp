@@ -94,7 +94,7 @@ Error RunRequestsLoader::GenerateInstances(
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    if (auto err = mImageInfoProvider->GetImageIndex(request.mItemID, request.mVersion, *imageIndex); !err.IsNone()) {
+    if (auto err = mImageInfoProvider->GetImageIndex(request.mIndexDigest, *imageIndex); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

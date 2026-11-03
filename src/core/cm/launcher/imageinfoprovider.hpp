@@ -7,8 +7,7 @@
 #ifndef AOS_CORE_CM_LAUNCHER_IMAGEINFOPROVIDER_HPP_
 #define AOS_CORE_CM_LAUNCHER_IMAGEINFOPROVIDER_HPP_
 
-#include <core/cm/imagemanager/itf/blobinfoprovider.hpp>
-#include <core/cm/imagemanager/itf/iteminfoprovider.hpp>
+#include <core/common/imagemanager/itf/iteminfoprovider.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/tools/array.hpp>
 #include <core/common/tools/error.hpp>
@@ -30,7 +29,8 @@ public:
      * @param itemInfoProvider item info provider.
      * @param ociSpec OCI spec.
      */
-    void Init(AllocatorItf& allocator, imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec);
+    void Init(
+        AllocatorItf& allocator, common::imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec);
 
     /**
      * Returns OCI image config for the specified instance/image identifiers.
@@ -51,18 +51,17 @@ public:
     Error GetItemConfig(const oci::IndexContentDescriptor& imageDescriptor, oci::ItemConfig& itemConfig);
 
     /**
-     * Returns OCI image index for the specified instance/version.
+     * Returns OCI image index for the specified index digest.
      *
-     * @param itemID item identifier.
-     * @param version item version.
+     * @param indexDigest image index digest.
      * @param[out] imageIndex resolved image index.
      * @return Error.
      */
-    Error GetImageIndex(const String& itemID, const String& version, oci::ImageIndex& imageIndex);
+    Error GetImageIndex(const String& indexDigest, oci::ImageIndex& imageIndex);
 
 private:
-    imagemanager::ItemInfoProviderItf* mItemInfoProvider {};
-    oci::OCISpecItf*                   mOCISpec {};
+    common::imagemanager::ItemInfoProviderItf* mItemInfoProvider {};
+    oci::OCISpecItf*                           mOCISpec {};
 
     AllocatorItf* mAllocator {};
 };

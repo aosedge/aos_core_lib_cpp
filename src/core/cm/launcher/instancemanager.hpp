@@ -7,9 +7,8 @@
 #ifndef AOS_CORE_CM_LAUNCHER_INSTANCEMANAGER_HPP_
 #define AOS_CORE_CM_LAUNCHER_INSTANCEMANAGER_HPP_
 
-#include <core/cm/imagemanager/itf/blobinfoprovider.hpp>
-#include <core/cm/imagemanager/itf/iteminfoprovider.hpp>
 #include <core/cm/storagestate/storagestate.hpp>
+#include <core/common/imagemanager/itf/iteminfoprovider.hpp>
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/monitoring/itf/monitoringdata.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
@@ -36,16 +35,18 @@ public:
      *
      * @param allocator allocator to use for temporary objects.
      * @param config Configuration object.
-     * @param imageInfoProvider Interface for retrieving service information from images.
+     * @param itemInfoProvider Interface for retrieving local blob paths.
      * @param storageState Interface for managing storage and state partitions.
+     * @param ociSpec OCI spec interface.
      * @param gidValidator GID validator.
      * @param uidValidator UID validator.
      * @param storage Interface to persistent storage.
      * @return Error.
      */
-    Error Init(AllocatorItf& allocator, const Config& config, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-        storagestate::StorageStateItf& storageState, oci::OCISpecItf& ociSpec, IdentifierPoolValidator gidValidator,
-        IdentifierPoolValidator uidValidator, StorageItf& storage);
+    Error Init(AllocatorItf& allocator, const Config& config,
+        common::imagemanager::ItemInfoProviderItf& itemInfoProvider, storagestate::StorageStateItf& storageState,
+        oci::OCISpecItf& ociSpec, IdentifierPoolValidator gidValidator, IdentifierPoolValidator uidValidator,
+        StorageItf& storage);
 
     /**
      * Starts the instance manager.
@@ -275,6 +276,7 @@ private:
 
     UniquePtr<InstanceInfo> CreateInfo(
         const InstanceIdent& id, const String& nodeID, const String& runtimeID, const RunInstanceRequest& request);
+    Error UpdateIndexDigest(Instance& instance, const String& indexDigest);
 
     SharedPtr<Instance> FindInstance(
         const Array<SharedPtr<Instance>>& instances, const InstanceIdent& id, const String& version);

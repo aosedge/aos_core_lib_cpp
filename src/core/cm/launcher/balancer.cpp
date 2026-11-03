@@ -101,8 +101,9 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
             continue;
         }
 
-        if (auto err = mImageInfoProvider->GetImageIndex(id.mItemID, info.mVersion, *imageIndex); !err.IsNone()) {
-            LOG_ERR() << "Can't get images" << Log::Field("instance", id) << Log::Field(err);
+        if (auto err = mImageInfoProvider->GetImageIndex(info.mIndexDigest, *imageIndex); !err.IsNone()) {
+            LOG_ERR() << "Can't get images" << Log::Field("instance", id)
+                      << Log::Field("indexDigest", info.mIndexDigest) << Log::Field(err);
 
             mInstanceManager->ScheduleInstance(instance, AOS_ERROR_WRAP(err));
 
@@ -420,9 +421,9 @@ Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
         }
 
         // Load image descriptor
-        if (auto err = mImageInfoProvider->GetImageIndex(id.mItemID, version, *imageIndex); !err.IsNone()) {
+        if (auto err = mImageInfoProvider->GetImageIndex(info.mIndexDigest, *imageIndex); !err.IsNone()) {
             LOG_ERR() << "Can't get image index" << Log::Field("instance", id) << Log::Field("version", version)
-                      << Log::Field(err);
+                      << Log::Field("indexDigest", info.mIndexDigest) << Log::Field(err);
 
             continue;
         }
