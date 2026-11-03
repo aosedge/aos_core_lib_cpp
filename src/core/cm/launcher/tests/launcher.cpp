@@ -202,6 +202,7 @@ InstanceInfo CreateInstanceInfo(const InstanceIdent& instance, StaticString<oci:
     result.mTimestamp      = timestamp;
     result.mState          = instanceState;
     result.mVersion        = version;
+    result.mIndexDigest    = imagemanager::ImageStoreStub::BuildIndexDigest(instance.mItemID, version);
     result.mIsUnitSubject  = isUnitSubject;
     result.mOwnerID        = ownerID;
     result.mSubjectType    = subjectType;
@@ -246,12 +247,13 @@ RunInstanceRequest CreateRunRequest(const std::string& itemID, const std::string
 {
     RunInstanceRequest request;
 
-    request.mItemID                     = itemID.c_str();
-    request.mUpdateItemType             = updateItemType;
-    request.mVersion                    = version.c_str();
-    request.mOwnerID                    = ownerID.c_str();
-    request.mSubjectInfo.mSubjectID     = subjectID.c_str();
-    request.mSubjectInfo.mSubjectType   = subjectType;
+    request.mItemID                   = itemID.c_str();
+    request.mUpdateItemType           = updateItemType;
+    request.mVersion                  = version.c_str();
+    request.mIndexDigest              = imagemanager::ImageStoreStub::BuildIndexDigest(itemID.c_str(), version.c_str());
+    request.mOwnerID                  = ownerID.c_str();
+    request.mSubjectInfo.mSubjectID   = subjectID.c_str();
+    request.mSubjectInfo.mSubjectType = subjectType;
     request.mSubjectInfo.mIsUnitSubject = true;
     request.mPriority                   = priority;
     request.mNumInstances               = numInstances;
@@ -2680,6 +2682,200 @@ TEST_F(CMLauncherTest, UnlimitedSharedResource)
     EXPECT_EQ(*runStatuses, *expectedRunStatus);
 
     ASSERT_TRUE(mLauncher.Stop().IsNone());
+}
+
+TEST_F(CMLauncherTest, RunInstanceWithUnknownIndexDigest)
+{
+    constexpr auto cVersion = "1.0.0";
+
+    mStorageState.Init();
+    mStorageState.SetTotalStateSize(1024);
+    mStorageState.SetTotalStorageSize(1024);
+
+    mNodeInfoProvider.Init();
+    mImageStore.Init();
+    mMonitoringProvider.Init();
+    mResourceManager.Init();
+    mStorage.Init();
+
+    auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
+
+    auto nodeConfig = std::make_unique<NodeConfig>();
+    CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
+    mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
+
+    auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+    CreateNodeMonitoring(*nodeMonitoring, cNodeIDLocalSM, 0.0);
+    mMonitoringProvider.SetAverageMonitoring(cNodeIDLocalSM, *nodeMonitoring);
+
+    auto itemConfig = std::make_unique<oci::ItemConfig>();
+    CreateItemConfig(*itemConfig, {cRunnerRunc});
+    AddItem(cService1, cImageID1, *itemConfig, CreateImageConfig(), cVersion);
+
+    mInstanceRunner.Init(mLauncher, true, aos::InstanceStateEnum::eActive);
+
+    ASSERT_TRUE(mLauncher
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
+                        ValidateGID, ValidateUID, mStorage, mSender)
+                    .IsNone());
+
+    ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    mInstanceRunner.SendInitialStatuses(cNodeIDLocalSM);
+
+    // Run request refers to an image index which is not provided by the image store.
+    auto runRequest = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    runRequest->PushBack(CreateRunRequest(cService1, cSubject1, 50, 1, "", {}, UpdateItemTypeEnum::eService, cVersion));
+    (*runRequest)[0].mIndexDigest = "sha256:unknown";
+
+    auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    ASSERT_TRUE(mLauncher.RunInstances(*runRequest, *runStatuses).IsNone());
+    ASSERT_TRUE(mLauncher.Stop().IsNone());
+
+    std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests = {{cNodeIDLocalSM, {}}};
+    EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
+
+    auto expectedRunStatus = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    expectedRunStatus->PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), "", "",
+        aos::InstanceStateEnum::eFailed, ErrorEnum::eNotFound, cVersion));
+
+    ASSERT_EQ(*runStatuses, *expectedRunStatus);
+    EXPECT_TRUE((*runStatuses)[0].mError.Is(ErrorEnum::eNotFound));
+}
+
+TEST_F(CMLauncherTest, RunInstanceWithEmptyIndexDigest)
+{
+    constexpr auto cVersion = "1.0.0";
+
+    mStorageState.Init();
+    mStorageState.SetTotalStateSize(1024);
+    mStorageState.SetTotalStorageSize(1024);
+
+    mNodeInfoProvider.Init();
+    mImageStore.Init();
+    mMonitoringProvider.Init();
+    mResourceManager.Init();
+    mStorage.Init();
+
+    auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
+
+    auto nodeConfig = std::make_unique<NodeConfig>();
+    CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
+    mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
+
+    auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+    CreateNodeMonitoring(*nodeMonitoring, cNodeIDLocalSM, 0.0);
+    mMonitoringProvider.SetAverageMonitoring(cNodeIDLocalSM, *nodeMonitoring);
+
+    auto itemConfig = std::make_unique<oci::ItemConfig>();
+    CreateItemConfig(*itemConfig, {cRunnerRunc});
+    AddItem(cService1, cImageID1, *itemConfig, CreateImageConfig(), cVersion);
+
+    mInstanceRunner.Init(mLauncher, true, aos::InstanceStateEnum::eActive);
+
+    ASSERT_TRUE(mLauncher
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
+                        ValidateGID, ValidateUID, mStorage, mSender)
+                    .IsNone());
+
+    ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    mInstanceRunner.SendInitialStatuses(cNodeIDLocalSM);
+
+    // Run request has no image index digest.
+    auto runRequest = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    runRequest->PushBack(CreateRunRequest(cService1, cSubject1, 50, 1, "", {}, UpdateItemTypeEnum::eService, cVersion));
+    (*runRequest)[0].mIndexDigest = "";
+
+    auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    ASSERT_TRUE(mLauncher.RunInstances(*runRequest, *runStatuses).IsNone());
+    ASSERT_TRUE(mLauncher.Stop().IsNone());
+
+    std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests = {{cNodeIDLocalSM, {}}};
+    EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
+
+    auto expectedRunStatus = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    expectedRunStatus->PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), "", "",
+        aos::InstanceStateEnum::eFailed, ErrorEnum::eInvalidArgument, cVersion));
+
+    ASSERT_EQ(*runStatuses, *expectedRunStatus);
+    EXPECT_TRUE((*runStatuses)[0].mError.Is(ErrorEnum::eInvalidArgument));
+}
+
+TEST_F(CMLauncherTest, ReusedInstanceUpdatesIndexDigest)
+{
+    constexpr auto cVersion = "1.0.0";
+    constexpr auto cUID     = 5000;
+
+    mStorageState.Init();
+    mStorageState.SetTotalStateSize(1024);
+    mStorageState.SetTotalStorageSize(1024);
+
+    mNodeInfoProvider.Init();
+    mImageStore.Init();
+    mMonitoringProvider.Init();
+    mResourceManager.Init();
+    mStorage.Init();
+
+    auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
+
+    auto nodeConfig = std::make_unique<NodeConfig>();
+    CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
+    mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
+
+    auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+    CreateNodeMonitoring(*nodeMonitoring, cNodeIDLocalSM, 0.0);
+    mMonitoringProvider.SetAverageMonitoring(cNodeIDLocalSM, *nodeMonitoring);
+
+    auto itemConfig = std::make_unique<oci::ItemConfig>();
+    CreateItemConfig(*itemConfig, {cRunnerRunc});
+    AddItem(cService1, cImageID1, *itemConfig, CreateImageConfig(), cVersion);
+
+    // Store instance with the same ident and version but with stale index digest.
+    auto storedInfo         = CreateInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0), {}, cRunnerRunc, "",
+                InstanceStateEnum::eActive, cUID, 0, Time::Now(), cVersion, true);
+    storedInfo.mIndexDigest = "sha256:stale";
+
+    ASSERT_TRUE(mStorage.AddInstance(storedInfo).IsNone());
+
+    mInstanceRunner.Init(mLauncher, true, aos::InstanceStateEnum::eActive);
+
+    ASSERT_TRUE(mLauncher
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
+                        ValidateGID, ValidateUID, mStorage, mSender)
+                    .IsNone());
+
+    ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    mInstanceRunner.SendInitialStatuses(cNodeIDLocalSM);
+
+    auto runRequest = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    runRequest->PushBack(CreateRunRequest(cService1, cSubject1, 50, 1, "", {}, UpdateItemTypeEnum::eService, cVersion));
+
+    auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    ASSERT_TRUE(mLauncher.RunInstances(*runRequest, *runStatuses).IsNone());
+    ASSERT_TRUE(mLauncher.Stop().IsNone());
+
+    auto expectedRunStatus = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    expectedRunStatus->PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), cNodeIDLocalSM,
+        cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, cVersion, false,
+        BuildManifestDigest(cService1, cImageID1).CStr()));
+
+    ASSERT_EQ(*runStatuses, *expectedRunStatus);
+
+    auto storedInstances = std::make_unique<StaticArray<InstanceInfo, cMaxNumInstances>>();
+    ASSERT_TRUE(mStorage.LoadActiveInstances(*storedInstances).IsNone());
+
+    ASSERT_EQ(storedInstances->Size(), 1);
+    EXPECT_EQ((*storedInstances)[0].mInstanceIdent, CreateInstanceIdent(cService1, cSubject1, 0));
+    EXPECT_EQ((*storedInstances)[0].mUID, cUID);
+    EXPECT_EQ((*storedInstances)[0].mIndexDigest, imagemanager::ImageStoreStub::BuildIndexDigest(cService1, cVersion));
 }
 
 } // namespace aos::cm::launcher

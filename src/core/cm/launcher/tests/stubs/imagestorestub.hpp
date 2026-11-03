@@ -12,22 +12,19 @@
 #include <string>
 #include <vector>
 
-#include <core/cm/imagemanager/itf/blobinfoprovider.hpp>
-#include <core/cm/imagemanager/itf/iteminfoprovider.hpp>
+#include <core/common/imagemanager/itf/iteminfoprovider.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
 
 namespace aos::cm::imagemanager {
 
 /**
  * Test helper that emulates OCI images.
- * Provides ItemInfoProvider, BlobInfoProvider, and OCISpec interfaces.
+ * Provides ItemInfoProvider and OCISpec interfaces.
  */
-class ImageStoreStub : public ItemInfoProviderItf, public oci::OCISpecItf {
+class ImageStoreStub : public common::imagemanager::ItemInfoProviderItf, public oci::OCISpecItf {
 public:
     void Init()
     {
-        mItemVersions.clear();
-        mIndexDigests.clear();
         mImageIndexes.clear();
         mImageManifests.clear();
         mImageConfigs.clear();
@@ -38,8 +35,7 @@ public:
     void AddItem(const String& itemID, const String& imageID, const oci::ItemConfig& itemCfg,
         const oci::ImageConfig& imageCfg, const String& version = DefaultVersion)
     {
-        auto versionStr              = version.IsEmpty() ? DefaultVersion : version.CStr();
-        mItemVersions[itemID.CStr()] = versionStr;
+        auto versionStr = version.IsEmpty() ? DefaultVersion : version.CStr();
 
         auto manifestDigest = EnsureImageArtifacts(itemID, versionStr, imageID);
         auto configDigest   = MakeDigest(itemID, imageID, "config");
@@ -73,19 +69,17 @@ public:
         return digest;
     }
 
-    //
-    // imagemanager::ItemInfoProviderItf
-    //
-    Error GetIndexDigest(const String& itemID, const String& version, String& digest) const override
+    static StaticString<oci::cDigestLen> BuildIndexDigest(const String& itemID, const String& version)
     {
-        auto it = mIndexDigests.find(ItemKey {itemID.CStr(), version.CStr()});
-        if (it == mIndexDigests.end()) {
-            return ErrorEnum::eNotFound;
-        }
+        StaticString<oci::cDigestLen> digest;
+        digest = MakeDigest(itemID, version, "index").c_str();
 
-        return digest.Assign(it->second.c_str());
+        return digest;
     }
 
+    //
+    // common::imagemanager::ItemInfoProviderItf
+    //
     Error GetBlobPath(const String& digest, String& path) const override
     {
         if (!mKnownDigests.count(digest.CStr())) {
@@ -95,17 +89,7 @@ public:
         return path.Assign(digest);
     }
 
-    Error GetBlobURL(const String&, String&) const override { return ErrorEnum::eNotSupported; }
-
-    Error GetItemCurrentVersion(const String& itemID, String& version) const override
-    {
-        auto it = mItemVersions.find(itemID.CStr());
-        if (it == mItemVersions.end()) {
-            return ErrorEnum::eNotFound;
-        }
-
-        return version.Assign(it->second.c_str());
-    }
+    Error GetLayerPath(const String&, String&) const override { return ErrorEnum::eNotSupported; }
 
     //
     // oci::OCISpecItf
@@ -165,16 +149,6 @@ public:
     Error SaveRuntimeConfig(const String&, const oci::RuntimeConfig&) override { return ErrorEnum::eNotSupported; }
 
 private:
-    struct ItemKey {
-        std::string mItemID;
-        std::string mVersion;
-
-        bool operator<(const ItemKey& rhs) const
-        {
-            return std::tie(mItemID, mVersion) < std::tie(rhs.mItemID, rhs.mVersion);
-        }
-    };
-
     static constexpr const char* DefaultVersion     = "";
     static constexpr const char* cImageManifestType = "application/vnd.oci.image.manifest.v1+json";
     static constexpr const char* cImageConfigType   = "application/vnd.oci.image.config.v1+json";
@@ -192,12 +166,9 @@ private:
 
     std::string EnsureImageArtifacts(const String& itemID, const char* version, const String& imageID)
     {
-        auto itemKey        = ItemKey {itemID.CStr(), version};
         auto indexDigest    = MakeDigest(itemID, std::string(version), "index");
         auto manifestDigest = MakeDigest(itemID, imageID, "manifest");
         auto configDigest   = MakeDigest(itemID, imageID, "config");
-
-        mIndexDigests[itemKey] = indexDigest;
 
         auto& index = mImageIndexes[indexDigest];
         index.mManifests.Clear();
@@ -219,8 +190,6 @@ private:
         return manifestDigest;
     }
 
-    std::map<std::string, std::string>        mItemVersions;
-    std::map<ItemKey, std::string>            mIndexDigests;
     std::map<std::string, oci::ImageIndex>    mImageIndexes;
     std::map<std::string, oci::ImageManifest> mImageManifests;
     std::map<std::string, oci::ImageConfig>   mImageConfigs;

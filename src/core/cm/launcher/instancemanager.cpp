@@ -38,7 +38,7 @@ Error InstanceManager::RemoveInstances(Array<SharedPtr<Instance>>& instances, Pr
  **********************************************************************************************************************/
 
 Error InstanceManager::Init(AllocatorItf& allocator, const Config& config,
-    imagemanager::ItemInfoProviderItf& itemInfoProvider, storagestate::StorageStateItf& storageState,
+    common::imagemanager::ItemInfoProviderItf& itemInfoProvider, storagestate::StorageStateItf& storageState,
     oci::OCISpecItf& ociSpec, IdentifierPoolValidator gidValidator, IdentifierPoolValidator uidValidator,
     StorageItf& storage)
 {
@@ -214,6 +214,10 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const RunInsta
 {
     auto id = InstanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, index, request.mUpdateItemType};
     if (auto instance = FindReadyInstance(id, request.mVersion); instance) {
+        if (auto err = UpdateIndexDigest(*instance, request.mIndexDigest); !err.IsNone()) {
+            return {nullptr, err};
+        }
+
         return {instance, ErrorEnum::eNone};
     }
 
@@ -235,6 +239,10 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const RunInsta
     if (auto instance
         = FindReadyInstance(request.mItemID, request.mSubjectInfo.mSubjectID, nodeID, runtimeID, request.mVersion);
         instance) {
+        if (auto err = UpdateIndexDigest(*instance, request.mIndexDigest); !err.IsNone()) {
+            return {nullptr, err};
+        }
+
         return {instance, ErrorEnum::eNone};
     }
 
@@ -748,6 +756,7 @@ UniquePtr<InstanceInfo> InstanceManager::CreateInfo(
     info->mState              = InstanceStateEnum::eActive;
     info->mIsUnitSubject      = request.mSubjectInfo.mIsUnitSubject;
     info->mVersion            = request.mVersion;
+    info->mIndexDigest        = request.mIndexDigest;
     info->mOwnerID            = request.mOwnerID;
     info->mSubjectType        = request.mSubjectInfo.mSubjectType;
     info->mLabels             = request.mLabels;
@@ -755,6 +764,27 @@ UniquePtr<InstanceInfo> InstanceManager::CreateInfo(
     info->mDisableRebalancing = !nodeID.IsEmpty();
 
     return info;
+}
+
+Error InstanceManager::UpdateIndexDigest(Instance& instance, const String& indexDigest)
+{
+    if (instance.GetInfo().mIndexDigest == indexDigest) {
+        return ErrorEnum::eNone;
+    }
+
+    LOG_DBG() << "Update instance index digest" << Log::Field("instance", instance.GetInfo().mInstanceIdent)
+              << Log::Field("version", instance.GetInfo().mVersion) << Log::Field("indexDigest", indexDigest);
+
+    instance.SetIndexDigest(indexDigest);
+
+    if (auto err = mStorage->UpdateInstance(instance.GetInfo()); !err.IsNone()) {
+        LOG_ERR() << "Can't update instance" << Log::Field("instance", instance.GetInfo().mInstanceIdent)
+                  << Log::Field(err);
+
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 SharedPtr<Instance> InstanceManager::FindInstance(
