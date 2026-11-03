@@ -594,13 +594,13 @@ public:
     }
 
     /**
-     * Runs thread pool.
+     * Runs thread pool. If some thread fails to start, the already started threads are stopped.
      *
      * @return Error.
      */
     Error Run()
     {
-        LockGuard lock {mMutex};
+        UniqueLock lock {mMutex};
 
         mShutdown = false;
 
@@ -647,6 +647,10 @@ public:
                 }
             });
             if (!err.IsNone()) {
+                (void)lock.Unlock();
+
+                (void)Shutdown();
+
                 return err;
             }
         }
