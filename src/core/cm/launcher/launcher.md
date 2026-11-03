@@ -150,6 +150,9 @@ Returns current instances statuses.
 
 Schedules and run desired instances. Launcher calculates on which node and which runtime to start a specific instance
 based on requested resources, instance, node priorities etc.
+Each run request carries the image index digest of the update item (`mIndexDigest`, taken from the desired status).
+The launcher stores it in `InstanceInfo` and resolves the image index through
+`common::imagemanager::ItemInfoProviderItf::GetBlobPath` and `OCISpecItf::LoadImageIndex`.
 
 This function is blocked till all update instances requests are confirmed or fail.
 

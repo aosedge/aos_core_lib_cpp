@@ -88,8 +88,7 @@ bool Instance::IsImageValid()
         return false;
     }
 
-    if (auto err = mImageInfoProvider.GetImageIndex(mInfo.mInstanceIdent.mItemID, mInfo.mVersion, *imageIndex);
-        !err.IsNone()) {
+    if (auto err = mImageInfoProvider.GetImageIndex(mInfo.mIndexDigest, *imageIndex); !err.IsNone()) {
         return false;
     }
 
