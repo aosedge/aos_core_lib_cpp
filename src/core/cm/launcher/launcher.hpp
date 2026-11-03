@@ -8,11 +8,10 @@
 #define AOS_CORE_CM_LAUNCHER_LAUNCHER_HPP_
 
 #include <core/cm/alerts/itf/provider.hpp>
-#include <core/cm/imagemanager/itf/blobinfoprovider.hpp>
-#include <core/cm/imagemanager/itf/iteminfoprovider.hpp>
 #include <core/cm/storagestate/itf/storagestate.hpp>
 #include <core/cm/unitconfig/itf/nodeconfigprovider.hpp>
 #include <core/common/iamclient/itf/identprovider.hpp>
+#include <core/common/imagemanager/itf/iteminfoprovider.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
 
 #include "itf/envvarhandler.hpp"
@@ -51,7 +50,7 @@ public:
      * @param config configuration.
      * @param nodeInfoProvider interface providing information about all unit nodes.
      * @param runner instance runner interface.
-     * @param imageInfoProvider interface that retrieves service information from its image.
+     * @param itemInfoProvider interface that provides local blob paths.
      * @param ociSpec OCI spec interface.
      * @param nodeConfigProvider node config provider interface.
      * @param storageState interface to manage storage and state partitions.
@@ -65,11 +64,12 @@ public:
      * @return Error.
      */
     Error Init(AllocatorItf& allocator, const Config& config, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-        InstanceRunnerItf& runner, imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec,
-        unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
-        MonitoringProviderItf& monitorProvider, alerts::AlertsProviderItf& alertsProvider,
-        iamclient::IdentProviderItf& identProvider, IdentifierPoolValidator gidValidator,
-        IdentifierPoolValidator uidValidator, StorageItf& storage, SenderItf& sender);
+        InstanceRunnerItf& runner, common::imagemanager::ItemInfoProviderItf& itemInfoProvider,
+        oci::OCISpecItf& ociSpec, unitconfig::NodeConfigProviderItf& nodeConfigProvider,
+        storagestate::StorageStateItf& storageState, MonitoringProviderItf& monitorProvider,
+        alerts::AlertsProviderItf& alertsProvider, iamclient::IdentProviderItf& identProvider,
+        IdentifierPoolValidator gidValidator, IdentifierPoolValidator uidValidator, StorageItf& storage,
+        SenderItf& sender);
 
     /**
      * Starts launcher instance.
