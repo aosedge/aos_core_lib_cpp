@@ -53,6 +53,7 @@ struct InstanceInfo {
     InstanceState                 mState {};
     bool                          mIsUnitSubject {};
     StaticString<cVersionLen>     mVersion;
+    StaticString<oci::cDigestLen> mIndexDigest;
     StaticString<cIDLen>          mOwnerID;
     SubjectType                   mSubjectType;
     LabelsArray                   mLabels;
@@ -71,8 +72,9 @@ struct InstanceInfo {
             && lhs.mNodeID == rhs.mNodeID && lhs.mPrevNodeID == rhs.mPrevNodeID && lhs.mRuntimeID == rhs.mRuntimeID
             && lhs.mUID == rhs.mUID && lhs.mGID == rhs.mGID && lhs.mTimestamp == rhs.mTimestamp
             && lhs.mState == rhs.mState && lhs.mIsUnitSubject == rhs.mIsUnitSubject && lhs.mVersion == rhs.mVersion
-            && lhs.mOwnerID == rhs.mOwnerID && lhs.mSubjectType == rhs.mSubjectType && lhs.mLabels == rhs.mLabels
-            && lhs.mPriority == rhs.mPriority && lhs.mDisableRebalancing == rhs.mDisableRebalancing;
+            && lhs.mIndexDigest == rhs.mIndexDigest && lhs.mOwnerID == rhs.mOwnerID
+            && lhs.mSubjectType == rhs.mSubjectType && lhs.mLabels == rhs.mLabels && lhs.mPriority == rhs.mPriority
+            && lhs.mDisableRebalancing == rhs.mDisableRebalancing;
     };
 
     /**
@@ -88,14 +90,15 @@ struct InstanceInfo {
  * Run instance request.
  */
 struct RunInstanceRequest {
-    StaticString<cIDLen>      mItemID;
-    UpdateItemType            mUpdateItemType;
-    StaticString<cVersionLen> mVersion;
-    StaticString<cIDLen>      mOwnerID;
-    SubjectInfo               mSubjectInfo;
-    size_t                    mPriority {};
-    size_t                    mNumInstances {};
-    LabelsArray               mLabels;
+    StaticString<cIDLen>          mItemID;
+    UpdateItemType                mUpdateItemType;
+    StaticString<cVersionLen>     mVersion;
+    StaticString<oci::cDigestLen> mIndexDigest;
+    StaticString<cIDLen>          mOwnerID;
+    SubjectInfo                   mSubjectInfo;
+    size_t                        mPriority {};
+    size_t                        mNumInstances {};
+    LabelsArray                   mLabels;
 
     /**
      * Compares run instance request.
@@ -106,9 +109,10 @@ struct RunInstanceRequest {
     friend bool operator==(const RunInstanceRequest& lhs, const RunInstanceRequest& other)
     {
         return lhs.mItemID == other.mItemID && lhs.mUpdateItemType == other.mUpdateItemType
-            && lhs.mVersion == other.mVersion && lhs.mOwnerID == other.mOwnerID
-            && lhs.mSubjectInfo == other.mSubjectInfo && lhs.mPriority == other.mPriority
-            && lhs.mNumInstances == other.mNumInstances && lhs.mLabels == other.mLabels;
+            && lhs.mVersion == other.mVersion && lhs.mIndexDigest == other.mIndexDigest
+            && lhs.mOwnerID == other.mOwnerID && lhs.mSubjectInfo == other.mSubjectInfo
+            && lhs.mPriority == other.mPriority && lhs.mNumInstances == other.mNumInstances
+            && lhs.mLabels == other.mLabels;
     };
 
     /**
