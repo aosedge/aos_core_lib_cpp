@@ -260,6 +260,15 @@ void CreateInstanceStatus(InstanceStatus& instanceStatus, const String& itemID, 
     instanceStatus.mError          = unitInstanceStatus.mError;
 };
 
+StaticString<oci::cDigestLen> CreateIndexDigest(const String& itemID, const String& version)
+{
+    StaticString<oci::cDigestLen> digest;
+
+    digest = (std::string("sha256:") + itemID.CStr() + "-" + version.CStr()).c_str();
+
+    return digest;
+}
+
 void CreateUpdateItemInfo(
     DesiredStatus& desiredStatus, const String& itemID, UpdateItemType updateItemType, const String& version)
 {
@@ -267,9 +276,10 @@ void CreateUpdateItemInfo(
 
     auto& itemInfo = desiredStatus.mUpdateItems.Back();
 
-    itemInfo.mItemID  = itemID;
-    itemInfo.mType    = updateItemType;
-    itemInfo.mVersion = version;
+    itemInfo.mItemID      = itemID;
+    itemInfo.mType        = updateItemType;
+    itemInfo.mVersion     = version;
+    itemInfo.mIndexDigest = CreateIndexDigest(itemID, version);
 }
 
 void CreateRunRequest(const DesiredStatus& desiredStatus, Array<launcher::RunInstanceRequest>& runRequest)
@@ -283,6 +293,7 @@ void CreateRunRequest(const DesiredStatus& desiredStatus, Array<launcher::RunIns
             EXPECT_NE(it, desiredStatus.mUpdateItems.end());
 
             request.mVersion        = it->mVersion;
+            request.mIndexDigest    = CreateIndexDigest(desiredInstance.mItemID, it->mVersion);
             request.mOwnerID        = it->mOwnerID;
             request.mUpdateItemType = it->mType;
         }
