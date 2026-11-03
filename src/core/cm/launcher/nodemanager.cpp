@@ -137,7 +137,7 @@ Error NodeManager::LoadSMDataForActiveInstances(
         }
 
         if (auto findDescErr = FindImageDescriptor(
-                instanceID.mItemID, instance->GetInfo().mVersion, manifestDigest, imageInfoProvider, *imageDescriptor);
+                instance->GetInfo().mIndexDigest, manifestDigest, imageInfoProvider, *imageDescriptor);
             !findDescErr.IsNone()) {
             LOG_ERR() << "Can't find image descriptor" << Log::Field("instanceID", instanceID)
                       << Log::Field("manifestDigest", manifestDigest) << Log::Field(AOS_ERROR_WRAP(findDescErr));
@@ -371,7 +371,7 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
  * Private
  **********************************************************************************************************************/
 
-Error NodeManager::FindImageDescriptor(const String& itemID, const String& version, const String& manifestDigest,
+Error NodeManager::FindImageDescriptor(const String& indexDigest, const String& manifestDigest,
     ImageInfoProvider& imageInfoProvider, oci::IndexContentDescriptor& imageDescriptor)
 {
     auto imageIndex = MakeUnique<oci::ImageIndex>(mAllocator);
@@ -379,7 +379,7 @@ Error NodeManager::FindImageDescriptor(const String& itemID, const String& versi
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    if (auto err = imageInfoProvider.GetImageIndex(itemID, version, *imageIndex); !err.IsNone()) {
+    if (auto err = imageInfoProvider.GetImageIndex(indexDigest, *imageIndex); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
