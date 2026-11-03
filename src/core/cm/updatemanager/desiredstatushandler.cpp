@@ -481,8 +481,14 @@ Error DesiredStatusHandler::LaunchInstances()
                 [&desiredInstance](const UpdateItemInfo& item) { return item.mItemID == desiredInstance.mItemID; });
             it != mCurrentDesiredStatus.mUpdateItems.end()) {
             request.mVersion        = it->mVersion;
+            request.mIndexDigest    = it->mIndexDigest;
             request.mOwnerID        = it->mOwnerID;
             request.mUpdateItemType = it->mType;
+
+            if (it->mIndexDigest.IsEmpty()) {
+                LOG_WRN() << "Update item has empty index digest" << Log::Field("itemID", it->mItemID)
+                          << Log::Field("version", it->mVersion);
+            }
         } else {
             LOG_ERR() << "Update item for instance not found" << Log::Field("itemID", desiredInstance.mItemID);
         }
