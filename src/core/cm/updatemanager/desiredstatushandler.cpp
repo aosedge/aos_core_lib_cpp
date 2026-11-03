@@ -355,14 +355,37 @@ Error DesiredStatusHandler::InstallUpdateItems()
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mInstallThreadPool.Run(); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
+    {
+        auto itemsStatuses = MakeUnique<UpdateItemStatusArray>(mAllocator);
+        if (!itemsStatuses) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
 
-    for (const auto& item : mCurrentDesiredStatus.mUpdateItems) {
-        if (auto err = mInstallThreadPool.AddTask([this, &item](void*) { InstallItem(item); }); !err.IsNone()) {
-            LOG_ERR() << "Failed to add install update item task" << Log::Field("id", item.mItemID)
-                      << Log::Field("version", item.mVersion) << Log::Field(err);
+        if (auto err = mItemStatusProvider->GetItemsStatuses(*itemsStatuses); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = mInstallThreadPool.Run(); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        for (const auto& item : mCurrentDesiredStatus.mUpdateItems) {
+            auto it = itemsStatuses->FindIf([&item](const UpdateItemStatus& itemStatus) {
+                return itemStatus.mItemID == item.mItemID && itemStatus.mType == item.mType
+                    && itemStatus.mVersion == item.mVersion;
+            });
+            if (it != itemsStatuses->end()
+                && (it->mState == ItemStateEnum::eInstalled || it->mState == ItemStateEnum::eFailed)) {
+                LOG_DBG() << "Skip install update item" << Log::Field("id", item.mItemID)
+                          << Log::Field("version", item.mVersion) << Log::Field("state", it->mState);
+
+                continue;
+            }
+
+            if (auto err = mInstallThreadPool.AddTask([this, &item](void*) { InstallItem(item); }); !err.IsNone()) {
+                LOG_ERR() << "Failed to add install update item task" << Log::Field("id", item.mItemID)
+                          << Log::Field("version", item.mVersion) << Log::Field(err);
+            }
         }
     }
 
@@ -647,7 +670,8 @@ bool DesiredStatusHandler::IsUpdateItemsRequired(const DesiredStatus& desiredSta
     for (const auto& desiredItem : desiredStatus.mUpdateItems) {
         if (auto it = itemsStatuses->FindIf([&desiredItem](const UpdateItemStatus& itemStatus) {
                 return itemStatus.mItemID == desiredItem.mItemID && itemStatus.mType == desiredItem.mType
-                    && itemStatus.mVersion == desiredItem.mVersion && itemStatus.mState == ItemStateEnum::eInstalled;
+                    && itemStatus.mVersion == desiredItem.mVersion
+                    && (itemStatus.mState == ItemStateEnum::eInstalled || itemStatus.mState == ItemStateEnum::eFailed);
             });
             it == itemsStatuses->end()) {
             return true;
@@ -655,7 +679,7 @@ bool DesiredStatusHandler::IsUpdateItemsRequired(const DesiredStatus& desiredSta
     }
 
     for (const auto& itemStatus : *itemsStatuses) {
-        if (itemStatus.mState == ItemStateEnum::eInstalled) {
+        if (itemStatus.mState == ItemStateEnum::eInstalled || itemStatus.mState == ItemStateEnum::eFailed) {
             if (auto it = desiredStatus.mUpdateItems.FindIf([&itemStatus](const UpdateItemInfo& desiredItem) {
                     return desiredItem.mItemID == itemStatus.mItemID && desiredItem.mType == itemStatus.mType
                         && desiredItem.mVersion == itemStatus.mVersion;
