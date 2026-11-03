@@ -12,7 +12,7 @@
 namespace aos::cm::launcher {
 
 void ImageInfoProvider::Init(
-    AllocatorItf& allocator, imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec)
+    AllocatorItf& allocator, common::imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec)
 {
     mAllocator        = &allocator;
     mItemInfoProvider = &itemInfoProvider;
@@ -95,11 +95,10 @@ Error ImageInfoProvider::GetItemConfig(const oci::IndexContentDescriptor& imageD
     return ErrorEnum::eNone;
 }
 
-Error ImageInfoProvider::GetImageIndex(const String& itemID, const String& version, oci::ImageIndex& imageIndex)
+Error ImageInfoProvider::GetImageIndex(const String& indexDigest, oci::ImageIndex& imageIndex)
 {
-    auto indexDigest = MakeUnique<StaticString<oci::cDigestLen>>(mAllocator);
-    if (!indexDigest) {
-        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    if (indexDigest.IsEmpty()) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "empty index digest"));
     }
 
     auto indexPath = MakeUnique<StaticString<cFilePathLen>>(mAllocator);
@@ -107,11 +106,7 @@ Error ImageInfoProvider::GetImageIndex(const String& itemID, const String& versi
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    if (auto err = mItemInfoProvider->GetIndexDigest(itemID, version, *indexDigest); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (auto err = mItemInfoProvider->GetBlobPath(*indexDigest, *indexPath); !err.IsNone()) {
+    if (auto err = mItemInfoProvider->GetBlobPath(indexDigest, *indexPath); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

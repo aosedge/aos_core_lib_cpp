@@ -76,6 +76,13 @@ public:
     const InstanceInfo& GetInfo() const { return mInfo; }
 
     /**
+     * Sets image index digest.
+     *
+     * @param digest image index digest.
+     */
+    void SetIndexDigest(const String& digest) { mInfo.mIndexDigest = digest; }
+
+    /**
      * Returns SM instance information.
      *
      * @return const aos::InstanceInfo&.

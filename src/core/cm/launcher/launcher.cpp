@@ -35,7 +35,7 @@ public:
 
 Error Launcher::Init(AllocatorItf& allocator, const Config& config,
     nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider, InstanceRunnerItf& runner,
-    imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec,
+    common::imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec,
     unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
     MonitoringProviderItf& monitorProvider, alerts::AlertsProviderItf& alertsProvider,
     iamclient::IdentProviderItf& identProvider, IdentifierPoolValidator gidValidator,
@@ -233,6 +233,7 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
     for (const auto& request : requests) {
         LOG_INF() << "Run instance request" << Log::Field("itemID", request.mItemID)
                   << Log::Field("type", request.mUpdateItemType) << Log::Field("version", request.mVersion)
+                  << Log::Field("indexDigest", request.mIndexDigest)
                   << Log::Field("numInstances", request.mNumInstances);
     }
 
