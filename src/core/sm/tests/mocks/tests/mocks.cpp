@@ -5,7 +5,6 @@
  */
 
 #include <core/sm/tests/mocks/instancestatusreceivermock.hpp>
-#include <core/sm/tests/mocks/iteminfoprovidermock.hpp>
 #include <core/sm/tests/mocks/launchermock.hpp>
 #include <core/sm/tests/mocks/networkmanagermock.hpp>
 #include <core/sm/tests/mocks/rebootermock.hpp>
