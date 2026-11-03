@@ -15,8 +15,9 @@ namespace aos::sm::launcher {
  **********************************************************************************************************************/
 
 Error Launcher::Init(AllocatorItf& allocator, const Array<RuntimeItf*>& runtimes,
-    imagemanager::ImageManagerItf& imageManager, SenderItf& sender, StorageItf& storage, oci::OCISpecItf& ociSpec,
-    imagemanager::ItemInfoProviderItf& itemInfoProvider, cloudconnection::CloudConnectionItf& cloudConnection,
+    imagemanager::ImageManagerItf& imageManager, common::imagemanager::ItemStatusProviderItf& itemStatusProvider,
+    SenderItf& sender, StorageItf& storage, oci::OCISpecItf& ociSpec,
+    common::imagemanager::ItemInfoProviderItf& itemInfoProvider, cloudconnection::CloudConnectionItf& cloudConnection,
     networkmanager::NetworkManagerItf& networkManager, InstanceIDProviderItf& instanceIDProvider,
     resourcemanager::ResourceInfoProviderItf& resourceInfoProvider)
 {
@@ -31,6 +32,7 @@ Error Launcher::Init(AllocatorItf& allocator, const Array<RuntimeItf*>& runtimes
     }
 
     mImageManager         = &imageManager;
+    mItemStatusProvider   = &itemStatusProvider;
     mStorage              = &storage;
     mSender               = &sender;
     mOCISpec              = &ociSpec;
@@ -113,6 +115,11 @@ Error Launcher::Stop()
     Error stopErr;
 
     if (auto err = mCloudConnection->UnsubscribeListener(*this); !err.IsNone()) {
+        stopErr = AOS_ERROR_WRAP(err);
+    }
+
+    // Don't wait for the items being installed by the launch in progress.
+    if (auto err = mImageManager->Cancel(); !err.IsNone() && stopErr.IsNone()) {
         stopErr = AOS_ERROR_WRAP(err);
     }
 
@@ -1396,7 +1403,7 @@ void Launcher::RemoveUpdateItems(const Array<UpdateItemInfo>& removeItems)
 {
     for (const auto& updateItem : removeItems) {
         if (auto err = mLaunchPool.AddTask([this, &updateItem](void*) {
-                if (auto err = mImageManager->RemoveUpdateItem(updateItem.mItemID, updateItem.mVersion);
+                if (auto err = mImageManager->RemoveItem(updateItem.mItemID, updateItem.mVersion);
                     !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
                     LOG_ERR() << "Remove update item failed" << Log::Field("itemID", updateItem.mItemID)
                               << Log::Field("version", updateItem.mVersion) << Log::Field(AOS_ERROR_WRAP(err));
@@ -1417,7 +1424,8 @@ void Launcher::RemoveUpdateItems(const Array<UpdateItemInfo>& removeItems)
 
 void Launcher::InstallUpdateItems(const Array<InstanceInfo>& startInstances)
 {
-    auto currentItems = MakeUnique<StaticArray<imagemanager::UpdateItemStatus, cMaxNumUpdateItems>>(mAllocator);
+    // The image manager reports all stored item versions, including the ones kept in the cache.
+    auto currentItems = MakeUnique<StaticArray<UpdateItemStatus, cMaxNumUpdateItems * 2>>(mAllocator);
     if (!currentItems) {
         LOG_ERR() << "Failed to allocate current items" << Log::Field(ErrorEnum::eNoMemory);
 
@@ -1431,13 +1439,13 @@ void Launcher::InstallUpdateItems(const Array<InstanceInfo>& startInstances)
         return;
     }
 
-    if (auto err = mImageManager->GetAllInstalledItems(*currentItems); !err.IsNone()) {
+    if (auto err = mItemStatusProvider->GetItemsStatuses(*currentItems); !err.IsNone()) {
         LOG_ERR() << "Get update items statuses failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
 
     for (const auto& startInstance : startInstances) {
         if (auto it = currentItems->FindIf([&startInstance](const auto& item) {
-                return item.mID == startInstance.mItemID && item.mVersion == startInstance.mVersion;
+                return item.mItemID == startInstance.mItemID && item.mVersion == startInstance.mVersion;
             });
             it != currentItems->end() && it->mState == ItemStateEnum::eInstalled) {
             continue;
