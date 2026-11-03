@@ -145,7 +145,7 @@ public:
 private:
     static constexpr auto cStatusUpdateTimeout = Time::cMinutes * 10;
 
-    Error FindImageDescriptor(const String& itemID, const String& version, const String& manifestDigest,
+    Error FindImageDescriptor(const String& indexDigest, const String& manifestDigest,
         ImageInfoProvider& imageInfoProvider, oci::IndexContentDescriptor& imageDescriptor);
 
     Error ApplyOverrideEnvVars(const Array<SharedPtr<Instance>>& instances);
