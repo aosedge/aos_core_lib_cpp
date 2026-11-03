@@ -48,18 +48,10 @@ Error DesiredStatusHandler::Start()
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mInstallThreadPool.Run(); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
     mIsRunning = true;
 
     if (auto err = mThread.Run([this](void*) { Run(); }); !err.IsNone()) {
         mIsRunning = false;
-
-        if (auto shutdownErr = mInstallThreadPool.Shutdown(); !shutdownErr.IsNone()) {
-            LOG_ERR() << "Can't shutdown install thread pool" << Log::Field(AOS_ERROR_WRAP(shutdownErr));
-        }
 
         return AOS_ERROR_WRAP(err);
     }
@@ -112,10 +104,6 @@ Error DesiredStatusHandler::Stop()
 
     if (auto threadErr = mThread.Join(); !threadErr.IsNone() && err.IsNone()) {
         err = AOS_ERROR_WRAP(threadErr);
-    }
-
-    if (auto shutdownErr = mInstallThreadPool.Shutdown(); !shutdownErr.IsNone() && err.IsNone()) {
-        err = AOS_ERROR_WRAP(shutdownErr);
     }
 
     return err;
@@ -367,6 +355,10 @@ Error DesiredStatusHandler::InstallUpdateItems()
         return AOS_ERROR_WRAP(err);
     }
 
+    if (auto err = mInstallThreadPool.Run(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     for (const auto& item : mCurrentDesiredStatus.mUpdateItems) {
         if (auto err = mInstallThreadPool.AddTask([this, &item](void*) { InstallItem(item); }); !err.IsNone()) {
             LOG_ERR() << "Failed to add install update item task" << Log::Field("id", item.mItemID)
@@ -375,6 +367,10 @@ Error DesiredStatusHandler::InstallUpdateItems()
     }
 
     auto err = mInstallThreadPool.Wait();
+
+    if (auto shutdownErr = mInstallThreadPool.Shutdown(); !shutdownErr.IsNone() && err.IsNone()) {
+        err = shutdownErr;
+    }
 
     LOG_INF() << "[profiling] Install update items end";
 
