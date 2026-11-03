@@ -19,7 +19,7 @@ set(HEADERS config.hpp)
 
 set(INSTALL_HEADERS aos_core_sm_database aos_core_sm_logging aos_core_sm_nodeconfig aos_core_sm_resourcemanager)
 
-set(INSTALL_LIBRARIES aos_core_sm_launcher)
+set(INSTALL_LIBRARIES aos_core_sm_imagemanager aos_core_sm_launcher)
 
 if(WITH_TEST)
     list(APPEND INSTALL_HEADERS aos_core_sm_tests_mocks aos_core_sm_tests_stubs)
@@ -43,6 +43,7 @@ set(TARGET_PREFIX ${TARGET_PREFIX}_sm)
 # ######################################################################################################################
 
 add_subdirectory(database)
+add_subdirectory(imagemanager)
 add_subdirectory(launcher)
 add_subdirectory(logging)
 add_subdirectory(networkmanager)
