@@ -27,7 +27,13 @@ It requires the following interfaces:
 * [aos::sm::launcher::RuntimeItf](itf/runtime.hpp) - launch different kind of items on different runtimes, and
   provides instance monitoring data (implements `aos::monitoring::InstanceMonitoringProviderItf` interface);
 * [aos::sm::launcher::StorageItf](itf/storage.hpp) - persistently store current instances;
-* [aos::sm::launcher::SenderItf](itf/sender.hpp) - sends node and updated instances statuses.
+* [aos::sm::launcher::SenderItf](itf/sender.hpp) - sends node and updated instances statuses;
+* [aos::sm::imagemanager::ImageManagerItf](../imagemanager/itf/imagemanager.hpp) - installs and removes update items,
+  cancels the items being installed when the launcher is stopped;
+* [aos::common::imagemanager::ItemStatusProviderItf](../../common/imagemanager/itf/itemstatusprovider.hpp) - provides
+  the states of the stored update items;
+* [aos::common::imagemanager::ItemInfoProviderItf](../../common/imagemanager/itf/iteminfoprovider.hpp) - provides the
+  local paths of the blobs.
 
 ```mermaid
 classDiagram
