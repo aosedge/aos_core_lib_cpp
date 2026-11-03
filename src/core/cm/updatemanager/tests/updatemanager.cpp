@@ -836,7 +836,13 @@ TEST_F(UpdateManagerTest, ProcessFullDesiredStatus)
         EXPECT_CALL(mImageManagerMock, InstallItem(item)).WillOnce(Return(ErrorEnum::eNone));
     }
 
-    EXPECT_CALL(mLauncherMock, RunInstances(*runRequest, _)).Times(1);
+    std::atomic_bool instancesLaunched {false};
+
+    EXPECT_CALL(mLauncherMock, RunInstances(*runRequest, _)).WillOnce(InvokeWithoutArgs([&]() {
+        instancesLaunched = true;
+
+        return ErrorEnum::eNone;
+    }));
 
     // Set stored items: item4 is not in desired status and should be removed, item5 is already removed
 
@@ -871,6 +877,12 @@ TEST_F(UpdateManagerTest, ProcessFullDesiredStatus)
         .WillOnce(DoAll(SetArgReferee<0>(expectedUnitStatus->mUnitConfig.GetValue()[0]), Return(ErrorEnum::eNone)));
     EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
         .WillRepeatedly(Invoke([&](Array<UpdateItemStatus>& statuses) {
+            // Items are reported only after install, otherwise they are skipped by install step
+
+            if (!instancesLaunched) {
+                return ErrorEnum::eNone;
+            }
+
             statuses = expectedUnitStatus->mUpdateItems.GetValue();
 
             if (!item4Removed) {
@@ -990,10 +1002,24 @@ TEST_F(UpdateManagerTest, CancelCurrentUpdate)
 
     CreateRunRequest(*desiredStatus, *runRequest);
 
-    EXPECT_CALL(mLauncherMock, RunInstances(*runRequest, _)).Times(1);
+    std::atomic_bool instancesLaunched {false};
+
+    EXPECT_CALL(mLauncherMock, RunInstances(*runRequest, _)).WillOnce(InvokeWithoutArgs([&]() {
+        instancesLaunched = true;
+
+        return ErrorEnum::eNone;
+    }));
     EXPECT_CALL(mImageManagerMock, RemoveItem(_, _)).Times(0);
     EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
-        .WillRepeatedly(DoAll(SetArgReferee<0>(expectedUnitStatus->mUpdateItems.GetValue()), Return(ErrorEnum::eNone)));
+        .WillRepeatedly(Invoke([&](Array<UpdateItemStatus>& statuses) {
+            // Items are reported only after install, otherwise they are skipped by install step
+
+            if (instancesLaunched) {
+                statuses = expectedUnitStatus->mUpdateItems.GetValue();
+            }
+
+            return ErrorEnum::eNone;
+        }));
     EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_))
         .Times(2)
         .WillRepeatedly(Invoke([&](Array<InstanceStatus>& instances) {
@@ -1227,15 +1253,185 @@ TEST_F(UpdateManagerTest, InstallItemFailed)
     EXPECT_CALL(mImageManagerMock, SetCerts(_, _)).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mImageManagerMock, InstallItem(desiredStatus->mUpdateItems[0])).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mImageManagerMock, InstallItem(desiredStatus->mUpdateItems[1])).WillOnce(Return(ErrorEnum::eFailed));
-    EXPECT_CALL(mLauncherMock, RunInstances(*runRequest, _)).Times(1);
+    std::atomic_bool instancesLaunched {false};
+
+    EXPECT_CALL(mLauncherMock, RunInstances(*runRequest, _)).WillOnce(InvokeWithoutArgs([&]() {
+        instancesLaunched = true;
+
+        return ErrorEnum::eNone;
+    }));
     EXPECT_CALL(mImageManagerMock, RemoveItem(_, _)).Times(0);
     EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
-        .WillRepeatedly(DoAll(SetArgReferee<0>(expectedUnitStatus->mUpdateItems.GetValue()), Return(ErrorEnum::eNone)));
+        .WillRepeatedly(Invoke([&](Array<UpdateItemStatus>& statuses) {
+            // Items are reported only after install, otherwise they are skipped by install step
+
+            if (instancesLaunched) {
+                statuses = expectedUnitStatus->mUpdateItems.GetValue();
+            }
+
+            return ErrorEnum::eNone;
+        }));
     EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillRepeatedly(Invoke([&](Array<InstanceStatus>& instances) {
         ConvertInstancesStatuses(expectedUnitStatus->mInstances.GetValue(), instances);
 
         return ErrorEnum::eNone;
     }));
+
+    auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+}
+
+TEST_F(UpdateManagerTest, InstallSkipsInstalledAndFailedItems)
+{
+    auto expectedUnitStatus = std::make_unique<UnitStatus>();
+    auto desiredStatus      = std::make_unique<DesiredStatus>();
+
+    EmptyUnitStatus(*expectedUnitStatus);
+
+    // Notify cloud connection established
+
+    mConnectionListener->OnConnect();
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+
+    // Set desired status
+
+    CreateUpdateItemInfo(*desiredStatus, "installed", UpdateItemTypeEnum::eService, "1.0.0");
+    CreateUpdateItemInfo(*desiredStatus, "failed", UpdateItemTypeEnum::eService, "1.0.0");
+    CreateUpdateItemInfo(*desiredStatus, "missing", UpdateItemTypeEnum::eService, "1.0.0");
+    CreateUpdateItemInfo(*desiredStatus, "removed", UpdateItemTypeEnum::eService, "1.0.0");
+    desiredStatus->mInstances.EmplaceBack(DesiredInstanceInfo {"installed", "subject1", 0, 1, {}});
+    desiredStatus->mSubjects.EmplaceBack(SubjectInfo {"subject1", SubjectTypeEnum::eUser});
+
+    // Set expected statuses
+
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "installed", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalled);
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "failed", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eFailed);
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "missing", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalled);
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "removed", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalled);
+    CreateInstancesStatuses(*expectedUnitStatus, "installed", UpdateItemTypeEnum::eService, "subject1", "1.0.0", 1);
+
+    // Create launcher run request
+
+    auto runRequest = std::make_unique<StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>>();
+
+    CreateRunRequest(*desiredStatus, *runRequest);
+
+    // Expect calls: only missing and removed items are installed
+
+    std::atomic_bool instancesLaunched {false};
+
+    EXPECT_CALL(mImageManagerMock, SetCerts(_, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManagerMock, InstallItem(_)).Times(0);
+    EXPECT_CALL(mImageManagerMock, InstallItem(desiredStatus->mUpdateItems[2])).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManagerMock, InstallItem(desiredStatus->mUpdateItems[3])).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mLauncherMock, RunInstances(*runRequest, _)).WillOnce(InvokeWithoutArgs([&]() {
+        instancesLaunched = true;
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mImageManagerMock, RemoveItem(_, _)).Times(0);
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
+        .WillRepeatedly(Invoke([&](Array<UpdateItemStatus>& statuses) {
+            if (instancesLaunched) {
+                statuses = expectedUnitStatus->mUpdateItems.GetValue();
+
+                return ErrorEnum::eNone;
+            }
+
+            statuses.EmplaceBack(UpdateItemStatus {"installed", UpdateItemTypeEnum::eService, "1.0.0", false,
+                ItemStateEnum::eInstalled, ErrorEnum::eNone});
+            statuses.EmplaceBack(UpdateItemStatus {
+                "failed", UpdateItemTypeEnum::eService, "1.0.0", false, ItemStateEnum::eFailed, ErrorEnum::eFailed});
+            statuses.EmplaceBack(UpdateItemStatus {
+                "removed", UpdateItemTypeEnum::eService, "1.0.0", false, ItemStateEnum::eRemoved, ErrorEnum::eNone});
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillRepeatedly(Invoke([&](Array<InstanceStatus>& instances) {
+        ConvertInstancesStatuses(expectedUnitStatus->mInstances.GetValue(), instances);
+
+        return ErrorEnum::eNone;
+    }));
+
+    auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+}
+
+TEST_F(UpdateManagerTest, FailedItemInDesiredStatusDoesNotRequireUpdate)
+{
+    auto expectedUnitStatus = std::make_unique<UnitStatus>();
+    auto desiredStatus      = std::make_unique<DesiredStatus>();
+
+    EmptyUnitStatus(*expectedUnitStatus);
+
+    // Notify cloud connection established
+
+    mConnectionListener->OnConnect();
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+
+    // Set desired status
+
+    CreateUpdateItemInfo(*desiredStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0");
+
+    // Expect calls: item is failed, it can be retried only after removing it
+
+    EXPECT_CALL(mImageManagerMock, SetCerts(_, _)).Times(0);
+    EXPECT_CALL(mImageManagerMock, InstallItem(_)).Times(0);
+    EXPECT_CALL(mImageManagerMock, RemoveItem(_, _)).Times(0);
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
+        .WillRepeatedly(Invoke([&](Array<UpdateItemStatus>& statuses) {
+            statuses.EmplaceBack(UpdateItemStatus {
+                "item1", UpdateItemTypeEnum::eService, "1.0.0", false, ItemStateEnum::eFailed, ErrorEnum::eFailed});
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mStorageStub.GetUpdateState().mValue, UpdateStateEnum::eNone);
+}
+
+TEST_F(UpdateManagerTest, FailedItemNotInDesiredStatusIsRemoved)
+{
+    auto expectedUnitStatus = std::make_unique<UnitStatus>();
+    auto desiredStatus      = std::make_unique<DesiredStatus>();
+
+    EmptyUnitStatus(*expectedUnitStatus);
+
+    // Notify cloud connection established
+
+    mConnectionListener->OnConnect();
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+
+    // Expect calls: desired status without failed item removes it
+
+    std::atomic_bool itemRemoved {false};
+
+    EXPECT_CALL(mImageManagerMock, SetCerts(_, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManagerMock, InstallItem(_)).Times(0);
+    EXPECT_CALL(mImageManagerMock, RemoveItem(String("item1"), String("1.0.0"))).WillOnce(InvokeWithoutArgs([&]() {
+        itemRemoved = true;
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
+        .WillRepeatedly(Invoke([&](Array<UpdateItemStatus>& statuses) {
+            if (!itemRemoved) {
+                statuses.EmplaceBack(UpdateItemStatus {
+                    "item1", UpdateItemTypeEnum::eService, "1.0.0", false, ItemStateEnum::eFailed, ErrorEnum::eFailed});
+            }
+
+            return ErrorEnum::eNone;
+        }));
 
     auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
     EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
@@ -1344,12 +1540,26 @@ TEST_F(UpdateManagerTest, FinalizeRemoveItemFails)
 
     EXPECT_CALL(mImageManagerMock, SetCerts(_, _)).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mImageManagerMock, InstallItem(desiredStatus->mUpdateItems[0])).WillOnce(Return(ErrorEnum::eNone));
-    EXPECT_CALL(mLauncherMock, RunInstances(*runRequest, _)).Times(1);
+    std::atomic_bool instancesLaunched {false};
+
+    EXPECT_CALL(mLauncherMock, RunInstances(*runRequest, _)).WillOnce(InvokeWithoutArgs([&]() {
+        instancesLaunched = true;
+
+        return ErrorEnum::eNone;
+    }));
     EXPECT_CALL(mImageManagerMock, RemoveItem(_, _)).Times(0);
     EXPECT_CALL(mImageManagerMock, RemoveItem(String("item2"), String("1.0.0"))).WillOnce(Return(ErrorEnum::eFailed));
     EXPECT_CALL(mImageManagerMock, RemoveItem(String("item3"), String("1.0.0"))).WillOnce(Return(ErrorEnum::eFailed));
     EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
-        .WillRepeatedly(DoAll(SetArgReferee<0>(expectedUnitStatus->mUpdateItems.GetValue()), Return(ErrorEnum::eNone)));
+        .WillRepeatedly(Invoke([&](Array<UpdateItemStatus>& statuses) {
+            // Items are reported only after install, otherwise they are skipped by install step
+
+            if (instancesLaunched) {
+                statuses = expectedUnitStatus->mUpdateItems.GetValue();
+            }
+
+            return ErrorEnum::eNone;
+        }));
     EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillRepeatedly(Invoke([&](Array<InstanceStatus>& instances) {
         ConvertInstancesStatuses(expectedUnitStatus->mInstances.GetValue(), instances);
 
@@ -1410,7 +1620,13 @@ TEST_F(UpdateManagerTest, FinalizeGetStatusesFails)
     EXPECT_CALL(mImageManagerMock, RemoveItem(_, _)).Times(0);
     EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
         .WillRepeatedly(Invoke([&](Array<UpdateItemStatus>& statuses) -> Error {
-            if (instancesLaunched && !finalizeFailed.exchange(true)) {
+            // Items are reported only after install, otherwise they are skipped by install step
+
+            if (!instancesLaunched) {
+                return ErrorEnum::eNone;
+            }
+
+            if (!finalizeFailed.exchange(true)) {
                 return ErrorEnum::eFailed;
             }
 
