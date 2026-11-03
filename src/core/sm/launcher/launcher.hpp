@@ -8,14 +8,17 @@
 
 #include <core/common/cloudconnection/itf/cloudconnection.hpp>
 #include <core/common/crypto/itf/uuid.hpp>
+#include <core/common/imagemanager/itf/iteminfoprovider.hpp>
+#include <core/common/imagemanager/itf/itemstatusprovider.hpp>
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/monitoring/itf/instanceinfoprovider.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/memory.hpp>
 #include <core/common/tools/thread.hpp>
+#include <core/common/tools/timer.hpp>
 #include <core/common/types/instance.hpp>
-#include <core/sm/imagemanager/imagemanager.hpp>
+#include <core/sm/imagemanager/itf/imagemanager.hpp>
 #include <core/sm/networkmanager/itf/networkmanager.hpp>
 #include <core/sm/resourcemanager/itf/resourceinfoprovider.hpp>
 
@@ -48,6 +51,7 @@ public:
      * @param allocator allocator to use for temporary objects.
      * @param runtimes available runtimes.
      * @param imageManager image manager.
+     * @param itemStatusProvider item status provider.
      * @param statusSender sender.
      * @param storage storage.
      * @param ociSpec OCI spec.
@@ -60,10 +64,10 @@ public:
      * @return Error.
      */
     Error Init(AllocatorItf& allocator, const Array<RuntimeItf*>& runtimes, imagemanager::ImageManagerItf& imageManager,
-        SenderItf& sender, StorageItf& storage, oci::OCISpecItf& ociSpec,
-        imagemanager::ItemInfoProviderItf& itemInfoProvider, cloudconnection::CloudConnectionItf& cloudConnection,
-        networkmanager::NetworkManagerItf& networkManager, InstanceIDProviderItf& instanceIDProvider,
-        resourcemanager::ResourceInfoProviderItf& resourceInfoProvider);
+        common::imagemanager::ItemStatusProviderItf& itemStatusProvider, SenderItf& sender, StorageItf& storage,
+        oci::OCISpecItf& ociSpec, common::imagemanager::ItemInfoProviderItf& itemInfoProvider,
+        cloudconnection::CloudConnectionItf& cloudConnection, networkmanager::NetworkManagerItf& networkManager,
+        InstanceIDProviderItf& instanceIDProvider, resourcemanager::ResourceInfoProviderItf& resourceInfoProvider);
 
     /**
      * Starts launcher.
@@ -241,10 +245,11 @@ private:
     StaticMap<RuntimeItf*, StaticString<cIDLen>, cMaxNumNodeRuntimes>     mRuntimes;
     StaticArray<StaticString<cIDLen>, cMaxNumNodeRuntimes>                mRebootQueue;
     imagemanager::ImageManagerItf*                                        mImageManager {};
+    common::imagemanager::ItemStatusProviderItf*                          mItemStatusProvider {};
     StorageItf*                                                           mStorage {};
     SenderItf*                                                            mSender {};
     oci::OCISpecItf*                                                      mOCISpec {};
-    imagemanager::ItemInfoProviderItf*                                    mItemInfoProvider {};
+    common::imagemanager::ItemInfoProviderItf*                            mItemInfoProvider {};
     cloudconnection::CloudConnectionItf*                                  mCloudConnection {};
     networkmanager::NetworkManagerItf*                                    mNetworkManager {};
     InstanceIDProviderItf*                                                mInstanceIDProvider {};

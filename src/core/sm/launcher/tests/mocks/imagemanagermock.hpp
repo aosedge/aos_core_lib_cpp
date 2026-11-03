@@ -16,9 +16,9 @@ namespace aos::sm::imagemanager {
  */
 class ImageManagerMock : public ImageManagerItf {
 public:
-    MOCK_METHOD(Error, GetAllInstalledItems, (Array<UpdateItemStatus>&), (const, override));
-    MOCK_METHOD(Error, InstallUpdateItem, (const UpdateItemInfo&), (override));
-    MOCK_METHOD(Error, RemoveUpdateItem, (const String&, const String&), (override));
+    MOCK_METHOD(Error, InstallItem, (const UpdateItemInfo&), (override));
+    MOCK_METHOD(Error, RemoveItem, (const String&, const String&), (override));
+    MOCK_METHOD(Error, Cancel, (), (override));
 };
 
 } // namespace aos::sm::imagemanager
