@@ -17,7 +17,6 @@ set(TARGET_NAME mocks)
 set(HEADERS
     instanceidprovidermock.hpp
     instancestatusreceivermock.hpp
-    iteminfoprovidermock.hpp
     launchermock.hpp
     networkmanagermock.hpp
     rebootermock.hpp
