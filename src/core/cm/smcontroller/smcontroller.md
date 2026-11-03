@@ -19,7 +19,8 @@ It requires the following interfaces:
 * [aos::iamclient::CertProviderItf](../../common/iamclient/itf/certprovider.hpp) - provides certificates;
 * [aos::crypto::CertLoaderItf](../../common/crypto/itf/certloader.hpp) - loads certificates;
 * [aos::crypto::x509::ProviderItf](../../common/crypto/itf/x509provider.hpp) - provides crypto operations;
-* [aos::cm::imagemanager::ItemInfoProviderItf](../imagemanager/itf/iteminfoprovider.hpp) - provides items info;
+* [aos::common::imagemanager::ItemInfoProviderItf](../../common/imagemanager/itf/iteminfoprovider.hpp) - provides
+  items info;
 * [aos::cm::alerts::ReceiverItf](../alerts/itf/receiver.hpp) - receives alerts;
 * [aos::cm::smcontroller::SenderItf](itf/sender.hpp) - sends logs;
 * [aos::cm::launcher::SenderItf](../launcher/itf/sender.hpp) - sends env vars statuses;
@@ -71,7 +72,7 @@ classDiagram
         <<interface>>
     }
 
-    class ItemInfoProviderItf ["aos::cm::imagemanager::ItemInfoProviderItf"] {
+    class ItemInfoProviderItf ["aos::common::imagemanager::ItemInfoProviderItf"] {
         <<interface>>
     }
 
