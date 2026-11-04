@@ -1012,11 +1012,17 @@ TEST_F(UpdateManagerTest, CancelCurrentUpdate)
     EXPECT_CALL(mImageManagerMock, RemoveItem(_, _)).Times(0);
     EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
         .WillRepeatedly(Invoke([&](Array<UpdateItemStatus>& statuses) {
-            // Items are reported only after install, otherwise they are skipped by install step
-
             if (instancesLaunched) {
                 statuses = expectedUnitStatus->mUpdateItems.GetValue();
+
+                return ErrorEnum::eNone;
             }
+
+            // The canceled install is reported as failed with the canceled error and has to be installed again
+
+            statuses.EmplaceBack(
+                UpdateItemStatus {desiredStatus->mUpdateItems[0].mItemID, desiredStatus->mUpdateItems[0].mType,
+                    desiredStatus->mUpdateItems[0].mVersion, false, ItemStateEnum::eFailed, ErrorEnum::eCanceled});
 
             return ErrorEnum::eNone;
         }));
@@ -1398,6 +1404,53 @@ TEST_F(UpdateManagerTest, FailedItemInDesiredStatusDoesNotRequireUpdate)
     EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
 
     EXPECT_EQ(mStorageStub.GetUpdateState().mValue, UpdateStateEnum::eNone);
+}
+
+TEST_F(UpdateManagerTest, CanceledItemInDesiredStatusIsInstalled)
+{
+    auto expectedUnitStatus = std::make_unique<UnitStatus>();
+    auto desiredStatus      = std::make_unique<DesiredStatus>();
+
+    EmptyUnitStatus(*expectedUnitStatus);
+
+    // Notify cloud connection established
+
+    mConnectionListener->OnConnect();
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+
+    // Set desired status
+
+    CreateUpdateItemInfo(*desiredStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0");
+
+    // Set expected statuses
+
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalled);
+
+    // Expect calls: only the canceled item state requires an update
+
+    std::atomic_bool itemInstalled {false};
+
+    EXPECT_CALL(mImageManagerMock, SetCerts(_, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManagerMock, InstallItem(desiredStatus->mUpdateItems[0])).WillOnce(InvokeWithoutArgs([&]() {
+        itemInstalled = true;
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mImageManagerMock, RemoveItem(_, _)).Times(0);
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
+        .WillRepeatedly(Invoke([&](Array<UpdateItemStatus>& statuses) {
+            statuses.EmplaceBack(UpdateItemStatus {"item1", UpdateItemTypeEnum::eService, "1.0.0", false,
+                itemInstalled ? ItemStateEnum::eInstalled : ItemStateEnum::eFailed,
+                itemInstalled ? ErrorEnum::eNone : ErrorEnum::eCanceled});
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
 }
 
 TEST_F(UpdateManagerTest, FailedItemNotInDesiredStatusIsRemoved)
