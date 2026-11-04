@@ -37,6 +37,16 @@ Error FileErrnoToError(int32_t code)
     }
 }
 
+int StatNoFollow(const char* path, struct stat* st)
+{
+#if defined(__ZEPHYR__)
+    // Zephyr doesn't provide lstat, its file systems don't support symlinks.
+    return stat(path, st);
+#else
+    return lstat(path, st);
+#endif
+}
+
 } // namespace
 
 /***********************************************************************************************************************
@@ -93,7 +103,7 @@ bool DirIterator::Next()
         auto        path = JoinPath(mRoot, entry->d_name);
         struct stat entryStat;
 
-        if (stat(path.CStr(), &entryStat) == -1) {
+        if (StatNoFollow(path.CStr(), &entryStat) == -1) {
             return false;
         }
 
@@ -591,11 +601,11 @@ RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path)
 {
     struct stat st;
 
-    if (auto ret = stat(path.CStr(), &st); ret != 0) {
+    if (auto ret = StatNoFollow(path.CStr(), &st); ret != 0) {
         return {0, AOS_ERROR_WRAP(Error(errno))};
     }
 
-    if (S_ISREG(st.st_mode)) {
+    if (!S_ISDIR(st.st_mode)) {
         return {static_cast<size_t>(st.st_size)};
     }
 
@@ -617,7 +627,12 @@ RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path)
         while (dirIt.Next()) {
             const auto fullPath = JoinPath(dirIt.GetRootPath(), dirIt->mPath);
 
-            if (dirIt->mIsDir) {
+            // Symlinks are not followed: they may point outside the path or to the content counted elsewhere.
+            if (auto ret = StatNoFollow(fullPath.CStr(), &st); ret != 0) {
+                return {0, AOS_ERROR_WRAP(Error(errno))};
+            }
+
+            if (S_ISDIR(st.st_mode)) {
                 if (auto err = dirIterators->EmplaceBack(fullPath); !err.IsNone()) {
                     return {0, AOS_ERROR_WRAP(err)};
                 }
@@ -625,10 +640,6 @@ RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path)
                 stepIntoSubdir = true;
 
                 break;
-            }
-
-            if (auto ret = stat(fullPath.CStr(), &st); ret != 0) {
-                return {0, AOS_ERROR_WRAP(Error(ret))};
             }
 
             size += st.st_size;
