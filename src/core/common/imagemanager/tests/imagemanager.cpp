@@ -506,7 +506,7 @@ TEST_F(CommonImageManagerTest, SubscribeUnsubscribeListener)
     EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
-TEST_F(CommonImageManagerTest, StartRemovesInterruptedItemsAndAddsOutdatedItems)
+TEST_F(CommonImageManagerTest, StartCancelsInterruptedItemsAndAddsOutdatedItems)
 {
     ASSERT_TRUE(InitImageManager().IsNone());
     ASSERT_TRUE(mImageManager.SubscribeListener(mListener).IsNone());
@@ -519,6 +519,7 @@ TEST_F(CommonImageManagerTest, StartRemovesInterruptedItemsAndAddsOutdatedItems)
         mStorage.AddItemBlob("item1", "2.0.0", ItemBlobInfo {{cTestLayerType, cTestDigest, 1}, true, ""}).IsNone());
     AddStoredItem("item3", "1.0.0", ItemStateEnum::eFailed, Error(ErrorEnum::eFailed, "download failed"));
     AddStoredItem("item4", "1.0.0", ItemStateEnum::eRemoved);
+    AddStoredItem("item5", "1.0.0", ItemStateEnum::eDownloading);
 
     std::map<std::string, DeployableItemInfo> storedItems;
 
@@ -540,24 +541,18 @@ TEST_F(CommonImageManagerTest, StartRemovesInterruptedItemsAndAddsOutdatedItems)
         mSpaceAllocator, AddOutdatedItem(String("item4"), String("1.0.0"), storedItems["item4:1.0.0"].mTimestamp))
         .WillOnce(Return(ErrorEnum::eNone));
 
-    Time interruptedTimestamp;
-
-    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String("item1"), String("2.0.0"), _))
-        .WillOnce(Invoke([&](const String&, const String&, const Time& timestamp) {
-            interruptedTimestamp = timestamp;
-
-            return ErrorEnum::eNone;
-        }));
-
     auto err = mImageManager.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     DeployableItemInfo item;
 
     ASSERT_TRUE(mStorage.GetDeployableItem("item1", "2.0.0", item).IsNone());
-    EXPECT_EQ(item.mState, ItemStateEnum::eRemoved);
-    EXPECT_TRUE(item.mError.IsNone()) << tests::utils::ErrorToStr(item.mError);
-    EXPECT_EQ(item.mTimestamp, interruptedTimestamp);
+    EXPECT_EQ(item.mState, ItemStateEnum::eFailed);
+    EXPECT_TRUE(item.mError.Is(ErrorEnum::eCanceled)) << tests::utils::ErrorToStr(item.mError);
+
+    ASSERT_TRUE(mStorage.GetDeployableItem("item5", "1.0.0", item).IsNone());
+    EXPECT_EQ(item.mState, ItemStateEnum::eFailed);
+    EXPECT_TRUE(item.mError.Is(ErrorEnum::eCanceled)) << tests::utils::ErrorToStr(item.mError);
 
     // The blob references of the interrupted item are kept.
     auto blobs = std::make_unique<StaticArray<ItemBlobInfo, cMaxNumItemBlobs>>();
@@ -595,7 +590,7 @@ TEST_F(CommonImageManagerTest, StartUpdateItemFails)
 
     AddStoredItem("item1", "1.0.0", ItemStateEnum::eInstalling);
 
-    mStorage.SetFailUpdateStates({ItemStateEnum::eRemoved});
+    mStorage.SetFailUpdateStates({ItemStateEnum::eFailed});
 
     EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(_, _, _)).Times(0);
 
