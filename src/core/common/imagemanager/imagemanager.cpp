@@ -167,6 +167,34 @@ Error ImageManager::GetItemsStatuses(Array<UpdateItemStatus>& statuses)
     return ErrorEnum::eNone;
 }
 
+Error ImageManager::SetItemFail(const String& itemID, const String& version, const Error& error)
+{
+    LOG_INF() << "Set item failed" << Log::Field("itemID", itemID) << Log::Field("version", version)
+              << Log::Field(error);
+
+    if (auto err = LockItem(itemID, version); !err.IsNone()) {
+        return err;
+    }
+
+    auto unlockItem = DeferRelease([this, &itemID, &version]() { UnlockItem(itemID, version); });
+
+    DeployableItemInfo storedInfo;
+
+    if (auto err = mStorage->GetDeployableItem(itemID, version, storedInfo); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (storedInfo.mState == ItemStateEnum::eRemoved) {
+        return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
+    }
+
+    if (auto err = SetStoredItemState(storedInfo, ItemStateEnum::eFailed, error); !err.IsNone()) {
+        return err;
+    }
+
+    return ErrorEnum::eNone;
+}
+
 Error ImageManager::SubscribeListener(ItemStatusListenerItf& listener)
 {
     LockGuard lock {mListenersMutex};
