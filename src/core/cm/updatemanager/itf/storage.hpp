@@ -28,6 +28,7 @@ public:
         eInstalling,
         eLaunching,
         eWaitingActive,
+        eRecovering,
         eFinalizing,
     };
 
@@ -40,6 +41,7 @@ public:
             "installing",
             "launching",
             "activating",
+            "recovering",
             "finalizing",
         };
 
