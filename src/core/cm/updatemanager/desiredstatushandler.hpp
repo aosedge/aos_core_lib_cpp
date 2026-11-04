@@ -80,6 +80,7 @@ private:
     void  SetState(const UpdateState& state);
     Error InstallUpdateItems();
     void  InstallItem(const UpdateItemInfo& item);
+    void  RemoveItem(const UpdateItemStatus& itemStatus);
     Error InstallDesiredStatus();
     Error LaunchInstances();
     Error WaitInstancesActive();
@@ -99,12 +100,12 @@ private:
     UnitStatusHandler*                           mUnitStatusHandler {};
     StorageItf*                                  mStorage {};
 
-    Mutex                                                  mMutex;
-    ConditionalVariable                                    mCondVar;
-    Thread<>                                               mThread;
-    ThreadPool<cMaxNumConcurrentItems, cMaxNumUpdateItems> mInstallThreadPool;
-    DesiredStatus                                          mCurrentDesiredStatus;
-    DesiredStatus                                          mPendingDesiredStatus;
+    Mutex                                                      mMutex;
+    ConditionalVariable                                        mCondVar;
+    Thread<>                                                   mThread;
+    ThreadPool<cMaxNumConcurrentItems, cMaxNumUpdateItems * 2> mThreadPool;
+    DesiredStatus                                              mCurrentDesiredStatus;
+    DesiredStatus                                              mPendingDesiredStatus;
 
     bool        mIsRunning {};
     bool        mHasPendingDesiredStatus {};
