@@ -452,6 +452,9 @@ Error CopyFile(AllocatorItf& allocator, const String& srcPath, const String& dst
 /**
  * Reads content of the file named by fileName into the buffer.
  *
+ * Open and read errors are returned as follows: EIO and EBADMSG as ErrorEnum::eIntegrity, ENOENT as
+ * ErrorEnum::eNotFound, any other errno as is.
+ *
  * @param fileName file name.
  * @param[out] buff destination buffer.
  * @return Error.
@@ -460,6 +463,9 @@ Error ReadFile(const String& fileName, Array<uint8_t>& buff);
 
 /**
  * Reads content of the file named by fileName into the given string.
+ *
+ * Open and read errors are returned as follows: EIO and EBADMSG as ErrorEnum::eIntegrity, ENOENT as
+ * ErrorEnum::eNotFound, any other errno as is.
  *
  * @param fileName file name.
  * @param[out] text result string.
