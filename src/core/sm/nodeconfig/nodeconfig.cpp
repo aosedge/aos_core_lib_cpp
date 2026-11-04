@@ -158,7 +158,7 @@ Error NodeConfig::LoadConfig()
 
     auto err = fs::ReadFileToString(mNodeConfigFile, *nodeConfigJSON);
     if (!err.IsNone()) {
-        if (err == ENOENT) {
+        if (err.Is(ErrorEnum::eNotFound)) {
             mNodeConfigState = UnitConfigStateEnum::eAbsent;
 
             return ErrorEnum::eNone;
