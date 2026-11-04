@@ -97,7 +97,7 @@ image storage. The temporary files are removed by the download space allocator w
 
 The CM update manager calls `SetCerts` with the certificates of the desired status, `InstallItem` for each item of the
 desired status and `RemoveItem` for each stored item that is not in the desired status. Up to `cMaxNumConcurrentItems`
-items are installed at the same time.
+items are installed or removed at the same time.
 
 ## Install item
 

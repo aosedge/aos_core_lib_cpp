@@ -1555,6 +1555,76 @@ TEST_F(UpdateManagerTest, InstallItemsConcurrencyLimit)
     EXPECT_EQ(installedItems.size(), cNumItems);
 }
 
+TEST_F(UpdateManagerTest, RemoveItemsConcurrently)
+{
+    constexpr auto cMaxConcurrentItems = static_cast<size_t>(cMaxNumConcurrentItems);
+    constexpr auto cNumItems           = static_cast<size_t>(cMaxNumUpdateItems) * 2;
+
+    auto expectedUnitStatus = std::make_unique<UnitStatus>();
+    auto desiredStatus      = std::make_unique<DesiredStatus>();
+
+    EmptyUnitStatus(*expectedUnitStatus);
+
+    // Notify cloud connection established
+
+    mConnectionListener->OnConnect();
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+
+    std::condition_variable cv;
+    std::mutex              mutex;
+    size_t                  numStarted = 0;
+    size_t                  numActive  = 0;
+    size_t                  maxActive  = 0;
+    std::set<std::string>   removedItems;
+
+    EXPECT_CALL(mImageManagerMock, SetCerts(_, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManagerMock, RemoveItem(_, _))
+        .Times(cNumItems)
+        .WillRepeatedly(Invoke([&](const String& itemID, const String&) -> Error {
+            std::unique_lock lock(mutex);
+
+            numStarted++;
+            numActive++;
+            maxActive = std::max(maxActive, numActive);
+
+            cv.notify_all();
+
+            EXPECT_TRUE(cv.wait_for(lock, cCVTimeout, [&]() { return numStarted >= cMaxConcurrentItems; }));
+
+            // Keep the first items active, so tasks are queued up to the full queue size
+
+            cv.wait_for(lock, std::chrono::milliseconds(100), [&]() { return numStarted > cMaxConcurrentItems; });
+
+            removedItems.insert(itemID.CStr());
+            numActive--;
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
+        .WillRepeatedly(Invoke([&](Array<UpdateItemStatus>& statuses) {
+            std::unique_lock lock(mutex);
+
+            if (numStarted == 0) {
+                for (size_t i = 0; i < cNumItems; i++) {
+                    statuses.EmplaceBack(UpdateItemStatus {("item" + std::to_string(i)).c_str(),
+                        UpdateItemTypeEnum::eService, "1.0.0", false, ItemStateEnum::eInstalled, ErrorEnum::eNone});
+                }
+            }
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+
+    std::unique_lock lock(mutex);
+
+    EXPECT_EQ(maxActive, cMaxConcurrentItems);
+    EXPECT_EQ(removedItems.size(), cNumItems);
+}
+
 TEST_F(UpdateManagerTest, FinalizeRemoveItemFails)
 {
     auto expectedUnitStatus = std::make_unique<UnitStatus>();
