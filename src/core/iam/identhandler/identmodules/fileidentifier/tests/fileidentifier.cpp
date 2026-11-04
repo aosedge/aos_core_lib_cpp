@@ -101,7 +101,7 @@ TEST_F(FileIdentifierTest, InitFailsOnUnitModelFileMissing)
     fs::Remove(cUnitModelPath);
 
     auto err = identifier.Init(mConfig);
-    ASSERT_EQ(err.Value(), ErrorEnum::eRuntime) << tests::utils::ErrorToStr(err);
+    ASSERT_EQ(err.Value(), ErrorEnum::eNotFound) << tests::utils::ErrorToStr(err);
 }
 
 TEST_F(FileIdentifierTest, InitSucceedsOnSubjectsFileMissing)
