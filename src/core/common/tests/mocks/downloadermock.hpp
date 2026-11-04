@@ -20,7 +20,6 @@ class DownloaderMock : public DownloaderItf {
 public:
     MOCK_METHOD(Error, Download, (CancelContext&, const String&, (const Array<StaticString<cURLLen>>&), const String&),
         (override));
-    MOCK_METHOD(Error, Cancel, (const String&), (override));
 };
 
 } // namespace aos::downloader
