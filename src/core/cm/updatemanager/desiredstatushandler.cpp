@@ -24,6 +24,48 @@ bool IsItemInstallRequired(const UpdateItemStatus& itemStatus)
         && (itemStatus.mState != ItemStateEnum::eFailed || itemStatus.mError.Is(ErrorEnum::eCanceled));
 }
 
+const UpdateItemStatus* FindItemStatus(const UpdateItemInfo& item, const Array<UpdateItemStatus>& itemsStatuses)
+{
+    for (const auto& itemStatus : itemsStatuses) {
+        if (itemStatus.mItemID == item.mItemID && itemStatus.mType == item.mType
+            && itemStatus.mVersion == item.mVersion) {
+            return &itemStatus;
+        }
+    }
+
+    return nullptr;
+}
+
+// Returns the instance whose error fails the item: any instance with the integrity error, otherwise the first failed
+// instance if all the item instances are failed, otherwise nullptr.
+const InstanceStatus* FindItemFailureCause(const UpdateItemInfo& item, const Array<InstanceStatus>& instancesStatuses)
+{
+    const InstanceStatus* failedInstance = nullptr;
+    auto                  allFailed      = true;
+
+    for (const auto& instanceStatus : instancesStatuses) {
+        if (instanceStatus.mItemID != item.mItemID || instanceStatus.mVersion != item.mVersion) {
+            continue;
+        }
+
+        if (instanceStatus.mState != InstanceStateEnum::eFailed) {
+            allFailed = false;
+
+            continue;
+        }
+
+        if (instanceStatus.mError.Is(ErrorEnum::eIntegrity)) {
+            return &instanceStatus;
+        }
+
+        if (failedInstance == nullptr) {
+            failedInstance = &instanceStatus;
+        }
+    }
+
+    return allFailed ? failedInstance : nullptr;
+}
+
 } // namespace
 
 /***********************************************************************************************************************
@@ -104,7 +146,8 @@ Error DesiredStatusHandler::Stop()
             return ErrorEnum::eWrongState;
         }
 
-        if (mUpdateState == UpdateStateEnum::eDownloading || mUpdateState == UpdateStateEnum::eInstalling) {
+        if (mUpdateState == UpdateStateEnum::eDownloading || mUpdateState == UpdateStateEnum::eInstalling
+            || mUpdateState == UpdateStateEnum::eRecovering) {
             if (auto cancelErr = mImageManager->Cancel(); !cancelErr.IsNone() && err.IsNone()) {
                 err = AOS_ERROR_WRAP(cancelErr);
             }
@@ -196,7 +239,8 @@ void DesiredStatusHandler::CancelUpdate()
 
     mCancelCurrentUpdate = true;
 
-    if (mUpdateState == UpdateStateEnum::eDownloading || mUpdateState == UpdateStateEnum::eInstalling) {
+    if (mUpdateState == UpdateStateEnum::eDownloading || mUpdateState == UpdateStateEnum::eInstalling
+        || mUpdateState == UpdateStateEnum::eRecovering) {
         if (auto err = mImageManager->Cancel(); !err.IsNone()) {
             LOG_ERR() << "Failed to cancel current update" << Log::Field(err);
         }
@@ -221,6 +265,8 @@ void DesiredStatusHandler::Run()
 
             mCurrentDesiredStatus    = mPendingDesiredStatus;
             mHasPendingDesiredStatus = false;
+            mRecoveryRequired        = false;
+            mRecoveryDone            = false;
 
             while (mUpdateState != UpdateStateEnum::eNone && mIsRunning) {
                 Error (DesiredStatusHandler::*stateAction)() = nullptr;
@@ -257,6 +303,12 @@ void DesiredStatusHandler::Run()
 
                     break;
 
+                case UpdateStateEnum::eRecovering:
+                    stateAction = &DesiredStatusHandler::RecoverItems;
+                    nextState   = UpdateStateEnum::eLaunching;
+
+                    break;
+
                 case UpdateStateEnum::eFinalizing:
                     stateAction = &DesiredStatusHandler::FinalizeUpdate;
                     nextState   = UpdateStateEnum::eNone;
@@ -286,6 +338,9 @@ void DesiredStatusHandler::Run()
                         LOG_ERR() << "Failed to process desired status" << Log::Field(err);
 
                         nextState = UpdateStateEnum::eNone;
+                    } else if (mRecoveryRequired) {
+                        mRecoveryRequired = false;
+                        nextState         = UpdateStateEnum::eRecovering;
                     }
                 }
 
@@ -385,21 +440,15 @@ Error DesiredStatusHandler::InstallUpdateItems()
         }
 
         for (const auto& item : mCurrentDesiredStatus.mUpdateItems) {
-            auto it = itemsStatuses->FindIf([&item](const UpdateItemStatus& itemStatus) {
-                return itemStatus.mItemID == item.mItemID && itemStatus.mType == item.mType
-                    && itemStatus.mVersion == item.mVersion;
-            });
-            if (it != itemsStatuses->end() && !IsItemInstallRequired(*it)) {
+            const auto* itemStatus = FindItemStatus(item, *itemsStatuses);
+            if (itemStatus != nullptr && !IsItemInstallRequired(*itemStatus)) {
                 LOG_DBG() << "Skip install update item" << Log::Field("id", item.mItemID)
-                          << Log::Field("version", item.mVersion) << Log::Field("state", it->mState);
+                          << Log::Field("version", item.mVersion) << Log::Field("state", itemStatus->mState);
 
                 continue;
             }
 
-            if (auto err = mThreadPool.AddTask([this, &item](void*) { InstallItem(item); }); !err.IsNone()) {
-                LOG_ERR() << "Failed to add install update item task" << Log::Field("id", item.mItemID)
-                          << Log::Field("version", item.mVersion) << Log::Field(err);
-            }
+            AddInstallTask(item);
         }
     }
 
@@ -416,6 +465,92 @@ Error DesiredStatusHandler::InstallUpdateItems()
     }
 
     return ErrorEnum::eNone;
+}
+
+Error DesiredStatusHandler::RecoverItems()
+{
+    LOG_INF() << "[profiling] Recover update items start";
+
+    mRecoveryDone = true;
+
+    if (auto err
+        = mImageManager->SetCerts(mCurrentDesiredStatus.mCertificates, mCurrentDesiredStatus.mCertificateChains);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    {
+        auto itemsStatuses = MakeUnique<UpdateItemStatusArray>(mAllocator);
+        if (!itemsStatuses) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
+
+        if (auto err = mItemStatusProvider->GetItemsStatuses(*itemsStatuses); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = mThreadPool.Run(); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        for (const auto& item : mCurrentDesiredStatus.mUpdateItems) {
+            const auto* itemStatus = FindItemStatus(item, *itemsStatuses);
+            if (itemStatus == nullptr || itemStatus->mState != ItemStateEnum::eFailed
+                || !itemStatus->mError.Is(ErrorEnum::eIntegrity)) {
+                continue;
+            }
+
+            LOG_WRN() << "Reinstall update item with integrity error" << Log::Field("id", item.mItemID)
+                      << Log::Field("version", item.mVersion);
+
+            AddInstallTask(item);
+        }
+    }
+
+    auto err = mThreadPool.Wait();
+
+    if (auto shutdownErr = mThreadPool.Shutdown(); !shutdownErr.IsNone() && err.IsNone()) {
+        err = shutdownErr;
+    }
+
+    LOG_INF() << "[profiling] Recover update items end";
+
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+void DesiredStatusHandler::SetItemsFailed(const Array<InstanceStatus>& instancesStatuses)
+{
+    for (const auto& item : mCurrentDesiredStatus.mUpdateItems) {
+        const auto* failureCause = FindItemFailureCause(item, instancesStatuses);
+        if (failureCause == nullptr) {
+            continue;
+        }
+
+        if (failureCause->mError.Is(ErrorEnum::eIntegrity) && !mRecoveryDone) {
+            mRecoveryRequired = true;
+        }
+
+        LOG_ERR() << "Set update item failed" << Log::Field("id", item.mItemID) << Log::Field("version", item.mVersion)
+                  << Log::Field("err", failureCause->mError);
+
+        if (auto err = mItemStatusProvider->SetItemFail(item.mItemID, item.mVersion, failureCause->mError);
+            !err.IsNone()) {
+            LOG_ERR() << "Failed to set update item failed" << Log::Field("id", item.mItemID)
+                      << Log::Field("version", item.mVersion) << Log::Field(err);
+        }
+    }
+}
+
+void DesiredStatusHandler::AddInstallTask(const UpdateItemInfo& item)
+{
+    if (auto err = mThreadPool.AddTask([this, &item](void*) { InstallItem(item); }); !err.IsNone()) {
+        LOG_ERR() << "Failed to add install update item task" << Log::Field("id", item.mItemID)
+                  << Log::Field("version", item.mVersion) << Log::Field(err);
+    }
 }
 
 void DesiredStatusHandler::InstallItem(const UpdateItemInfo& item)
@@ -598,6 +733,8 @@ Error DesiredStatusHandler::WaitInstancesActive()
             return AOS_ERROR_WRAP(err);
         }
     }
+
+    SetItemsFailed(*instancesStatuses);
 
     LOG_INF() << "[profiling] Wait instances active end";
 

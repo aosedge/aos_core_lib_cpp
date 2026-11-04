@@ -79,6 +79,9 @@ private:
     void  LogDesiredStatus(const DesiredStatus& desiredStatus) const;
     void  SetState(const UpdateState& state);
     Error InstallUpdateItems();
+    Error RecoverItems();
+    void  AddInstallTask(const UpdateItemInfo& item);
+    void  SetItemsFailed(const Array<InstanceStatus>& instancesStatuses);
     void  InstallItem(const UpdateItemInfo& item);
     void  RemoveItem(const UpdateItemStatus& itemStatus);
     Error InstallDesiredStatus();
@@ -110,6 +113,8 @@ private:
     bool        mIsRunning {};
     bool        mHasPendingDesiredStatus {};
     bool        mCancelCurrentUpdate {};
+    bool        mRecoveryRequired {};
+    bool        mRecoveryDone {};
     UpdateState mUpdateState {};
 
     AllocatorItf* mAllocator {};
