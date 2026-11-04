@@ -121,49 +121,69 @@ Launcher processes instances in parallel using a thread pool.
 ## Update instances
 
 On update instances request, launcher checks if previous launch is still in progress. If so, it returns
-`eWrongState` error. Otherwise, it stops all running instances, updates storage and local cache to reflect
-new instances, and starts required instances. After all instances updated,
-it sends node instances status using `InstanceStatusSenderItf`.
+`eWrongState` error. Otherwise, it stops the requested instances and removes them from storage and local cache.
+It then removes unused update items and installs required items, once per item ID and version.
+If reading installed items fails, launcher logs the error and attempts to install all required items.
+
+An installation failure marks every dependent instance as `eFailed` with the installation error. These instances
+remain in the local cache for status reporting, but are not prepared, persisted, or started. Other items can still
+start normally. On a subsequent request, cached `eFailed` instances are prepared again after successful installation.
+This retry applies to all failed instances, including failures during preparation or runtime startup.
+
+After preparing eligible instances, launcher starts their networks and runtimes and sends node instances statuses.
 
 ```mermaid
 sequenceDiagram
     participant smclient
     participant launcher
+    participant imagemanager
     participant runtimes@{ "type" : "collections" }
     participant storage
 
     smclient ->> launcher: UpdateInstances
     alt Previous launch is in progress
         launcher ->> smclient: eWrongState
-
     else Previous launch completed
-        loop All runtimes
-            loop Stop instances
-                launcher ->> runtimes: StopInstance
-                runtimes -->> launcher: eInactive
-            end
+        loop Stop instances
+            launcher ->> runtimes: StopInstance
+            launcher ->> launcher: Stop instance network
+            launcher ->> storage: RemoveInstanceInfo (ignore eNotFound)
+            launcher ->> launcher: Release network and remove from cache
+        end
 
-            loop Cached instances
-                launcher ->> storage: RemoveInstanceInfo
-                launcher ->> launcher: removeFromCache
-            end
+        launcher ->> imagemanager: Remove unused update items
+        launcher ->> imagemanager: GetAllInstalledItems
+        loop Required items not known to be installed
+            launcher ->> imagemanager: InstallUpdateItem
+            imagemanager -->> launcher: Installation result
+        end
 
-            loop Start instances
-                launcher ->> launcher: addToCache
-                launcher ->> runtimes: StartInstance
-                
-                runtimes -->> launcher: status
-                alt  eActive or eActivating
+        loop Start instances
+            launcher ->> launcher: Find or add to cache
+            alt Item installation failed
+                launcher ->> launcher: Set eFailed with installation error
+            else Item available
+                opt New or previously failed instance
                     launcher ->> storage: UpdateInstanceInfo
+                    launcher ->> launcher: Prepare configs and network
+                end
+                alt Preparation succeeded
+                    launcher ->> launcher: Start instance network
+                    opt Network startup succeeded
+                        launcher ->> runtimes: StartInstance
+                        runtimes -->> launcher: status
+                    end
+                else Preparation failed
+                    launcher ->> launcher: Set eFailed
                 end
             end
         end
+        launcher ->> smclient: SendNodeInstancesStatuses
     end
-
-    launcher ->> smclient: SendNodeInstancesStatuses
 ```
 
-Launcher processes instances in parallel using a thread pool.
+Launcher processes instances in parallel using a thread pool. Installation, preparation, network startup, and
+runtime startup are separate stages; each stage completes before the next one starts.
 
 ## aos::sm::launcher::InstanceStatusReceiverItf
 
