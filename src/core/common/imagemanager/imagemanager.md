@@ -149,8 +149,9 @@ from their own `Init`.
 
 During start:
 
-* items left in `eInstalling` state are set to `eRemoved`: their install was interrupted rather than failed, so their
-  blobs are kept and aren't downloaded again if the item is installed again;
+* items left in `eInstalling` or `eDownloading` state are set to `eFailed` with the `eCanceled` error: their install was
+  interrupted, so they are handled as canceled items. Their blobs are kept and aren't downloaded again if the item is
+  installed again;
 * items in `eRemoved` state are added as outdated to the space allocator. An error of adding an item is only logged;
 * the cleanup thread and its timer are started, see [Cleanup](#cleanup). `Start` doesn't wait for the cleanup.
 
