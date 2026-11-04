@@ -17,6 +17,29 @@
 namespace aos::fs {
 
 /***********************************************************************************************************************
+ * Static
+ **********************************************************************************************************************/
+
+namespace {
+
+Error FileErrnoToError(int32_t code)
+{
+    switch (code) {
+    case EIO:
+    case EBADMSG:
+        return ErrorEnum::eIntegrity;
+
+    case ENOENT:
+        return ErrorEnum::eNotFound;
+
+    default:
+        return Error(code);
+    }
+}
+
+} // namespace
+
+/***********************************************************************************************************************
  * DirIterator implementation
  **********************************************************************************************************************/
 
@@ -430,19 +453,19 @@ Error ReadFile(const String& fileName, Array<uint8_t>& buff)
     auto fd = open(fileName.CStr(), O_RDONLY); // NOSONAR cppsecurity:S2083 - path is local device config, not
                                                // attacker-controlled
     if (fd < 0) {
-        return Error(errno);
+        return FileErrnoToError(errno);
     }
 
     auto closeFile = DeferRelease(&fd, [](const int32_t* fd) { (void)close(*fd); });
 
     auto size = lseek(fd, 0, SEEK_END);
     if (size < 0) {
-        return errno;
+        return FileErrnoToError(errno);
     }
 
     auto pos = lseek(fd, 0, SEEK_SET);
     if (pos < 0) {
-        return errno;
+        return FileErrnoToError(errno);
     }
 
     if (auto err = buff.Resize(size); !err.IsNone()) {
@@ -452,17 +475,18 @@ Error ReadFile(const String& fileName, Array<uint8_t>& buff)
     while (pos < size) {
         auto count = read(fd, buff.Get() + pos, buff.Size() - pos);
         if (count < 0) {
-            return errno;
+            return FileErrnoToError(errno);
+        }
+
+        // The file was truncated after its size had been taken: return the content that is left.
+        if (count == 0) {
+            break;
         }
 
         pos += count;
     }
 
-    if (close(fd) != 0) {
-        return errno;
-    }
-
-    return ErrorEnum::eNone;
+    return buff.Resize(pos);
 }
 
 Error ReadFileToString(const String& fileName, String& text)
