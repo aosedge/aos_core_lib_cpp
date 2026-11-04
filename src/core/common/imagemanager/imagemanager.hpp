@@ -75,6 +75,18 @@ public:
     Error GetItemsStatuses(Array<UpdateItemStatus>& statuses) override;
 
     /**
+     * Sets item to the eFailed state with the error and notifies it if the state is changed. Waits while the same item
+     * version is being installed or removed, or while cMaxNumConcurrentItems items are being processed.
+     *
+     * @param itemID item ID.
+     * @param version item version.
+     * @param error failure reason.
+     * @return Error: eNotFound if the item version is not stored, eWrongState if the item is in the eRemoved state,
+     * other errors as is.
+     */
+    Error SetItemFail(const String& itemID, const String& version, const Error& error) override;
+
+    /**
      * Subscribes status notifications.
      *
      * @note Must not be called from a listener notification callback: listeners are notified under the listeners

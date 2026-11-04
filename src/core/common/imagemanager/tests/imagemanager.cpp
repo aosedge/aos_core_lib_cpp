@@ -2471,6 +2471,94 @@ TEST_F(CommonImageManagerRemoveTest, GetItemsStatusesDuringRemove)
     EXPECT_EQ(GetReportedState(cTestItemID, cTestVersion), ItemStateEnum::eRemoved);
 }
 
+TEST_F(CommonImageManagerRemoveTest, SetItemFail)
+{
+    AddStoredItem(cTestItemID, cTestVersion, ItemStateEnum::eInstalled);
+
+    auto err = mImageManager.SetItemFail(cTestItemID, cTestVersion, Error(ErrorEnum::eIntegrity, "corrupted"));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(GetNotifiedStates(), std::vector<ItemStateEnum>({ItemStateEnum::eFailed}));
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eFailed);
+    EXPECT_TRUE(item->mError.Is(ErrorEnum::eIntegrity)) << tests::utils::ErrorToStr(item->mError);
+}
+
+TEST_F(CommonImageManagerRemoveTest, SetItemFailNotStoredItem)
+{
+    auto err = mImageManager.SetItemFail(cTestItemID, cTestVersion, ErrorEnum::eIntegrity);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(GetNotifiedStates().empty());
+}
+
+TEST_F(CommonImageManagerRemoveTest, SetItemFailRemovedItem)
+{
+    AddStoredItem(cTestItemID, cTestVersion, ItemStateEnum::eRemoved);
+
+    const auto storedItem = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(storedItem.has_value());
+
+    auto err = mImageManager.SetItemFail(cTestItemID, cTestVersion, ErrorEnum::eIntegrity);
+    EXPECT_TRUE(err.Is(ErrorEnum::eWrongState)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(GetNotifiedStates().empty());
+    EXPECT_EQ(GetStoredItem(cTestItemID, cTestVersion), storedItem);
+}
+
+TEST_F(CommonImageManagerRemoveTest, SetItemFailWaitsForInstall)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    std::promise<void> downloadStarted;
+    std::promise<void> downloadReleased;
+    auto               downloadReleasedFuture = downloadReleased.get_future();
+
+    EXPECT_CALL(mImageManager, DownloadBlob(_, _))
+        .WillOnce(Invoke([&](const String& path, const BlobInfo& blobInfo) {
+            downloadStarted.set_value();
+            downloadReleasedFuture.wait();
+
+            return DownloadTestBlob(path, blobInfo);
+        }))
+        .WillRepeatedly(Invoke(DownloadTestBlob));
+
+    Error installErr, failErr;
+
+    std::thread installThread([&]() { installErr = mImageManager.Install(MakeInstallInfo(manifest.mManifest)); });
+
+    downloadStarted.get_future().wait();
+
+    std::thread failThread(
+        [&]() { failErr = mImageManager.SetItemFail(cTestItemID, cTestVersion, ErrorEnum::eIntegrity); });
+
+    // Gives SetItemFail time to reach LockItem: without waiting there, it would notify eFailed and fail the check
+    // below.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    EXPECT_EQ(
+        GetNotifiedStates(), std::vector<ItemStateEnum>({ItemStateEnum::eInstalling, ItemStateEnum::eDownloading}));
+
+    downloadReleased.set_value();
+
+    installThread.join();
+    failThread.join();
+
+    ASSERT_TRUE(installErr.IsNone()) << tests::utils::ErrorToStr(installErr);
+    ASSERT_TRUE(failErr.IsNone()) << tests::utils::ErrorToStr(failErr);
+
+    EXPECT_EQ(GetNotifiedStates(),
+        std::vector<ItemStateEnum>({ItemStateEnum::eInstalling, ItemStateEnum::eDownloading, ItemStateEnum::eInstalled,
+            ItemStateEnum::eFailed}));
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eFailed);
+    EXPECT_TRUE(item->mError.Is(ErrorEnum::eIntegrity)) << tests::utils::ErrorToStr(item->mError);
+}
+
 TEST_F(CommonImageManagerRemoveTest, RemoveWaitsForInstall)
 {
     const auto manifest = AddManifest(1, 1, 1);

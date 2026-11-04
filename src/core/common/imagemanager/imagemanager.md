@@ -336,6 +336,13 @@ Appends one status per item version in the storage to the output array, which is
 is reported with its last notified state, otherwise the stored state is reported. An item left in `eInstalling` state
 without an install in progress is reported as `eFailed`.
 
+### SetItemFail
+
+Sets the item to `eFailed` with the error provided by an external module, for example when the item instances fail. It
+waits while the same item version is being processed. It fails with `eNotFound` if the version is not stored and with
+`eWrongState` if the item is in `eRemoved` state. The item is handled as any other failed item: it stays in the storage
+with its blobs until it is installed again or removed.
+
 ### SubscribeListener
 
 Subscribes to item status changes. It returns `eAlreadyExist` if the listener is already subscribed.
