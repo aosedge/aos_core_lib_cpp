@@ -19,6 +19,7 @@ namespace aos::common::imagemanager {
 class ItemStatusProviderMock : public ItemStatusProviderItf {
 public:
     MOCK_METHOD(Error, GetItemsStatuses, (Array<UpdateItemStatus>&), (override));
+    MOCK_METHOD(Error, SetItemFail, (const String&, const String&, const Error&), (override));
     MOCK_METHOD(Error, SubscribeListener, (ItemStatusListenerItf&), (override));
     MOCK_METHOD(Error, UnsubscribeListener, (ItemStatusListenerItf&), (override));
 };
