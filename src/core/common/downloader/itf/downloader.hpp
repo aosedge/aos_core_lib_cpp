@@ -34,22 +34,12 @@ public:
      * @param digest file digest.
      * @param urls file URLs.
      * @param path path to file.
-     * @return Error: eCanceled if the download is canceled by the cancel context or by Cancel, eInvalidArgument if
-     * urls is empty, eAlreadyExist if a download of the same digest is in progress, otherwise the error of the last
-     * attempt.
+     * @return Error: eCanceled if the download is canceled by the cancel context, eInvalidArgument if urls is empty,
+     * eAlreadyExist if a download of the same digest is in progress, otherwise the error of the last attempt.
      */
     virtual Error Download(
         CancelContext& ctx, const String& digest, const Array<StaticString<cURLLen>>& urls, const String& path)
         = 0;
-
-    /**
-     * Cancels ongoing download.
-     *
-     * @param digest image digest.
-     *
-     * @return Error.
-     */
-    virtual Error Cancel(const String& digest) = 0;
 };
 
 } // namespace aos::downloader
