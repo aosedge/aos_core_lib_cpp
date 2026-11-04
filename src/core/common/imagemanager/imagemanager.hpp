@@ -41,11 +41,11 @@ public:
     virtual ~ImageManager() = default;
 
     /**
-     * Starts image manager. Sets the items whose install was interrupted (left in the eInstalling state) to the
-     * eRemoved state, keeping their blobs, and adds all the items in the eRemoved state as outdated to the space
-     * allocator. No item status is notified. Then starts removing the expired items, i.e. the items in the eRemoved
-     * state for longer than mItemCacheTTL, and then the orphan blobs, i.e. the blobs not used by any item, right away
-     * and every mRemoveOutdatedPeriod. The items and blobs being processed are skipped.
+     * Starts image manager. Sets the items whose install was interrupted (left in the eInstalling or eDownloading
+     * state) to the eFailed state with the eCanceled error, keeping their blobs, and adds all the items in the eRemoved
+     * state as outdated to the space allocator. No item status is notified. Then starts removing the expired items,
+     * i.e. the items in the eRemoved state for longer than mItemCacheTTL, and then the orphan blobs, i.e. the blobs not
+     * used by any item, right away and every mRemoveOutdatedPeriod. The items and blobs being processed are skipped.
      *
      * @return Error: storage errors as is. Errors of adding an outdated item are only logged.
      */
@@ -354,7 +354,7 @@ private:
 
     Error SetInProgressItemState(const String& itemID, const String& version, const UpdateItemType& type,
         ItemStateEnum state, const Error& error = ErrorEnum::eNone);
-    Error RemoveInterruptedItem(DeployableItemInfo& item);
+    Error CancelInterruptedItem(DeployableItemInfo& item);
     void  RestoreRemovingItemState(const UpdateItemStatus& prevStatus, const Error& error);
     Error SetStoredItemState(DeployableItemInfo& item, ItemStateEnum state, const Error& error = ErrorEnum::eNone);
 

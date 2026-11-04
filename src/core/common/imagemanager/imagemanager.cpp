@@ -55,8 +55,8 @@ Error ImageManager::Start()
     }
 
     for (auto& item : *items) {
-        if (item.mState == ItemStateEnum::eInstalling) {
-            if (auto err = RemoveInterruptedItem(item); !err.IsNone()) {
+        if (item.mState == ItemStateEnum::eInstalling || item.mState == ItemStateEnum::eDownloading) {
+            if (auto err = CancelInterruptedItem(item); !err.IsNone()) {
                 return err;
             }
         }
@@ -1498,16 +1498,16 @@ Error ImageManager::SetInProgressItemState(
     return ErrorEnum::eNone;
 }
 
-Error ImageManager::RemoveInterruptedItem(DeployableItemInfo& item)
+Error ImageManager::CancelInterruptedItem(DeployableItemInfo& item)
 {
-    LOG_WRN() << "Remove interrupted item" << Log::Field("itemID", item.mItemID)
+    LOG_WRN() << "Cancel interrupted item" << Log::Field("itemID", item.mItemID)
               << Log::Field("version", item.mVersion);
 
-    // The install was interrupted rather than failed, so the item is kept in the cache with its blobs as outdated.
+    // The install was interrupted, so the item is handled the same way as a canceled one and keeps its blobs.
     // The item status is not notified on start, it is reported by GetItemsStatuses.
-    item.mState     = ItemStateEnum::eRemoved;
+    item.mState     = ItemStateEnum::eFailed;
     item.mTimestamp = Time::Now();
-    item.mError     = ErrorEnum::eNone;
+    item.mError     = ErrorEnum::eCanceled;
 
     if (auto err = mStorage->UpdateDeployableItem(item); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
