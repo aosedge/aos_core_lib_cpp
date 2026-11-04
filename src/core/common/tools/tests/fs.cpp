@@ -711,6 +711,34 @@ TEST_F(FSTest, CalculateSize)
     EXPECT_EQ(size, 0);
 }
 
+TEST_F(FSTest, CalculateSizeDoesNotFollowSymlinks)
+{
+    const auto walkDirRoot = cBaseTestDir / "calculate-symlinks-test";
+    const auto outsideDir  = cBaseTestDir / "calculate-symlinks-outside";
+
+    ASSERT_TRUE(fs::MakeDirAll(walkDirRoot.c_str()).IsNone());
+    ASSERT_TRUE(fs::MakeDirAll(outsideDir.c_str()).IsNone());
+
+    CreateFile((walkDirRoot / "f.txt").c_str(), std::string(1024, 'a').c_str(), 0444);
+    CreateFile((outsideDir / "big.txt").c_str(), std::string(4096, 'b').c_str(), 0444);
+
+    const std::vector<std::pair<std::string, std::filesystem::path>> links = {
+        {outsideDir.string(), walkDirRoot / "dir-link"},
+        {(outsideDir / "big.txt").string(), walkDirRoot / "file-link"},
+        {"/not-existing-target", walkDirRoot / "dangling-link"},
+    };
+
+    size_t expectedSize = 1024;
+
+    for (const auto& [target, link] : links) {
+        std::filesystem::create_symlink(target, link);
+
+        expectedSize += target.size();
+    }
+
+    EXPECT_EQ(fs::CalculateSize(mAllocator, walkDirRoot.c_str()), RetWithError<size_t>(expectedSize));
+}
+
 TEST_F(FSTest, GetFileMTime)
 {
     const auto testFile = cBaseTestDir / "modify-time-test.txt";
