@@ -20,6 +20,7 @@ set(HEADERS
     currentnodemock.hpp
     hwinfoprovidermock.hpp
     identmodulemock.hpp
+    nodeidprovidermock.hpp
     nodemanagermock.hpp
     permhandlermock.hpp
 )
