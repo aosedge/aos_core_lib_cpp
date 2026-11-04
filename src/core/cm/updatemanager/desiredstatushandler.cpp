@@ -11,6 +11,21 @@
 
 namespace aos::cm::updatemanager {
 
+namespace {
+
+/***********************************************************************************************************************
+ * Static
+ **********************************************************************************************************************/
+
+bool IsItemInstallRequired(const UpdateItemStatus& itemStatus)
+{
+    // A failed item is retried only after removing it, except the one whose install was canceled.
+    return itemStatus.mState != ItemStateEnum::eInstalled
+        && (itemStatus.mState != ItemStateEnum::eFailed || itemStatus.mError.Is(ErrorEnum::eCanceled));
+}
+
+} // namespace
+
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
@@ -374,8 +389,7 @@ Error DesiredStatusHandler::InstallUpdateItems()
                 return itemStatus.mItemID == item.mItemID && itemStatus.mType == item.mType
                     && itemStatus.mVersion == item.mVersion;
             });
-            if (it != itemsStatuses->end()
-                && (it->mState == ItemStateEnum::eInstalled || it->mState == ItemStateEnum::eFailed)) {
+            if (it != itemsStatuses->end() && !IsItemInstallRequired(*it)) {
                 LOG_DBG() << "Skip install update item" << Log::Field("id", item.mItemID)
                           << Log::Field("version", item.mVersion) << Log::Field("state", it->mState);
 
@@ -670,8 +684,7 @@ bool DesiredStatusHandler::IsUpdateItemsRequired(const DesiredStatus& desiredSta
     for (const auto& desiredItem : desiredStatus.mUpdateItems) {
         if (auto it = itemsStatuses->FindIf([&desiredItem](const UpdateItemStatus& itemStatus) {
                 return itemStatus.mItemID == desiredItem.mItemID && itemStatus.mType == desiredItem.mType
-                    && itemStatus.mVersion == desiredItem.mVersion
-                    && (itemStatus.mState == ItemStateEnum::eInstalled || itemStatus.mState == ItemStateEnum::eFailed);
+                    && itemStatus.mVersion == desiredItem.mVersion && !IsItemInstallRequired(itemStatus);
             });
             it == itemsStatuses->end()) {
             return true;
