@@ -56,6 +56,16 @@ public:
     virtual Error GetItemsStatuses(Array<UpdateItemStatus>& statuses) = 0;
 
     /**
+     * Sets item to failed state. Waits while the item version is being processed.
+     *
+     * @param itemID item ID.
+     * @param version item version.
+     * @param error failure reason.
+     * @return Error.
+     */
+    virtual Error SetItemFail(const String& itemID, const String& version, const Error& error) = 0;
+
+    /**
      * Subscribes status notifications.
      *
      * @param listener status listener.
