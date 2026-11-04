@@ -22,7 +22,7 @@ namespace aos::cm::database {
  * Database interface.
  */
 class DatabaseItf : public updatemanager::StorageItf,
-                    public common::imagemanager::StorageItf,
+                    public virtual common::imagemanager::StorageItf,
                     public launcher::StorageItf,
                     public storagestate::StorageItf { };
 
