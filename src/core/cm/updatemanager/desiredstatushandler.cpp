@@ -380,7 +380,7 @@ Error DesiredStatusHandler::InstallUpdateItems()
             return AOS_ERROR_WRAP(err);
         }
 
-        if (auto err = mInstallThreadPool.Run(); !err.IsNone()) {
+        if (auto err = mThreadPool.Run(); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
@@ -396,16 +396,16 @@ Error DesiredStatusHandler::InstallUpdateItems()
                 continue;
             }
 
-            if (auto err = mInstallThreadPool.AddTask([this, &item](void*) { InstallItem(item); }); !err.IsNone()) {
+            if (auto err = mThreadPool.AddTask([this, &item](void*) { InstallItem(item); }); !err.IsNone()) {
                 LOG_ERR() << "Failed to add install update item task" << Log::Field("id", item.mItemID)
                           << Log::Field("version", item.mVersion) << Log::Field(err);
             }
         }
     }
 
-    auto err = mInstallThreadPool.Wait();
+    auto err = mThreadPool.Wait();
 
-    if (auto shutdownErr = mInstallThreadPool.Shutdown(); !shutdownErr.IsNone() && err.IsNone()) {
+    if (auto shutdownErr = mThreadPool.Shutdown(); !shutdownErr.IsNone() && err.IsNone()) {
         err = shutdownErr;
     }
 
@@ -618,6 +618,10 @@ Error DesiredStatusHandler::FinalizeUpdate()
         return AOS_ERROR_WRAP(err);
     }
 
+    if (auto err = mThreadPool.Run(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     for (const auto& itemStatus : *itemsStatuses) {
         if (itemStatus.mState == ItemStateEnum::eRemoved) {
             continue;
@@ -630,19 +634,37 @@ Error DesiredStatusHandler::FinalizeUpdate()
             continue;
         }
 
-        LOG_DBG() << "Remove update item" << Log::Field("id", itemStatus.mItemID)
-                  << Log::Field("type", itemStatus.mType) << Log::Field("version", itemStatus.mVersion);
-
-        if (auto err = mImageManager->RemoveItem(itemStatus.mItemID, itemStatus.mVersion); !err.IsNone()) {
-            LOG_ERR() << "Failed to remove update item" << Log::Field("id", itemStatus.mItemID)
-                      << Log::Field("type", itemStatus.mType) << Log::Field("version", itemStatus.mVersion)
-                      << Log::Field(err);
+        if (auto err = mThreadPool.AddTask([this, &itemStatus](void*) { RemoveItem(itemStatus); }); !err.IsNone()) {
+            LOG_ERR() << "Failed to add remove update item task" << Log::Field("id", itemStatus.mItemID)
+                      << Log::Field("version", itemStatus.mVersion) << Log::Field(err);
         }
+    }
+
+    auto err = mThreadPool.Wait();
+
+    if (auto shutdownErr = mThreadPool.Shutdown(); !shutdownErr.IsNone() && err.IsNone()) {
+        err = shutdownErr;
     }
 
     LOG_INF() << "[profiling] Finalize desired status end";
 
+    if (!err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     return ErrorEnum::eNone;
+}
+
+void DesiredStatusHandler::RemoveItem(const UpdateItemStatus& itemStatus)
+{
+    LOG_DBG() << "Remove update item" << Log::Field("id", itemStatus.mItemID) << Log::Field("type", itemStatus.mType)
+              << Log::Field("version", itemStatus.mVersion);
+
+    if (auto err = mImageManager->RemoveItem(itemStatus.mItemID, itemStatus.mVersion); !err.IsNone()) {
+        LOG_ERR() << "Failed to remove update item" << Log::Field("id", itemStatus.mItemID)
+                  << Log::Field("type", itemStatus.mType) << Log::Field("version", itemStatus.mVersion)
+                  << Log::Field(err);
+    }
 }
 
 bool DesiredStatusHandler::IsUpdateRequired(const DesiredStatus& desiredStatus) const
