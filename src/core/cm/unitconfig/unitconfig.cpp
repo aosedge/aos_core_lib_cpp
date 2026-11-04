@@ -284,7 +284,7 @@ Error UnitConfig::LoadConfig()
 
     auto err = fs::ReadFileToString(mUnitConfigFile, *unitConfig);
     if (!err.IsNone()) {
-        if (err == ENOENT) {
+        if (err.Is(ErrorEnum::eNotFound)) {
             mUnitConfigState = UnitConfigStateEnum::eAbsent;
 
             return ErrorEnum::eNone;

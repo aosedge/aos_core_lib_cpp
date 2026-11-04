@@ -12,6 +12,7 @@
 #include <iterator>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #include <gtest/gtest.h>
@@ -24,6 +25,42 @@
 using namespace testing;
 
 using namespace aos;
+
+static int         sCloseCount         = 0;
+static int         sReadErrno          = 0;
+static const char* sTruncateOnReadPath = nullptr;
+static off_t       sTruncateOnReadSize = 0;
+
+// File read is intercepted to inject read errors of the integrity checked storage and to truncate the file after
+// ReadFile has taken its size. Both can't be reproduced reliably with a regular file.
+extern "C" ssize_t read(int fd, void* buf, size_t count)
+{
+    if (sReadErrno != 0) {
+        errno = sReadErrno;
+
+        return -1;
+    }
+
+    if (sTruncateOnReadPath != nullptr) {
+        const auto* path = sTruncateOnReadPath;
+
+        sTruncateOnReadPath = nullptr;
+
+        if (truncate(path, sTruncateOnReadSize) != 0) {
+            return -1;
+        }
+    }
+
+    return static_cast<ssize_t>(syscall(SYS_read, fd, buf, count));
+}
+
+// File close is intercepted to count the close calls: closing a descriptor twice can't be detected otherwise.
+extern "C" int close(int fd)
+{
+    sCloseCount++;
+
+    return static_cast<int>(syscall(SYS_close, fd));
+}
 
 static const auto cBaseTestDir = std::filesystem::current_path() / "fs_test";
 
@@ -399,6 +436,88 @@ TEST_F(FSTest, ReadFile)
     EXPECT_FALSE(fs::ReadFile(wrongFileName.c_str(), bigBuff).IsNone());
 
     fs::RemoveAll(testFile.c_str());
+}
+
+TEST_F(FSTest, ReadFileTruncatedDuringRead)
+{
+    const auto testFile = cBaseTestDir / "truncated_file";
+
+    CreateFile(testFile.c_str(), "test file");
+
+    StaticArray<uint8_t, 100> buff;
+    const char*               expected = "test";
+
+    sTruncateOnReadPath = testFile.c_str();
+    sTruncateOnReadSize = strlen(expected);
+
+    EXPECT_TRUE(fs::ReadFile(testFile.c_str(), buff).IsNone());
+    EXPECT_EQ(buff, Array<uint8_t>(reinterpret_cast<const uint8_t*>(expected), strlen(expected)));
+}
+
+TEST_F(FSTest, ReadFileErrors)
+{
+    const auto testFile = cBaseTestDir / "read_errors_file";
+
+    CreateFile(testFile.c_str());
+
+    struct TestData {
+        int   mErrno;
+        Error mExpected;
+    };
+
+    const TestData testData[] = {
+        {EIO, ErrorEnum::eIntegrity},
+        {EBADMSG, ErrorEnum::eIntegrity},
+        {EPERM, Error(EPERM)},
+    };
+
+    for (const auto& data : testData) {
+        StaticArray<uint8_t, 100> buff;
+        StaticString<100>         text;
+
+        sReadErrno = data.mErrno;
+
+        const auto readFileErr   = fs::ReadFile(testFile.c_str(), buff);
+        const auto readStringErr = fs::ReadFileToString(testFile.c_str(), text);
+
+        sReadErrno = 0;
+
+        EXPECT_TRUE(readFileErr.Is(data.mExpected)) << "errno: " << data.mErrno;
+        EXPECT_TRUE(readStringErr.Is(data.mExpected)) << "errno: " << data.mErrno;
+    }
+}
+
+TEST_F(FSTest, ReadFileMissingIsNotFound)
+{
+    const auto testFile = cBaseTestDir / "missing_file";
+
+    StaticArray<uint8_t, 100> buff;
+    StaticString<100>         text;
+
+    EXPECT_TRUE(fs::ReadFile(testFile.c_str(), buff).Is(ErrorEnum::eNotFound));
+    EXPECT_TRUE(fs::ReadFileToString(testFile.c_str(), text).Is(ErrorEnum::eNotFound));
+}
+
+TEST_F(FSTest, ReadFileClosesFileOnce)
+{
+    const auto testFile = cBaseTestDir / "close_once_file";
+
+    CreateFile(testFile.c_str());
+
+    StaticArray<uint8_t, 100> buff;
+
+    sCloseCount = 0;
+
+    EXPECT_TRUE(fs::ReadFile(testFile.c_str(), buff).IsNone());
+    EXPECT_EQ(sCloseCount, 1);
+
+    sReadErrno  = EIO;
+    sCloseCount = 0;
+
+    EXPECT_TRUE(fs::ReadFile(testFile.c_str(), buff).Is(ErrorEnum::eIntegrity));
+    EXPECT_EQ(sCloseCount, 1);
+
+    sReadErrno = 0;
 }
 
 TEST_F(FSTest, ReadFileToString)
