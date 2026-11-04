@@ -25,6 +25,7 @@ set(INSTALL_LIBRARIES
     aos_core_iam_filehwinfoprovider
     aos_core_iam_identhandler
     aos_core_iam_identmodules_fileidentifier
+    aos_core_iam_nodeidprovider
     aos_core_iam_nodemanager
     aos_core_iam_permhandler
     aos_core_iam_provisionmanager
