@@ -12,6 +12,7 @@
 
 #include <core/common/crypto/cryptohelper.hpp>
 #include <core/common/crypto/itf/crypto.hpp>
+#include <core/common/crypto/itf/privkey.hpp>
 
 namespace aos::crypto {
 
@@ -28,6 +29,22 @@ public:
             const Array<crypto::CertificateInfo>& certs),
         (override));
     MOCK_METHOD(Error, DecryptMetadata, (const Array<uint8_t>& input, Array<uint8_t>& output), (override));
+};
+
+/**
+ * Provides interface to mock a private (or symmetric, e.g. pkcs11::AESPrivateKey) key that never exposes
+ * its own value.
+ */
+class PrivateKeyMock : public PrivateKeyItf {
+public:
+    MOCK_METHOD(const PublicKeyItf&, GetPublic, (), (const, override));
+    MOCK_METHOD(Error, Sign, (const Array<uint8_t>& digest, const SignOptions& options, Array<uint8_t>& signature),
+        (const, override));
+    MOCK_METHOD(Error, Decrypt,
+        (const Array<uint8_t>& cipher, const DecryptionOptions& options, Array<uint8_t>& result), (const, override));
+    MOCK_METHOD(Error, StreamDecrypt,
+        (ChunkProviderItf & chunkProvider, const DecryptionOptions& options, ChunkReceiverItf& chunkReceiver),
+        (const, override));
 };
 
 namespace x509 {

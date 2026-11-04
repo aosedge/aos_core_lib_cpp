@@ -877,6 +877,11 @@ typedef struct CK_GCM_PARAMS {
 	unsigned long ulTagBits;
 } CK_GCM_PARAMS;
 
+typedef struct CK_AES_CTR_PARAMS {
+	unsigned long ulCounterBits;
+	unsigned char cb[16];
+} CK_AES_CTR_PARAMS;
+
 typedef unsigned long ck_rv_t;
 
 

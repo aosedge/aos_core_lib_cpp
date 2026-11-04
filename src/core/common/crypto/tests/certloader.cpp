@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 #include <core/common/crypto/certloader.hpp>
+#include <core/common/pkcs11/pkcs11.hpp>
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
 #include <core/common/tests/crypto/softhsmenv.hpp>
 #include <core/common/tests/utils/log.hpp>
@@ -68,6 +69,49 @@ protected:
         ASSERT_TRUE(pkcs11::Utils(mAllocator, session, *mCryptoProvider)
                         .ImportCertificate(clientID, mLabel, clientCert)
                         .IsNone());
+    }
+
+    // Provisions a non-extractable CKO_SECRET_KEY (AES) object: the posture LoadPrivKeyByURL/FindPrivateKey
+    // actually search for (alongside CKO_PRIVATE_KEY), and the only one production provisioning is expected
+    // to create. The key's own value is never read back by anything under test here (crypto::PrivateKeyItf
+    // never exposes it).
+    void WriteSecretKeyObject(const Array<uint8_t>& id, const String& label, const Array<uint8_t>& value)
+    {
+        Error                             err = ErrorEnum::eNone;
+        SharedPtr<pkcs11::SessionContext> session;
+
+        Tie(session, err) = mSoftHSMEnv.OpenUserSession(mPIN, true);
+        ASSERT_TRUE(err.IsNone());
+
+        CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
+        CK_KEY_TYPE     keyType  = CKK_AES;
+        CK_BBOOL        trueVal  = CK_TRUE;
+        CK_BBOOL        falseVal = CK_FALSE;
+
+        StaticArray<pkcs11::ObjectAttribute, 10> templ;
+
+        auto pushBytes = [&](pkcs11::AttributeType type, const void* data, size_t size) {
+            ASSERT_TRUE(
+                templ.PushBack({type, Array<uint8_t>(reinterpret_cast<uint8_t*>(const_cast<void*>(data)), size)})
+                    .IsNone());
+        };
+
+        pushBytes(CKA_CLASS, &keyClass, sizeof(keyClass));
+        pushBytes(CKA_KEY_TYPE, &keyType, sizeof(keyType));
+        pushBytes(CKA_TOKEN, &trueVal, sizeof(trueVal));
+        pushBytes(CKA_PRIVATE, &trueVal, sizeof(trueVal));
+        pushBytes(CKA_EXTRACTABLE, &falseVal, sizeof(falseVal));
+        pushBytes(CKA_SENSITIVE, &trueVal, sizeof(trueVal));
+        pushBytes(CKA_ID, id.Get(), id.Size());
+        pushBytes(CKA_LABEL, label.Get(), label.Size());
+        ASSERT_TRUE(
+            templ.PushBack({CKA_VALUE, Array<uint8_t>(const_cast<uint8_t*>(value.Get()), value.Size())}).IsNone());
+
+        pkcs11::ObjectHandle handle    = 0;
+        Error                createErr = ErrorEnum::eNone;
+
+        Tie(handle, createErr) = session->CreateObject(templ);
+        ASSERT_TRUE(createErr.IsNone());
     }
 
     void GeneratePrivateKey(const Array<uint8_t>& id)
@@ -337,6 +381,45 @@ TEST_F(CertloaderTest, FindCertificatesFromFile)
 
     ASSERT_TRUE(mCryptoProvider->ASN1DecodeDN((*chain)[1].mIssuer, issuer).IsNone());
     EXPECT_EQ(std::string(issuer.CStr()), std::string("CN=Aos Cloud"));
+}
+
+TEST_F(CertloaderTest, FindPKCS11SecretKey)
+{
+    constexpr uint8_t id[]    = {0xDD, 0xEE, 0xFF};
+    constexpr uint8_t value[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+        0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20};
+
+    WriteSecretKeyObject(Array(id, ArraySize(id)), "aos-layer-key", Array(value, ArraySize(value)));
+
+    const auto url = "pkcs11:token=cryptoutils;object=aos-layer-key;id=%DD%EE%FF?module-path=" SOFTHSM2_LIB
+                     "&pin-source="
+        + std::string(mPINSource);
+
+    auto [key, err] = mCertLoader.LoadPrivKeyByURL(url.c_str());
+
+    // the key's own value is never exposed: success and a non-null handle is all there is to check here.
+    // Actually decrypting with it is covered by the pkcs11/sm/imagemanager round-trip tests.
+    ASSERT_TRUE(err.IsNone());
+    EXPECT_TRUE(key);
+}
+
+TEST_F(CertloaderTest, FindPKCS11SecretKeyNotFound)
+{
+    constexpr uint8_t id[]    = {0xDD, 0xEE, 0xFF};
+    constexpr uint8_t value[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+        0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20};
+
+    WriteSecretKeyObject(Array(id, ArraySize(id)), "aos-layer-key", Array(value, ArraySize(value)));
+
+    // matches neither the secret key above (wrong label) nor any RSA/ECDSA key pair.
+    const auto url = "pkcs11:token=cryptoutils;object=no-such-label;id=%DD%EE%FF?module-path=" SOFTHSM2_LIB
+                     "&pin-source="
+        + std::string(mPINSource);
+
+    auto [key, err] = mCertLoader.LoadPrivKeyByURL(url.c_str());
+
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound));
+    EXPECT_FALSE(key);
 }
 
 } // namespace aos::crypto

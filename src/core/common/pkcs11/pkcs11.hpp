@@ -447,6 +447,28 @@ public:
         CK_MECHANISM_PTR mechanism, ObjectHandle privKey, const Array<uint8_t>& data, Array<uint8_t>& result) const;
 
     /**
+     * Decrypts data supplied incrementally by chunkProvider using a multi-part PKCS11 operation, so
+     * the whole ciphertext never needs to be held in memory at once. Whatever plaintext each
+     * C_DecryptUpdate/C_DecryptFinal call releases is written into chunkReceiver's buffer and handed
+     * to chunkReceiver as it comes back; many PKCS11 modules (SoftHSM2 included, verified empirically
+     * against CKM_AES_GCM) only release AEAD-decrypted data once the tag has been checked, at
+     * C_DecryptFinal, all at once - so chunkReceiver's buffer must have capacity for the whole
+     * plaintext regardless of how input was chunked.
+     *
+     * @param mechanism mechanism used to decrypt.
+     * @param privKey the handle of the private/secret key.
+     * @param chunkProvider supplies ciphertext chunks (and owns their storage).
+     * @param chunkReceiver receives decrypted chunks (and owns their storage).
+     * @return Error. ErrorEnum::eNotSupported if C_DecryptUpdate/C_DecryptFinal fails with
+     * CKR_FUNCTION_NOT_SUPPORTED or CKR_MECHANISM_INVALID: some PKCS11 modules don't support multi-part
+     * operations for a mechanism at all, and only say so once data is pushed through, not at C_DecryptInit.
+     * Any other token error (e.g. CKR_DEVICE_MEMORY for a too large chunk) is returned as is. On any error
+     * the decrypt operation is terminated, so the session is ready for a new one.
+     */
+    Error DecryptMultiPart(CK_MECHANISM_PTR mechanism, ObjectHandle privKey, crypto::ChunkProviderItf& chunkProvider,
+        crypto::ChunkReceiverItf& chunkReceiver) const;
+
+    /**
      * Returns session handle.
      *
      * @return session handle.
@@ -471,6 +493,13 @@ private:
 
     Error DecryptInit(CK_MECHANISM_PTR mechanism, ObjectHandle privKey) const;
     Error Decrypt(const Array<uint8_t>& data, CK_BYTE_PTR result, CK_ULONG_PTR resultSize) const;
+    Error DecryptParts(
+        crypto::ChunkProviderItf& chunkProvider, crypto::ChunkReceiverItf& chunkReceiver, Array<uint8_t>& buffer) const;
+    void AbortDecrypt(Array<uint8_t>& buffer) const;
+
+    static Error ConvertMultiPartError(const Error& err);
+    Error        DecryptUpdate(const Array<uint8_t>& data, CK_BYTE_PTR result, CK_ULONG_PTR resultSize) const;
+    Error        DecryptFinal(CK_BYTE_PTR result, CK_ULONG_PTR resultSize) const;
 
     Error FindObjectsInit(const Array<ObjectAttribute>& templ) const;
     Error FindObjects(Array<ObjectHandle>& objects) const;
@@ -751,7 +780,10 @@ public:
         const Array<uint8_t>& id, const String& label, EllipticCurve curve);
 
     /**
-     * Retrieves a previously created asymmetric key pair.
+     * Retrieves a previously created key by id/label: an asymmetric (RSA/ECDSA) key pair, or a CKO_SECRET_KEY
+     * (AES) object wrapped as an aos::crypto::PrivateKeyItf whose GetPublic/Sign are simply not supported
+     * (AESPrivateKey), so callers that only need PrivateKeyItf::Decrypt don't need to know which one they got.
+     * The returned PrivateKey's pub handle is 0 for the AES case.
      *
      * @param id key id.
      * @param label key label.
