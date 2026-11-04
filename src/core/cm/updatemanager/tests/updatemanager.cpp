@@ -333,9 +333,20 @@ void ConvertInstancesStatuses(
             status.mRuntimeID      = instanceStatus->mRuntimeID;
             status.mManifestDigest = instanceStatus->mManifestDigest;
             status.mState          = instanceStatus->mState;
+            status.mError          = instanceStatus->mError;
             status.mPreinstalled   = unitInstanceStatus.mPreinstalled;
 
             instancesStatuses.PushBack(status);
+        }
+    }
+}
+
+void SetInstancesFailed(Array<InstanceStatus>& instances, const String& itemID, const Error& error)
+{
+    for (auto& instance : instances) {
+        if (instance.mItemID == itemID) {
+            instance.mState = InstanceStateEnum::eFailed;
+            instance.mError = error;
         }
     }
 }
@@ -1490,6 +1501,568 @@ TEST_F(UpdateManagerTest, FailedItemNotInDesiredStatusIsRemoved)
     EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
 
     EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+}
+
+TEST_F(UpdateManagerTest, RecoverItemsWithIntegrityError)
+{
+    auto expectedUnitStatus = std::make_unique<UnitStatus>();
+    auto desiredStatus      = std::make_unique<DesiredStatus>();
+
+    EmptyUnitStatus(*expectedUnitStatus);
+
+    // Notify cloud connection established
+
+    mConnectionListener->OnConnect();
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+
+    // Set desired status
+
+    CreateUpdateItemInfo(*desiredStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0");
+    CreateUpdateItemInfo(*desiredStatus, "item2", UpdateItemTypeEnum::eService, "1.0.0");
+    desiredStatus->mInstances.EmplaceBack(DesiredInstanceInfo {"item1", "subject1", 0, 2, {}});
+    desiredStatus->mInstances.EmplaceBack(DesiredInstanceInfo {"item2", "subject1", 0, 1, {}});
+    desiredStatus->mSubjects.EmplaceBack(SubjectInfo {"subject1", SubjectTypeEnum::eUser});
+
+    // Set expected statuses
+
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalled);
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "item2", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalled);
+    CreateInstancesStatuses(*expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "subject1", "1.0.0", 2);
+    CreateInstancesStatuses(*expectedUnitStatus, "item2", UpdateItemTypeEnum::eService, "subject1", "1.0.0", 1);
+
+    auto runRequest = std::make_unique<StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>>();
+
+    CreateRunRequest(*desiredStatus, *runRequest);
+
+    // Expect calls: item1 failed with the integrity error is installed again between the launches, item2 failed with
+    // another error is not
+
+    std::atomic_int  numRuns {0};
+    std::vector<int> item1InstallRuns;
+
+    EXPECT_CALL(mImageManagerMock, SetCerts(_, _)).Times(2).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManagerMock, InstallItem(desiredStatus->mUpdateItems[0]))
+        .Times(2)
+        .WillRepeatedly(InvokeWithoutArgs([&]() {
+            item1InstallRuns.push_back(numRuns);
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mImageManagerMock, InstallItem(desiredStatus->mUpdateItems[1])).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManagerMock, RemoveItem(_, _)).Times(0);
+    EXPECT_CALL(mItemStatusProviderMock, SetItemFail(String("item1"), String("1.0.0"), _))
+        .WillOnce(Invoke([](const String&, const String&, const Error& error) {
+            EXPECT_TRUE(error.Is(ErrorEnum::eIntegrity));
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mItemStatusProviderMock, SetItemFail(String("item2"), String("1.0.0"), _))
+        .WillOnce(Invoke([](const String&, const String&, const Error& error) {
+            EXPECT_TRUE(error.Is(ErrorEnum::eFailed));
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mLauncherMock, RunInstances(*runRequest, _)).Times(2).WillRepeatedly(InvokeWithoutArgs([&]() {
+        numRuns++;
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
+        .WillRepeatedly(Invoke([&](Array<UpdateItemStatus>& statuses) {
+            if (numRuns > 0) {
+                statuses = expectedUnitStatus->mUpdateItems.GetValue();
+            }
+
+            if (numRuns == 1) {
+                statuses[0].mState = ItemStateEnum::eFailed;
+                statuses[0].mError = ErrorEnum::eIntegrity;
+                statuses[1].mState = ItemStateEnum::eFailed;
+                statuses[1].mError = ErrorEnum::eFailed;
+            }
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillRepeatedly(Invoke([&](Array<InstanceStatus>& instances) {
+        ConvertInstancesStatuses(expectedUnitStatus->mInstances.GetValue(), instances);
+
+        if (numRuns == 1) {
+            // The first item1 instance error is overridden by the integrity error of the second one
+
+            SetInstancesFailed(instances, "item1", ErrorEnum::eIntegrity);
+            instances[0].mError = ErrorEnum::eFailed;
+
+            SetInstancesFailed(instances, "item2", ErrorEnum::eFailed);
+        }
+
+        return ErrorEnum::eNone;
+    }));
+
+    auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+    EXPECT_EQ(mStorageStub.GetUpdateState().mValue, UpdateStateEnum::eNone);
+    EXPECT_EQ(item1InstallRuns, std::vector<int>({0, 1}));
+}
+
+TEST_F(UpdateManagerTest, OtherVersionInstanceDoesNotRecoverItems)
+{
+    auto expectedUnitStatus = std::make_unique<UnitStatus>();
+    auto desiredStatus      = std::make_unique<DesiredStatus>();
+
+    EmptyUnitStatus(*expectedUnitStatus);
+
+    // Notify cloud connection established
+
+    mConnectionListener->OnConnect();
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+
+    // Set desired status
+
+    CreateUpdateItemInfo(*desiredStatus, "item1", UpdateItemTypeEnum::eService, "2.0.0");
+    desiredStatus->mInstances.EmplaceBack(DesiredInstanceInfo {"item1", "subject1", 0, 1, {}});
+    desiredStatus->mSubjects.EmplaceBack(SubjectInfo {"subject1", SubjectTypeEnum::eUser});
+
+    // Set expected statuses: the instance reports another version than the desired item
+
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "2.0.0", ItemStateEnum::eInstalled);
+    CreateInstancesStatuses(
+        *expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "subject1", "1.0.0", 1, InstanceStateEnum::eFailed);
+
+    sInstanceStatusStorage.Back().mError = ErrorEnum::eIntegrity;
+
+    auto runRequest = std::make_unique<StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>>();
+
+    CreateRunRequest(*desiredStatus, *runRequest);
+
+    // Expect calls: the update is finished without recovering
+
+    std::atomic_bool instancesLaunched {false};
+
+    EXPECT_CALL(mImageManagerMock, SetCerts(_, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManagerMock, InstallItem(desiredStatus->mUpdateItems[0])).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManagerMock, RemoveItem(_, _)).Times(0);
+    EXPECT_CALL(mItemStatusProviderMock, SetItemFail(_, _, _)).Times(0);
+    EXPECT_CALL(mLauncherMock, RunInstances(*runRequest, _)).WillOnce(InvokeWithoutArgs([&]() {
+        instancesLaunched = true;
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
+        .WillRepeatedly(Invoke([&](Array<UpdateItemStatus>& statuses) {
+            if (instancesLaunched) {
+                statuses = expectedUnitStatus->mUpdateItems.GetValue();
+            }
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillRepeatedly(Invoke([&](Array<InstanceStatus>& instances) {
+        ConvertInstancesStatuses(expectedUnitStatus->mInstances.GetValue(), instances);
+
+        return ErrorEnum::eNone;
+    }));
+
+    auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+    EXPECT_EQ(mStorageStub.GetUpdateState().mValue, UpdateStateEnum::eNone);
+}
+
+TEST_F(UpdateManagerTest, PartiallyFailedInstances)
+{
+    auto expectedUnitStatus = std::make_unique<UnitStatus>();
+    auto desiredStatus      = std::make_unique<DesiredStatus>();
+
+    EmptyUnitStatus(*expectedUnitStatus);
+
+    // Notify cloud connection established
+
+    mConnectionListener->OnConnect();
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+
+    // Set desired status
+
+    CreateUpdateItemInfo(*desiredStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0");
+    CreateUpdateItemInfo(*desiredStatus, "item2", UpdateItemTypeEnum::eService, "1.0.0");
+    desiredStatus->mInstances.EmplaceBack(DesiredInstanceInfo {"item1", "subject1", 0, 2, {}});
+    desiredStatus->mInstances.EmplaceBack(DesiredInstanceInfo {"item2", "subject1", 0, 2, {}});
+    desiredStatus->mSubjects.EmplaceBack(SubjectInfo {"subject1", SubjectTypeEnum::eUser});
+
+    // Set expected statuses
+
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalled);
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "item2", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalled);
+    CreateInstancesStatuses(*expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "subject1", "1.0.0", 2);
+    CreateInstancesStatuses(*expectedUnitStatus, "item2", UpdateItemTypeEnum::eService, "subject1", "1.0.0", 2);
+
+    auto runRequest = std::make_unique<StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>>();
+
+    CreateRunRequest(*desiredStatus, *runRequest);
+
+    // Expect calls: item1 has one instance failed with a non integrity error, so it is not set to failed. item2 has one
+    // instance failed with the integrity error, so it is set to failed and installed again.
+
+    std::atomic_int numRuns {0};
+
+    EXPECT_CALL(mImageManagerMock, SetCerts(_, _)).Times(2).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManagerMock, InstallItem(desiredStatus->mUpdateItems[0])).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManagerMock, InstallItem(desiredStatus->mUpdateItems[1]))
+        .Times(2)
+        .WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManagerMock, RemoveItem(_, _)).Times(0);
+    EXPECT_CALL(mItemStatusProviderMock, SetItemFail(_, _, _)).Times(0);
+    EXPECT_CALL(mItemStatusProviderMock, SetItemFail(String("item2"), String("1.0.0"), _))
+        .WillOnce(Invoke([](const String&, const String&, const Error& error) {
+            EXPECT_TRUE(error.Is(ErrorEnum::eIntegrity));
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mLauncherMock, RunInstances(*runRequest, _)).Times(2).WillRepeatedly(InvokeWithoutArgs([&]() {
+        numRuns++;
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
+        .WillRepeatedly(Invoke([&](Array<UpdateItemStatus>& statuses) {
+            if (numRuns > 0) {
+                statuses = expectedUnitStatus->mUpdateItems.GetValue();
+            }
+
+            if (numRuns == 1) {
+                statuses[1].mState = ItemStateEnum::eFailed;
+                statuses[1].mError = ErrorEnum::eIntegrity;
+            }
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillRepeatedly(Invoke([&](Array<InstanceStatus>& instances) {
+        ConvertInstancesStatuses(expectedUnitStatus->mInstances.GetValue(), instances);
+
+        if (numRuns == 1) {
+            instances[0].mState = InstanceStateEnum::eFailed;
+            instances[0].mError = ErrorEnum::eFailed;
+            instances[3].mState = InstanceStateEnum::eFailed;
+            instances[3].mError = ErrorEnum::eIntegrity;
+        }
+
+        return ErrorEnum::eNone;
+    }));
+
+    auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+    EXPECT_EQ(mStorageStub.GetUpdateState().mValue, UpdateStateEnum::eNone);
+}
+
+TEST_F(UpdateManagerTest, RecoverItemsFailsAgainFinishesUpdate)
+{
+    auto expectedUnitStatus = std::make_unique<UnitStatus>();
+    auto desiredStatus      = std::make_unique<DesiredStatus>();
+
+    EmptyUnitStatus(*expectedUnitStatus);
+
+    // Notify cloud connection established
+
+    mConnectionListener->OnConnect();
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+
+    // Set desired status
+
+    CreateUpdateItemInfo(*desiredStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0");
+    desiredStatus->mInstances.EmplaceBack(DesiredInstanceInfo {"item1", "subject1", 0, 1, {}});
+    desiredStatus->mSubjects.EmplaceBack(SubjectInfo {"subject1", SubjectTypeEnum::eUser});
+
+    // Set expected statuses: the item and the instance failed states and errors are reported
+
+    CreateUpdateItemStatus(*expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eFailed);
+
+    expectedUnitStatus->mUpdateItems->Back().mError = ErrorEnum::eIntegrity;
+
+    CreateInstancesStatuses(
+        *expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "subject1", "1.0.0", 1, InstanceStateEnum::eFailed);
+
+    sInstanceStatusStorage.Back().mError = ErrorEnum::eIntegrity;
+
+    auto runRequest = std::make_unique<StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>>();
+
+    CreateRunRequest(*desiredStatus, *runRequest);
+
+    // Expect calls: the item is installed again and the instances are launched again only once
+
+    std::atomic_bool instancesLaunched {false};
+
+    EXPECT_CALL(mImageManagerMock, SetCerts(_, _)).Times(2).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManagerMock, InstallItem(desiredStatus->mUpdateItems[0]))
+        .Times(2)
+        .WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManagerMock, RemoveItem(_, _)).Times(0);
+    EXPECT_CALL(mItemStatusProviderMock, SetItemFail(String("item1"), String("1.0.0"), _))
+        .Times(2)
+        .WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mLauncherMock, RunInstances(*runRequest, _)).Times(2).WillRepeatedly(InvokeWithoutArgs([&]() {
+        instancesLaunched = true;
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
+        .WillRepeatedly(Invoke([&](Array<UpdateItemStatus>& statuses) {
+            if (instancesLaunched) {
+                statuses = expectedUnitStatus->mUpdateItems.GetValue();
+            }
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillRepeatedly(Invoke([&](Array<InstanceStatus>& instances) {
+        ConvertInstancesStatuses(expectedUnitStatus->mInstances.GetValue(), instances);
+
+        return ErrorEnum::eNone;
+    }));
+
+    auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+    EXPECT_EQ(mStorageStub.GetUpdateState().mValue, UpdateStateEnum::eNone);
+}
+
+TEST_F(UpdateManagerTest, ResumeRecoveringAfterRestart)
+{
+    auto err = mUpdateManager.Stop();
+    EXPECT_TRUE(err.IsNone()) << "Failed to stop update manager: " << tests::utils::ErrorToStr(err);
+
+    auto failedUnitStatus = std::make_unique<UnitStatus>();
+    auto activeUnitStatus = std::make_unique<UnitStatus>();
+    auto desiredStatus    = std::make_unique<DesiredStatus>();
+
+    EmptyUnitStatus(*failedUnitStatus);
+    EmptyUnitStatus(*activeUnitStatus);
+
+    // Set desired status
+
+    CreateUpdateItemInfo(*desiredStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0");
+    desiredStatus->mInstances.EmplaceBack(DesiredInstanceInfo {"item1", "subject1", 0, 1, {}});
+    desiredStatus->mSubjects.EmplaceBack(SubjectInfo {"subject1", SubjectTypeEnum::eUser});
+
+    // Set expected statuses
+
+    CreateUpdateItemStatus(*failedUnitStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eFailed);
+
+    failedUnitStatus->mUpdateItems->Back().mError = ErrorEnum::eIntegrity;
+
+    CreateInstancesStatuses(
+        *failedUnitStatus, "item1", UpdateItemTypeEnum::eService, "subject1", "1.0.0", 1, InstanceStateEnum::eFailed);
+
+    sInstanceStatusStorage.Back().mError = ErrorEnum::eIntegrity;
+
+    CreateUpdateItemStatus(
+        *activeUnitStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalled);
+    CreateInstancesStatuses(*activeUnitStatus, "item1", UpdateItemTypeEnum::eService, "subject1", "1.0.0", 1);
+
+    // Store desired status and update state to simulate restart during recovering
+
+    err = mStorageStub.StoreDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to save desired status: " << tests::utils::ErrorToStr(err);
+
+    err = mStorageStub.StoreUpdateState(UpdateStateEnum::eRecovering);
+    EXPECT_TRUE(err.IsNone()) << "Failed to save update state: " << tests::utils::ErrorToStr(err);
+
+    auto runRequest = std::make_unique<StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>>();
+
+    CreateRunRequest(*desiredStatus, *runRequest);
+
+    std::condition_variable cv;
+    std::mutex              mutex;
+    bool                    continueUpdate = false;
+    bool                    installStarted = false;
+    std::atomic_bool        instancesLaunched {false};
+
+    EXPECT_CALL(mImageManagerMock, SetCerts(_, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManagerMock, InstallItem(desiredStatus->mUpdateItems[0]))
+        .WillOnce(Invoke([&](const UpdateItemInfo&) -> Error {
+            std::unique_lock lock(mutex);
+
+            installStarted = true;
+            cv.notify_one();
+
+            EXPECT_TRUE(cv.wait_for(lock, cCVTimeout, [&]() { return continueUpdate; }));
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mImageManagerMock, RemoveItem(_, _)).Times(0);
+    EXPECT_CALL(mLauncherMock, RunInstances(*runRequest, _)).WillOnce(InvokeWithoutArgs([&]() {
+        instancesLaunched = true;
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
+        .WillRepeatedly(Invoke([&](Array<UpdateItemStatus>& statuses) {
+            statuses = instancesLaunched ? activeUnitStatus->mUpdateItems.GetValue()
+                                         : failedUnitStatus->mUpdateItems.GetValue();
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillRepeatedly(Invoke([&](Array<InstanceStatus>& instances) {
+        const auto& status = instancesLaunched ? activeUnitStatus : failedUnitStatus;
+
+        ConvertInstancesStatuses(status->mInstances.GetValue(), instances);
+
+        return ErrorEnum::eNone;
+    }));
+
+    err = mUpdateManager.Start();
+    EXPECT_TRUE(err.IsNone()) << "Failed to start update manager: " << tests::utils::ErrorToStr(err);
+
+    // wait for install to start
+
+    {
+        std::unique_lock lock(mutex);
+
+        ASSERT_TRUE(cv.wait_for(lock, cCVTimeout, [&]() { return installStarted; }));
+    }
+
+    // Notify cloud connection established and wait for unit status
+
+    mConnectionListener->OnConnect();
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *failedUnitStatus);
+
+    // Continue update
+
+    {
+        std::unique_lock lock(mutex);
+
+        continueUpdate = true;
+        cv.notify_one();
+    }
+
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *activeUnitStatus);
+    EXPECT_EQ(mStorageStub.GetUpdateState().mValue, UpdateStateEnum::eNone);
+}
+
+TEST_F(UpdateManagerTest, NewDesiredStatusCancelsRecovering)
+{
+    auto expectedUnitStatus = std::make_unique<UnitStatus>();
+    auto desiredStatus      = std::make_unique<DesiredStatus>();
+
+    EmptyUnitStatus(*expectedUnitStatus);
+
+    // Notify cloud connection established
+
+    mConnectionListener->OnConnect();
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+
+    // Set desired status
+
+    CreateUpdateItemInfo(*desiredStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0");
+    desiredStatus->mInstances.EmplaceBack(DesiredInstanceInfo {"item1", "subject1", 0, 1, {}});
+    desiredStatus->mSubjects.EmplaceBack(SubjectInfo {"subject1", SubjectTypeEnum::eUser});
+
+    // Set expected statuses
+
+    CreateUpdateItemStatus(
+        *expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0", ItemStateEnum::eInstalled);
+    CreateInstancesStatuses(*expectedUnitStatus, "item1", UpdateItemTypeEnum::eService, "subject1", "1.0.0", 2);
+
+    std::condition_variable cv;
+    std::mutex              mutex;
+    int                     numInstalls = 0;
+    bool                    canceled    = false;
+    bool                    recovering  = false;
+    std::atomic_int         numRuns {0};
+
+    // Expect calls: install, canceled reinstall and install of the canceled item by the new update
+
+    EXPECT_CALL(mImageManagerMock, SetCerts(_, _)).Times(3).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManagerMock, InstallItem(_)).Times(3).WillRepeatedly(Invoke([&](const UpdateItemInfo&) -> Error {
+        std::unique_lock lock(mutex);
+
+        numInstalls++;
+
+        if (numInstalls != 2) {
+            return ErrorEnum::eNone;
+        }
+
+        recovering = true;
+        cv.notify_all();
+
+        EXPECT_TRUE(cv.wait_for(lock, cCVTimeout, [&]() { return canceled; }));
+
+        return ErrorEnum::eCanceled;
+    }));
+    EXPECT_CALL(mImageManagerMock, Cancel()).WillOnce(Invoke([&]() {
+        std::unique_lock lock(mutex);
+
+        canceled = true;
+        cv.notify_all();
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mImageManagerMock, RemoveItem(_, _)).Times(0);
+    EXPECT_CALL(mItemStatusProviderMock, SetItemFail(String("item1"), String("1.0.0"), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mLauncherMock, RunInstances(_, _)).Times(2).WillRepeatedly(InvokeWithoutArgs([&]() {
+        numRuns++;
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
+        .WillRepeatedly(Invoke([&](Array<UpdateItemStatus>& statuses) {
+            std::unique_lock lock(mutex);
+
+            if (numInstalls == 0) {
+                return ErrorEnum::eNone;
+            }
+
+            statuses = expectedUnitStatus->mUpdateItems.GetValue();
+
+            if (numRuns == 1 && !canceled) {
+                statuses[0].mState = ItemStateEnum::eFailed;
+                statuses[0].mError = ErrorEnum::eIntegrity;
+            }
+
+            if (canceled && numInstalls < 3) {
+                statuses[0].mState = ItemStateEnum::eFailed;
+                statuses[0].mError = ErrorEnum::eCanceled;
+            }
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillRepeatedly(Invoke([&](Array<InstanceStatus>& instances) {
+        ConvertInstancesStatuses(expectedUnitStatus->mInstances.GetValue(), instances);
+
+        if (numRuns == 1) {
+            SetInstancesFailed(instances, "item1", ErrorEnum::eIntegrity);
+        }
+
+        return ErrorEnum::eNone;
+    }));
+
+    auto err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+    // Wait for recovering to start
+
+    {
+        std::unique_lock lock(mutex);
+
+        ASSERT_TRUE(cv.wait_for(lock, cCVTimeout, [&]() { return recovering; }));
+    }
+
+    // Send new desired status to cancel recovering
+
+    desiredStatus->mInstances[0].mNumInstances = 2;
+
+    err = mUpdateManager.ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
+    EXPECT_EQ(mStorageStub.GetUpdateState().mValue, UpdateStateEnum::eNone);
 }
 
 TEST_F(UpdateManagerTest, InstallItemsConcurrencyLimit)
