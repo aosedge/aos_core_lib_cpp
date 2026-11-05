@@ -14,19 +14,19 @@ namespace aos::iamclient {
 /**
  * Certificate listener interface.
  */
-class CertListenerItf {
+class CertKeyListenerItf {
 public:
     /**
      * Destructor.
      */
-    virtual ~CertListenerItf() = default;
+    virtual ~CertKeyListenerItf() = default;
 
     /**
      * Processes certificate updates.
      *
      * @param info certificate info.
      */
-    virtual void OnCertChanged(const CertInfo& info) = 0;
+    virtual void OnCertKeyChanged(const CertInfo& info) = 0;
 };
 
 /**
@@ -48,7 +48,7 @@ public:
      * @param[out] resCert result certificate.
      * @returns Error.
      */
-    virtual Error GetCert(
+    virtual Error GetCertKey(
         const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial, CertInfo& resCert) const
         = 0;
 
@@ -59,7 +59,7 @@ public:
      * @param certListener certificate listener.
      * @returns Error.
      */
-    virtual Error SubscribeListener(const String& certType, CertListenerItf& certListener) = 0;
+    virtual Error SubscribeCertKeyListener(const String& certType, CertKeyListenerItf& certListener) = 0;
 
     /**
      * Unsubscribes certificate listener.
@@ -67,7 +67,7 @@ public:
      * @param certListener certificate listener.
      * @returns Error.
      */
-    virtual Error UnsubscribeListener(CertListenerItf& certListener) = 0;
+    virtual Error UnsubscribeListener(CertKeyListenerItf& certListener) = 0;
 };
 
 } // namespace aos::iamclient
