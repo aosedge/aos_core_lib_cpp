@@ -19,7 +19,7 @@ namespace aos::crypto {
  */
 class CertProviderStub : public iamclient::CertProviderItf {
 public:
-    Error GetCert(const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
+    Error GetCertKey(const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
         CertInfo& resCert) const override
     {
         (void)issuer;
@@ -34,7 +34,7 @@ public:
         return ErrorEnum::eNone;
     }
 
-    Error SubscribeListener(const String& certType, iamclient::CertListenerItf& certListener) override
+    Error SubscribeCertKeyListener(const String& certType, iamclient::CertKeyListenerItf& certListener) override
     {
         (void)certType;
         (void)certListener;
@@ -42,7 +42,7 @@ public:
         return ErrorEnum::eNone;
     }
 
-    Error UnsubscribeListener(iamclient::CertListenerItf& certListener) override
+    Error UnsubscribeListener(iamclient::CertKeyListenerItf& certListener) override
     {
         (void)certListener;
 

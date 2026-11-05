@@ -50,7 +50,7 @@ Error IdentHandler::Start()
         mSystemID = systemID;
     }
 
-    if (auto err = mCertProvider->SubscribeListener(cOnlineCert, *this); !err.IsNone()) {
+    if (auto err = mCertProvider->SubscribeCertKeyListener(cOnlineCert, *this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -136,7 +136,7 @@ Error IdentHandler::UnsubscribeListener(iamclient::SubjectsListenerItf& subjects
  * Private
  **********************************************************************************************************************/
 
-void IdentHandler::OnCertChanged(const CertInfo& info)
+void IdentHandler::OnCertKeyChanged(const CertInfo& info)
 {
     LOG_DBG() << "Online certificate changed, updating System ID";
 
@@ -163,7 +163,7 @@ Error IdentHandler::GetSystemIDFromOnlineCert(String& systemID)
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    if (auto err = mCertProvider->GetCert(cOnlineCert, {}, {}, *certInfo); !err.IsNone()) {
+    if (auto err = mCertProvider->GetCertKey(cOnlineCert, {}, {}, *certInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
