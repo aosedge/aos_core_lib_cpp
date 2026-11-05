@@ -331,7 +331,7 @@ TEST_F(CerthandlerTest, GetCertificate)
 
     CertInfo certInfo;
 
-    ASSERT_TRUE(mCertHandler->GetCert("iam", storageCerts[0].mIssuer, storageCerts[0].mSerial, certInfo).IsNone());
+    ASSERT_TRUE(mCertHandler->GetCertKey("iam", storageCerts[0].mIssuer, storageCerts[0].mSerial, certInfo).IsNone());
     ASSERT_EQ(certInfo, storageCerts[0]);
 }
 
@@ -358,7 +358,7 @@ TEST_F(CerthandlerTest, GetCertificateEmptySerial)
 
     const auto empty = Array<uint8_t>(nullptr, 0);
 
-    ASSERT_TRUE(mCertHandler->GetCert("iam", empty, empty, certInfo).IsNone());
+    ASSERT_TRUE(mCertHandler->GetCertKey("iam", empty, empty, certInfo).IsNone());
     ASSERT_EQ(certInfo, storageCerts[1]);
 }
 
@@ -376,8 +376,8 @@ TEST_F(CerthandlerTest, SubscribeCertChanged)
 
     iamclient::CertListenerMock certListener;
 
-    EXPECT_CALL(certListener, OnCertChanged(_));
-    ASSERT_TRUE(mCertHandler->SubscribeListener("iam", certListener).IsNone());
+    EXPECT_CALL(certListener, OnCertKeyChanged(_));
+    ASSERT_TRUE(mCertHandler->SubscribeCertKeyListener("iam", certListener).IsNone());
     sleep(1);
     ASSERT_TRUE(mCertHandler->CreateSelfSignedCert("iam", cPIN).IsNone());
     ASSERT_TRUE(mCertHandler->UnsubscribeListener(certListener).IsNone());
