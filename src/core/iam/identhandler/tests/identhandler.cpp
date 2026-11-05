@@ -74,7 +74,7 @@ protected:
 
     void ExpectOnlineCert(const std::vector<std::string>& subjectURLs)
     {
-        EXPECT_CALL(mCertProvider, GetCert(String("online"), _, _, _))
+        EXPECT_CALL(mCertProvider, GetCertKey(String("online"), _, _, _))
             .WillOnce(Invoke([](const String&, const Array<uint8_t>&, const Array<uint8_t>&, CertInfo& certInfo) {
                 certInfo.mCertURL = cCertURL;
 
@@ -103,9 +103,9 @@ protected:
 
     void ExpectSubscribe()
     {
-        EXPECT_CALL(mCertProvider, SubscribeListener(String("online"), _))
-            .WillOnce(Invoke([this](const String&, iamclient::CertListenerItf& listener) {
-                mCertListener = &listener;
+        EXPECT_CALL(mCertProvider, SubscribeCertKeyListener(String("online"), _))
+            .WillOnce(Invoke([this](const String&, iamclient::CertKeyListenerItf& listener) {
+                mCertKeyListener = &listener;
 
                 return ErrorEnum::eNone;
             }));
@@ -118,7 +118,7 @@ protected:
 
         auto err = mIdentHandler.Start();
         ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
-        ASSERT_NE(mCertListener, nullptr);
+        ASSERT_NE(mCertKeyListener, nullptr);
     }
 
     void NotifyCertChanged(const char* certURL)
@@ -127,15 +127,15 @@ protected:
 
         certInfo.mCertURL = certURL;
 
-        mCertListener->OnCertChanged(certInfo);
+        mCertKeyListener->OnCertKeyChanged(certInfo);
     }
 
-    HeapAllocator               mAllocator;
-    NiceMock<IdentModuleMock>   mIdentModule;
-    iamclient::CertProviderMock mCertProvider;
-    crypto::CertLoaderMock      mCertLoader;
-    IdentHandler                mIdentHandler;
-    iamclient::CertListenerItf* mCertListener {};
+    HeapAllocator                  mAllocator;
+    NiceMock<IdentModuleMock>      mIdentModule;
+    iamclient::CertProviderMock    mCertProvider;
+    crypto::CertLoaderMock         mCertLoader;
+    IdentHandler                   mIdentHandler;
+    iamclient::CertKeyListenerItf* mCertKeyListener {};
 };
 
 /***********************************************************************************************************************
@@ -200,8 +200,8 @@ TEST_F(IdentHandlerTest, StartInProvisioningModeDoesNotSubscribe)
     auto err = InitHandler(true);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    EXPECT_CALL(mCertProvider, GetCert).Times(0);
-    EXPECT_CALL(mCertProvider, SubscribeListener).Times(0);
+    EXPECT_CALL(mCertProvider, GetCertKey).Times(0);
+    EXPECT_CALL(mCertProvider, SubscribeCertKeyListener).Times(0);
     EXPECT_CALL(mCertProvider, UnsubscribeListener).Times(0);
 
     err = mIdentHandler.Start();
@@ -238,8 +238,8 @@ TEST_F(IdentHandlerTest, StartFailsOnSubscribeError)
     auto err = InitHandler();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    EXPECT_CALL(mCertProvider, GetCert).WillOnce(Return(ErrorEnum::eNotFound));
-    EXPECT_CALL(mCertProvider, SubscribeListener).WillOnce(Return(ErrorEnum::eNotFound));
+    EXPECT_CALL(mCertProvider, GetCertKey).WillOnce(Return(ErrorEnum::eNotFound));
+    EXPECT_CALL(mCertProvider, SubscribeCertKeyListener).WillOnce(Return(ErrorEnum::eNotFound));
 
     err = mIdentHandler.Start();
     EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
@@ -256,14 +256,14 @@ TEST_F(IdentHandlerTest, StartSucceedsWhenOnlineCertIsNotAvailable)
     auto err = InitHandler();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    EXPECT_CALL(mCertProvider, GetCert).WillOnce(Return(ErrorEnum::eNotFound));
+    EXPECT_CALL(mCertProvider, GetCertKey).WillOnce(Return(ErrorEnum::eNotFound));
     ExpectSubscribe();
 
     err = mIdentHandler.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     // Subscribed: System ID comes from cert change notifications, cert is not requested again.
-    EXPECT_CALL(mCertProvider, GetCert).Times(0);
+    EXPECT_CALL(mCertProvider, GetCertKey).Times(0);
 
     auto systemInfo = std::make_unique<SystemInfo>();
 
@@ -303,7 +303,7 @@ TEST_F(IdentHandlerTest, GetSystemInfoReadsSystemIDWhenEmpty)
     EXPECT_STREQ(systemInfo->mSystemID.CStr(), cSystemID);
 
     // System ID is cached, cert is not requested again.
-    EXPECT_CALL(mCertProvider, GetCert).Times(0);
+    EXPECT_CALL(mCertProvider, GetCertKey).Times(0);
 
     err = mIdentHandler.GetSystemInfo(*systemInfo);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
@@ -320,7 +320,7 @@ TEST_F(IdentHandlerTest, GetSystemInfoReadsSystemIDInProvisioningMode)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     // Online cert is not available until provisioning applies it.
-    EXPECT_CALL(mCertProvider, GetCert).WillOnce(Return(ErrorEnum::eNotFound));
+    EXPECT_CALL(mCertProvider, GetCertKey).WillOnce(Return(ErrorEnum::eNotFound));
 
     auto systemInfo = std::make_unique<SystemInfo>();
 
@@ -363,7 +363,7 @@ TEST_F(IdentHandlerTest, OnCertChangedUpdatesSystemID)
     constexpr auto cNewSystemID = "newSystemID";
 
     // Cert info from the notification is used, cert provider is not called back.
-    EXPECT_CALL(mCertProvider, GetCert).Times(0);
+    EXPECT_CALL(mCertProvider, GetCertKey).Times(0);
 
     ExpectCertChain(cNewCertURL, {std::string("urn:aos:unit:") + cNewSystemID});
 
@@ -424,7 +424,7 @@ TEST_F(IdentHandlerTest, GetSystemInfoReturnsEmptySystemIDOnNoMemory)
     auto err = mIdentHandler.Init(mIdentModule, mCertProvider, mCertLoader, allocator, false);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    EXPECT_CALL(mCertProvider, GetCert).Times(0);
+    EXPECT_CALL(mCertProvider, GetCertKey).Times(0);
 
     auto systemInfo = std::make_unique<SystemInfo>();
 
@@ -440,7 +440,7 @@ TEST_F(IdentHandlerTest, GetSystemInfoReturnsEmptySystemIDOnInvalidCertChain)
     auto err = InitHandler();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    EXPECT_CALL(mCertProvider, GetCert(String("online"), _, _, _))
+    EXPECT_CALL(mCertProvider, GetCertKey(String("online"), _, _, _))
         .Times(3)
         .WillRepeatedly(Invoke([](const String&, const Array<uint8_t>&, const Array<uint8_t>&, CertInfo& certInfo) {
             certInfo.mCertURL = cCertURL;

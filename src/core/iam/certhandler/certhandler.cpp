@@ -123,7 +123,7 @@ Error CertHandler::ApplyCertificate(const String& certType, const String& pemCer
     return UpdateCerts(*certModule);
 }
 
-Error CertHandler::GetCert(
+Error CertHandler::GetCertKey(
     const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial, CertInfo& resCert) const
 {
     LockGuard lock {mMutex};
@@ -150,7 +150,7 @@ Error CertHandler::GetCert(
     return ErrorEnum::eNone;
 }
 
-Error CertHandler::SubscribeListener(const String& certType, iamclient::CertListenerItf& certListener)
+Error CertHandler::SubscribeCertKeyListener(const String& certType, iamclient::CertKeyListenerItf& certListener)
 {
     LockGuard lock {mMutex};
 
@@ -179,7 +179,7 @@ Error CertHandler::SubscribeListener(const String& certType, iamclient::CertList
     return ErrorEnum::eNone;
 }
 
-Error CertHandler::UnsubscribeListener(iamclient::CertListenerItf& certListener)
+Error CertHandler::UnsubscribeListener(iamclient::CertKeyListenerItf& certListener)
 {
     LockGuard lock {mMutex};
 
@@ -259,7 +259,7 @@ Error CertHandler::UpdateCerts(CertModule& certModule)
         if (subscription.mCertInfo != *certInfo) {
             LOG_INF() << "Cert changed" << Log::Field("type", subscription.mCertType);
 
-            subscription.mCertListener->OnCertChanged(*certInfo);
+            subscription.mCertListener->OnCertKeyChanged(*certInfo);
             subscription.mCertInfo = *certInfo;
         }
     }
