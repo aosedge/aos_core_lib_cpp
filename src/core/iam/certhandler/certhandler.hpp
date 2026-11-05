@@ -114,7 +114,7 @@ public:
      * @param[out] resCert result certificate.
      * @returns Error.
      */
-    Error GetCert(const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
+    Error GetCertKey(const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
         CertInfo& resCert) const override;
 
     /**
@@ -124,7 +124,7 @@ public:
      * @param certListener certificate listener.
      * @returns Error.
      */
-    Error SubscribeListener(const String& certType, iamclient::CertListenerItf& certListener) override;
+    Error SubscribeCertKeyListener(const String& certType, iamclient::CertKeyListenerItf& certListener) override;
 
     /**
      * Unsubscribes certificate listener.
@@ -132,7 +132,7 @@ public:
      * @param certListener certificate listener.
      * @returns Error.
      */
-    Error UnsubscribeListener(iamclient::CertListenerItf& certListener) override;
+    Error UnsubscribeListener(iamclient::CertKeyListenerItf& certListener) override;
 
     /**
      * Destroys certificate handler object instance.
@@ -149,16 +149,17 @@ private:
     StaticArray<CertModule*, cIAMCertModulesMaxCount> mModules;
 
     struct CertListenerSubscription {
-        CertListenerSubscription(const String& certType, const CertInfo& certInfo, iamclient::CertListenerItf* listener)
+        CertListenerSubscription(
+            const String& certType, const CertInfo& certInfo, iamclient::CertKeyListenerItf* listener)
             : mCertType(certType)
             , mCertInfo(certInfo)
             , mCertListener(listener)
         {
         }
 
-        StaticString<cCertTypeLen>  mCertType;
-        CertInfo                    mCertInfo;
-        iamclient::CertListenerItf* mCertListener {};
+        StaticString<cCertTypeLen>     mCertType;
+        CertInfo                       mCertInfo;
+        iamclient::CertKeyListenerItf* mCertListener {};
     };
 
     StaticArray<CertListenerSubscription, cIAMCertSubsMaxCount> mCertListenerSubscriptions;

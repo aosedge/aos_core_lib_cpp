@@ -393,7 +393,7 @@ RetWithError<SharedPtr<x509::CertificateChain>> CryptoHelper::GetOnlineCert()
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }
 
-    if (auto err = mCertProvider->GetCert(cOnlineCert, {}, {}, *certInfo); !err.IsNone()) {
+    if (auto err = mCertProvider->GetCertKey(cOnlineCert, {}, {}, *certInfo); !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
 
@@ -1054,7 +1054,7 @@ Error CryptoHelper::GetKeyForEnvelope(const TransRecipientInfo& info, Array<uint
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    if (auto err = mCertProvider->GetCert(cOfflineCert, info.mRID.mIssuer, info.mRID.mSerial, *certInfo);
+    if (auto err = mCertProvider->GetCertKey(cOfflineCert, info.mRID.mIssuer, info.mRID.mSerial, *certInfo);
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
