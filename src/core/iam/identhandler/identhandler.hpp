@@ -26,7 +26,7 @@ namespace aos::iam::identhandler {
  * System ID is always taken from the online certificate SAN URI (urn:aos:unit:<system-id>).
  * Unit model, version and subjects are provided by the configured ident module.
  */
-class IdentHandler : public iamclient::IdentProviderItf, private iamclient::CertListenerItf {
+class IdentHandler : public iamclient::IdentProviderItf, private iamclient::CertKeyListenerItf {
 public:
     /**
      * Initializes ident handler.
@@ -90,7 +90,7 @@ public:
 private:
     static constexpr auto cOnlineCert = "online";
 
-    void  OnCertChanged(const CertInfo& info) override;
+    void  OnCertKeyChanged(const CertInfo& info) override;
     Error GetSystemIDFromOnlineCert(String& systemID);
     Error GetSystemIDFromCertURL(const String& certURL, String& systemID);
 
