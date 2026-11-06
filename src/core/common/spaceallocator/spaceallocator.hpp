@@ -13,6 +13,7 @@
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/memory.hpp>
 #include <core/common/tools/thread.hpp>
+#include <core/common/tools/utils.hpp>
 
 #include "itf/spaceallocator.hpp"
 
@@ -21,10 +22,15 @@ namespace aos::spaceallocator {
 struct Partition;
 
 /**
+ * Outdated item ID len: item ID or blob digest.
+ */
+constexpr auto cOutdatedItemIDLen = Max(cIDLen, oci::cDigestLen);
+
+/**
  * Outdated item.
  */
 struct OutdatedItem {
-    StaticString<cIDLen>                    mID;
+    StaticString<cOutdatedItemIDLen>        mID;
     StaticString<cVersionLen>               mVersion;
     SpaceAllocatorItf*                      mSpaceAllocator {};
     StaticFunction<cDefaultFunctionMaxSize> mFreeCallback;
@@ -565,8 +571,14 @@ public:
 
         OutdatedItem item;
 
-        item.mID             = id;
-        item.mVersion        = version;
+        if (auto err = item.mID.Assign(id); !err.IsNone()) {
+            return AOS_ERROR_WRAP(Error(err, "outdated item id too long"));
+        }
+
+        if (auto err = item.mVersion.Assign(version); !err.IsNone()) {
+            return AOS_ERROR_WRAP(Error(err, "outdated item version too long"));
+        }
+
         item.mPartition      = mPartition;
         item.mRemover        = mRemover;
         item.mTimestamp      = timestamp;
