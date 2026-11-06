@@ -7,6 +7,7 @@
 #ifndef AOS_CORE_SM_DATABASE_ITF_DATABASE_HPP_
 #define AOS_CORE_SM_DATABASE_ITF_DATABASE_HPP_
 
+#include <core/common/imagemanager/itf/storage.hpp>
 #include <core/sm/imagemanager/itf/storage.hpp>
 #include <core/sm/launcher/itf/storage.hpp>
 #include <core/sm/networkmanager/itf/storage.hpp>
@@ -20,7 +21,10 @@ namespace aos::sm::database {
 /**
  * Database interface.
  */
-class DatabaseItf : public imagemanager::StorageItf, public launcher::StorageItf, public networkmanager::StorageItf { };
+class DatabaseItf : public virtual common::imagemanager::StorageItf,
+                    public imagemanager::StorageItf,
+                    public launcher::StorageItf,
+                    public networkmanager::StorageItf { };
 
 /** @}*/
 
