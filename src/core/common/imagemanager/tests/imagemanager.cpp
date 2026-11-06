@@ -1319,6 +1319,25 @@ TEST_F(CommonImageManagerInstallTest, InstallEmptyConfig)
     EXPECT_EQ(item->mState, ItemStateEnum::eInstalled);
 }
 
+TEST_F(CommonImageManagerInstallTest, InstallConfigWithoutDiffIDs)
+{
+    // A component may have an image config without rootfs, so its layers have no diff IDs.
+    const auto manifest = AddManifest(1, 1, 0);
+
+    CreateValidBlobs(manifest);
+
+    auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    const auto calls = mImageManager.GetValidateLayerCalls();
+    ASSERT_EQ(calls.size(), 1);
+    EXPECT_TRUE(calls[0].mDiffDigest.empty());
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eInstalled);
+}
+
 TEST_F(CommonImageManagerInstallTest, InstallMissingDiffID)
 {
     const auto manifest = AddManifest(1, 2, 1);
