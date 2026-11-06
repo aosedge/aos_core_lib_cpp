@@ -1465,7 +1465,10 @@ Error ImageManager::InstallManifestBlobs(const InstallItemInfo& itemInfo, const 
                 return AOS_ERROR_WRAP(err);
             }
 
-            if (imageConfig->mRootfs.mDiffIDs.Size() < manifest->mLayers.Size()) {
+            // A component config may have no rootfs: its layers are kept without diff IDs as for the empty config.
+            if (imageConfig->mRootfs.mDiffIDs.IsEmpty()) {
+                imageConfig.Reset();
+            } else if (imageConfig->mRootfs.mDiffIDs.Size() < manifest->mLayers.Size()) {
                 return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "diff ID's size mismatch"));
             }
         }
