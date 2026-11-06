@@ -745,6 +745,21 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
         mFirstStart = false;
     });
 
+    // The buffers are allocated before the thread pool is started, so an allocation failure doesn't leave it running.
+    auto removeItems = MakeUnique<StaticArray<UpdateItemInfo, cMaxNumUpdateItems>>(mAllocator);
+    if (!removeItems) {
+        LOG_ERR() << "Failed to allocate remove update items" << Log::Field(ErrorEnum::eNoMemory);
+
+        return;
+    }
+
+    auto installItems = MakeUnique<StaticArray<InstallItem, cMaxNumUpdateItems>>(mAllocator);
+    if (!installItems) {
+        LOG_ERR() << "Failed to allocate install items" << Log::Field(ErrorEnum::eNoMemory);
+
+        return;
+    }
+
     // An item is repaired at most once per request, so the repaired items are shared by the prepare and start stages.
     auto repairedItems = MakeUnique<StaticArray<InstallItem, cMaxNumUpdateItems>>(mAllocator);
     if (!repairedItems) {
@@ -770,13 +785,6 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
         LOG_ERR() << "Failed to append instances with modified params to stop list" << Log::Field(AOS_ERROR_WRAP(err));
     }
 
-    auto removeItems = MakeUnique<StaticArray<UpdateItemInfo, cMaxNumUpdateItems>>(mAllocator);
-    if (!removeItems) {
-        LOG_ERR() << "Failed to allocate remove update items" << Log::Field(ErrorEnum::eNoMemory);
-
-        return;
-    }
-
     if (!mFirstStart) {
         GetRemoveUpdateItems(stopInstances, startInstances, *removeItems);
     }
@@ -788,13 +796,6 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
     if (!mFirstStart) {
         LOG_INF() << "[profiling] Install items begin" << Log::Field("removeCount", removeItems->Size())
                   << Log::Field("installCount", startInstances.Size());
-
-        auto installItems = MakeUnique<StaticArray<InstallItem, cMaxNumUpdateItems>>(mAllocator);
-        if (!installItems) {
-            LOG_ERR() << "Failed to allocate install items" << Log::Field(ErrorEnum::eNoMemory);
-
-            return;
-        }
 
         RemoveUpdateItems(*removeItems);
         auto installError = InstallUpdateItems(startInstances, *installItems);
