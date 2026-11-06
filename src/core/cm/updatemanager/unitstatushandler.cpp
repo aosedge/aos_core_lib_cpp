@@ -133,6 +133,10 @@ Error UnitStatusHandler::SendFullUnitStatus()
         return AOS_ERROR_WRAP(err);
     }
 
+    if (auto err = SetItemsForFailedInstances(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
     {
         LogUnitStatus();
 
@@ -299,6 +303,10 @@ void UnitStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus>& 
     }
 
     for (const auto& status : statuses) {
+        if (auto err = UpdateItemInstance(status); !err.IsNone()) {
+            LOG_ERR() << "Failed to update item instance" << Log::Field(err);
+        }
+
         auto itemIt = mUnitStatus.mInstances->FindIf([&status](const UnitInstancesStatuses& instanceStatuses) {
             return instanceStatuses.mItemID == status.mItemID && instanceStatuses.mSubjectID == status.mSubjectID
                 && instanceStatuses.mVersion == status.mVersion;
@@ -480,6 +488,7 @@ Error UnitStatusHandler::SetInstancesStatus()
 {
     mUnitStatus.mInstances.EmplaceValue();
     mUnitInstancesStatuses.Clear();
+    mItemInstances.Clear();
 
     auto instancesStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(mAllocator);
     if (!instancesStatuses) {
@@ -491,6 +500,10 @@ Error UnitStatusHandler::SetInstancesStatus()
     }
 
     for (const auto& status : *instancesStatuses) {
+        if (auto err = UpdateItemInstance(status); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
         auto it = mUnitStatus.mInstances->FindIf([&status](const UnitInstancesStatuses& instanceStatuses) {
             return instanceStatuses.mItemID == status.mItemID && instanceStatuses.mSubjectID == status.mSubjectID
                 && instanceStatuses.mVersion == status.mVersion;
@@ -620,6 +633,10 @@ void UnitStatusHandler::StartTimer()
                     LOG_ERR() << "Failed to set items for preinstalled instances" << Log::Field(err);
                 }
 
+                if (auto err = SetItemsForFailedInstances(); !err.IsNone()) {
+                    LOG_ERR() << "Failed to set items for failed instances" << Log::Field(err);
+                }
+
                 LogUnitStatus();
 
                 if (auto err = mSender->SendUnitStatus(mUnitStatus); !err.IsNone()) {
@@ -670,6 +687,151 @@ Error UnitStatusHandler::SetItemsForPreinstalledInstances()
     }
 
     return ErrorEnum::eNone;
+}
+
+// Delta unit status contains changed instances only, and the launcher can't be requested here as it notifies listeners
+// under its lock: items are checked against all instances tracked by this handler.
+Error UnitStatusHandler::SetItemsForFailedInstances()
+{
+    Error firstErr;
+
+    mFailedItems.RemoveIf([this, &firstErr](const FailedItem& item) {
+        const auto state = GetItemInstancesState(item.mItemID, item.mVersion);
+
+        if (state.mNumInstances != 0 && state.mNumFailed == state.mNumInstances) {
+            return false;
+        }
+
+        // Without instances the item state is defined by the image manager.
+        if (state.mNumInstances != 0) {
+            if (auto err = SetItemState(*state.mInstance, ItemStateEnum::eInstalled, ErrorEnum::eNone, true);
+                !err.IsNone() && firstErr.IsNone()) {
+                firstErr = err;
+            }
+        }
+
+        return true;
+    });
+
+    for (const auto& instance : mItemInstances) {
+        if (instance.mState != InstanceStateEnum::eFailed) {
+            continue;
+        }
+
+        const auto state = GetItemInstancesState(instance.mIdent.mItemID, instance.mVersion);
+
+        if (state.mNumFailed != state.mNumInstances) {
+            continue;
+        }
+
+        const auto isNew = !mFailedItems.ContainsIf([&instance](const FailedItem& item) {
+            return item.mItemID == instance.mIdent.mItemID && item.mVersion == instance.mVersion;
+        });
+
+        if (isNew) {
+            if (auto err = mFailedItems.EmplaceBack(FailedItem {instance.mIdent.mItemID, instance.mVersion});
+                !err.IsNone() && firstErr.IsNone()) {
+                firstErr = AOS_ERROR_WRAP(err);
+            }
+        }
+
+        // Delta unit status contains only changed items: the failed item is added once.
+        if (auto err = SetItemState(instance, ItemStateEnum::eFailed, state.mError, isNew || !mUnitStatus.mIsDeltaInfo);
+            !err.IsNone() && firstErr.IsNone()) {
+            firstErr = err;
+        }
+    }
+
+    return firstErr;
+}
+
+Error UnitStatusHandler::UpdateItemInstance(const InstanceStatus& status)
+{
+    const auto isSameInstance = [&status](const ItemInstance& instance) {
+        return instance.mIdent == static_cast<const InstanceIdent&>(status) && instance.mVersion == status.mVersion;
+    };
+
+    if (status.mState == InstanceStateEnum::eInactive) {
+        mItemInstances.RemoveIf(isSameInstance);
+
+        return ErrorEnum::eNone;
+    }
+
+    if (auto it = mItemInstances.FindIf(isSameInstance); it != mItemInstances.end()) {
+        it->mState = status.mState;
+        it->mError = status.mError;
+
+        return ErrorEnum::eNone;
+    }
+
+    if (auto err = mItemInstances.EmplaceBack(
+            ItemInstance {static_cast<const InstanceIdent&>(status), status.mVersion, status.mState, status.mError});
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+// Only installed items are changed: other states are provided by the image manager, and its failure is not overridden.
+Error UnitStatusHandler::SetItemState(const ItemInstance& instance, ItemState state, const Error& error, bool addItem)
+{
+    if (!mUnitStatus.mUpdateItems.HasValue()) {
+        if (!addItem) {
+            return ErrorEnum::eNone;
+        }
+
+        mUnitStatus.mUpdateItems.EmplaceValue();
+    }
+
+    auto it = mUnitStatus.mUpdateItems->FindIf([&instance](const UpdateItemStatus& itemStatus) {
+        return itemStatus.mItemID == instance.mIdent.mItemID && itemStatus.mVersion == instance.mVersion;
+    });
+    if (it != mUnitStatus.mUpdateItems->end()) {
+        if (it->mState == ItemStateEnum::eInstalled) {
+            it->mState = state;
+            it->mError = error;
+        }
+
+        return ErrorEnum::eNone;
+    }
+
+    if (!addItem) {
+        return ErrorEnum::eNone;
+    }
+
+    if (auto err = mUnitStatus.mUpdateItems->EmplaceBack(UpdateItemStatus {instance.mIdent.mItemID,
+            instance.mIdent.mType, instance.mVersion, instance.mIdent.mPreinstalled, state, error});
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+UnitStatusHandler::ItemInstancesState UnitStatusHandler::GetItemInstancesState(
+    const String& itemID, const String& version) const
+{
+    ItemInstancesState state;
+
+    for (const auto& instance : mItemInstances) {
+        if (instance.mIdent.mItemID != itemID || instance.mVersion != version) {
+            continue;
+        }
+
+        state.mInstance = &instance;
+        state.mNumInstances++;
+
+        if (instance.mState == InstanceStateEnum::eFailed) {
+            state.mNumFailed++;
+
+            if (state.mError.IsNone()) {
+                state.mError = instance.mError;
+            }
+        }
+    }
+
+    return state;
 }
 
 } // namespace aos::cm::updatemanager

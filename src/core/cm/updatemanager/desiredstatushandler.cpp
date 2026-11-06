@@ -696,7 +696,10 @@ bool DesiredStatusHandler::IsUpdateInstancesRequired(const DesiredStatus& desire
                     return true;
                 }
 
-                if (instanceStatus.mState != InstanceStateEnum::eActive) {
+                // The failed instance stays failed until the desired status changes: applying the same one doesn't
+                // change it.
+                if (instanceStatus.mState != InstanceStateEnum::eActive
+                    && instanceStatus.mState != InstanceStateEnum::eFailed) {
                     return true;
                 }
             }
