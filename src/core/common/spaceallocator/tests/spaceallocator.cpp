@@ -789,6 +789,52 @@ TEST_F(SpaceallocatorTest, ReAddOutdatedItemUpdatesExisting)
     ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
 }
 
+TEST_F(SpaceallocatorTest, OutdatedItemDigestID)
+{
+    SpaceAllocator<5> mSpaceAllocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
+
+    const auto digest = "sha256:" + std::string(64, 'a');
+
+    ASSERT_GT(digest.size(), cIDLen);
+    ASSERT_TRUE(mSpaceAllocator.AddOutdatedItem(digest.c_str(), "", Time::Now()).IsNone());
+
+    EXPECT_CALL(mRemover, RemoveItem(String(digest.c_str()), String("")))
+        .WillOnce(Return(RetWithError<size_t>(32 * cKilobyte, ErrorEnum::eNone)));
+
+    auto [size, err] = mSpaceAllocator.RemoveOutdatedItem();
+    ASSERT_TRUE(err.IsNone());
+    EXPECT_EQ(size, 32 * cKilobyte);
+
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, OutdatedItemTooLongID)
+{
+    SpaceAllocator<5> mSpaceAllocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
+
+    const auto id = std::string(cOutdatedItemIDLen + 1, 'a');
+
+    EXPECT_FALSE(mSpaceAllocator.AddOutdatedItem(id.c_str(), "", Time::Now()).IsNone());
+
+    EXPECT_CALL(mRemover, RemoveItem(_, _)).Times(0);
+
+    auto [size, err] = mSpaceAllocator.RemoveOutdatedItem();
+    EXPECT_EQ(err, ErrorEnum::eNotFound);
+    EXPECT_EQ(size, 0U);
+
+    ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
 TEST_F(SpaceallocatorTest, RemoveOutdatedItemNoItems)
 {
     SpaceAllocator<5> mSpaceAllocator;
