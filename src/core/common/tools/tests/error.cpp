@@ -105,10 +105,14 @@ TEST(ErrorTest, ConstructFromEnumAndCode)
     EXPECT_EQ(strcmp(detailedErr.FileName(), "file.cpp"), 0);
     EXPECT_EQ(detailedErr.LineNumber(), 123);
 
-    // With a non-zero code set, Is() compares by code rather than by enum, matching Error(int) behavior.
+    // Is() compares the error values only, the codes are checked with Code().
 
-    EXPECT_TRUE(Error(ErrorEnum::eNotFound, ENODEV).Is(Error(ErrorEnum::eFailed, ENODEV)));
-    EXPECT_FALSE(Error(ErrorEnum::eNotFound, ENODEV).Is(Error(ErrorEnum::eNotFound, EAGAIN)));
+    EXPECT_TRUE(Error(ErrorEnum::eIntegrity, EIO).Is(ErrorEnum::eIntegrity));
+    EXPECT_FALSE(Error(ErrorEnum::eIntegrity, EIO).Is(ErrorEnum::eNotFound));
+    EXPECT_TRUE(Error(ErrorEnum::eNotFound, ENODEV).Is(Error(ErrorEnum::eNotFound, EAGAIN)));
+    EXPECT_FALSE(Error(ErrorEnum::eNotFound, ENODEV).Is(Error(ErrorEnum::eFailed, ENODEV)));
+    EXPECT_FALSE(Error(ErrorEnum::eIntegrity, EIO).Is(Error(EIO)));
+    EXPECT_TRUE(Error(EACCES).Is(ErrorEnum::eRuntime));
 
     // A zero code keeps enum-based comparison, distinguishing it from Error(int) which maps code 0 to eNone.
 

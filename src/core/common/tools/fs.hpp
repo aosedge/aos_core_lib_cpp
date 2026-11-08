@@ -453,7 +453,7 @@ Error CopyFile(AllocatorItf& allocator, const String& srcPath, const String& dst
  * Reads content of the file named by fileName into the buffer.
  *
  * Open and read errors are returned as follows: EIO and EBADMSG as ErrorEnum::eIntegrity, ENOENT as
- * ErrorEnum::eNotFound, any other errno as is.
+ * ErrorEnum::eNotFound, any other errno as is. The errno is kept as the error code.
  *
  * @param fileName file name.
  * @param[out] buff destination buffer.
@@ -465,7 +465,7 @@ Error ReadFile(const String& fileName, Array<uint8_t>& buff);
  * Reads content of the file named by fileName into the given string.
  *
  * Open and read errors are returned as follows: EIO and EBADMSG as ErrorEnum::eIntegrity, ENOENT as
- * ErrorEnum::eNotFound, any other errno as is.
+ * ErrorEnum::eNotFound, any other errno as is. The errno is kept as the error code.
  *
  * @param fileName file name.
  * @param[out] text result string.
@@ -510,7 +510,7 @@ Error WriteStringToFile(const String& fileName, const String& text, uint32_t per
  * @param allocator allocator to use for temporary objects.
  * @param path file or directory path.
  * @return RetWithError<size_t>: eNotFound if the path doesn't exist, eIntegrity on EIO or EBADMSG, otherwise
- *         errno as is.
+ *         errno as is. The errno is kept as the error code.
  */
 RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path);
 

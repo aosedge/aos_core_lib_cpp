@@ -406,8 +406,8 @@ TEST_F(FSTest, FileOpenWriteNew)
     umask(oldUmask);
 
     // never reuses an existing file
-    EXPECT_TRUE(file.Open(newFile.c_str(), fs::File::Mode::WriteNew).Is(EEXIST));
-    EXPECT_TRUE(file.Open(existingFile.c_str(), fs::File::Mode::WriteNew).Is(EEXIST));
+    EXPECT_EQ(file.Open(newFile.c_str(), fs::File::Mode::WriteNew).Code(), EEXIST);
+    EXPECT_EQ(file.Open(existingFile.c_str(), fs::File::Mode::WriteNew).Code(), EEXIST);
     CheckFile(existingFile.c_str(), "existing", 0666);
 
     // never follows a symlink as the last path component, even a dangling one
@@ -484,6 +484,10 @@ TEST_F(FSTest, ReadFileErrors)
 
         EXPECT_TRUE(readFileErr.Is(data.mExpected)) << "errno: " << data.mErrno;
         EXPECT_TRUE(readStringErr.Is(data.mExpected)) << "errno: " << data.mErrno;
+
+        // The errno is kept as the error code.
+        EXPECT_EQ(readFileErr.Code(), data.mErrno);
+        EXPECT_EQ(readStringErr.Code(), data.mErrno);
     }
 }
 
@@ -496,6 +500,7 @@ TEST_F(FSTest, ReadFileMissingIsNotFound)
 
     EXPECT_TRUE(fs::ReadFile(testFile.c_str(), buff).Is(ErrorEnum::eNotFound));
     EXPECT_TRUE(fs::ReadFileToString(testFile.c_str(), text).Is(ErrorEnum::eNotFound));
+    EXPECT_EQ(fs::ReadFile(testFile.c_str(), buff).Code(), ENOENT);
 }
 
 TEST_F(FSTest, ReadFileClosesFileOnce)
@@ -708,6 +713,7 @@ TEST_F(FSTest, CalculateSize)
 
     auto [size, err] = fs::CalculateSize(mAllocator, "does-not-exists");
     EXPECT_TRUE(err.Is(ErrorEnum::eNotFound));
+    EXPECT_EQ(err.Code(), ENOENT);
     EXPECT_EQ(size, 0);
 }
 
@@ -754,7 +760,7 @@ TEST_F(FSTest, GetFileMTime)
     EXPECT_LE(now.Sub(modifyTime), 5 * Time::cSeconds);
 
     auto missing = fs::GetFileMTime((cBaseTestDir / "not-existing-file").c_str());
-    EXPECT_TRUE(missing.mError.Is(Error(ENOENT)));
+    EXPECT_EQ(missing.mError.Code(), ENOENT);
 }
 
 TEST_F(FSTest, SetFileMTime)
@@ -773,7 +779,7 @@ TEST_F(FSTest, SetFileMTime)
     EXPECT_EQ(readTime.UnixTime().tv_sec, modifyTime.UnixTime().tv_sec);
 
     err = fs::SetFileMTime((cBaseTestDir / "not-existing-file").c_str(), modifyTime);
-    EXPECT_TRUE(err.Is(Error(ENOENT)));
+    EXPECT_EQ(err.Code(), ENOENT);
 }
 
 TEST_F(FSTest, CalculateNoMemory)
