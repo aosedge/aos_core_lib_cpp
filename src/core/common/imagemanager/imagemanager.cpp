@@ -422,7 +422,7 @@ Error ImageManager::Cancel()
     // Serialized, otherwise one call can reset the context while another one still waits for the items.
     LockGuard cancelLock {mCancelMutex};
 
-    LOG_DBG() << "Cancel";
+    LOG_INF() << "Cancel";
 
     // The items started while Cancel waits are canceled as well, so Cancel doesn't wait for their install.
     if (auto err = mCancelContext.Cancel(); !err.IsNone()) {
