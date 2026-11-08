@@ -557,7 +557,8 @@ public:
      * @param path path to the file.
      * @param mode open mode.
      * @param perm permissions of a created file (before the process umask is applied).
-     * @return Error.
+     * @return Error: EIO and EBADMSG as ErrorEnum::eIntegrity, ENOENT as ErrorEnum::eNotFound, any other errno as is.
+     * The errno is kept as the error code.
      */
     Error Open(const String& path, Mode mode, uint32_t perm = 0644);
 
@@ -572,7 +573,8 @@ public:
      * Reads a block from the file.
      *
      * @param[out] buffer destination buffer.
-     * @return Error.
+     * @return Error: eEOF at the end of the file, EIO and EBADMSG as ErrorEnum::eIntegrity, any other errno as is.
+     * The errno is kept as the error code.
      */
     Error ReadBlock(Array<uint8_t>& buffer) const;
 
