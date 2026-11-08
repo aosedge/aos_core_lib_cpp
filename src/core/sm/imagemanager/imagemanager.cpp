@@ -54,7 +54,7 @@ Error ImageManager::Init(const common::imagemanager::Config& config,
 
 Error ImageManager::InstallItem(const UpdateItemInfo& itemInfo)
 {
-    LOG_INF() << "Install item" << Log::Field("itemID", itemInfo.mID) << Log::Field("version", itemInfo.mVersion)
+    LOG_DBG() << "Install item" << Log::Field("itemID", itemInfo.mID) << Log::Field("version", itemInfo.mVersion)
               << Log::Field("type", itemInfo.mType) << Log::Field("manifestDigest", itemInfo.mManifestDigest);
 
     return common::imagemanager::ImageManager::InstallItem(
@@ -63,14 +63,14 @@ Error ImageManager::InstallItem(const UpdateItemInfo& itemInfo)
 
 Error ImageManager::RemoveItem(const String& itemID, const String& version)
 {
-    LOG_INF() << "Remove item" << Log::Field("itemID", itemID) << Log::Field("version", version);
+    LOG_DBG() << "Remove item" << Log::Field("itemID", itemID) << Log::Field("version", version);
 
     return common::imagemanager::ImageManager::RemoveItem(itemID, version);
 }
 
 Error ImageManager::Cancel()
 {
-    LOG_INF() << "Cancel items";
+    LOG_DBG() << "Cancel items";
 
     // The items waiting for a layer processed by another item are canceled as well, so Cancel doesn't wait for the
     // layer unpack.
