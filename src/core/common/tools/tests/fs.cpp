@@ -707,7 +707,7 @@ TEST_F(FSTest, CalculateSize)
     EXPECT_EQ(fs::CalculateSize(mAllocator, singleFile.c_str()), RetWithError<size_t>(512));
 
     auto [size, err] = fs::CalculateSize(mAllocator, "does-not-exists");
-    EXPECT_FALSE(err.IsNone());
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound));
     EXPECT_EQ(size, 0);
 }
 
