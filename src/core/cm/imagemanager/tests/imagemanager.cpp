@@ -1655,9 +1655,9 @@ TEST_F(CMImageManagerTest, GetBlobInfoMissingFile)
 
     BlobInfo blobInfo;
 
+    // The blob file is missing: the requester shouldn't retry.
     err = mImageManager.GetBlobInfo(mLayer.mDigest.c_str(), blobInfo);
-    EXPECT_FALSE(err.IsNone()) << tests::utils::ErrorToStr(err);
-    EXPECT_FALSE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
 }
 
 TEST_F(CMImageManagerTest, GetBlobInfoFileServerFails)
