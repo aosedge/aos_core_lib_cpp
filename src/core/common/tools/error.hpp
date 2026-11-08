@@ -184,19 +184,13 @@ public:
     bool IsNone() const { return mErr == Enum::eNone; }
 
     /**
-     * Checks if error has specified type.
+     * Checks if error has specified type. Only the error values are compared, the codes are not: use Code() to check
+     * the code.
      *
      * @param e error to check.
      * @return bool result.
      */
-    bool Is(const Error& err) const
-    {
-        if (mCode != 0) {
-            return mCode == err.mCode;
-        }
-
-        return mErr == err.mErr;
-    }
+    bool Is(const Error& err) const { return mErr == err.mErr; }
 
     /**
      * Returns error enum.

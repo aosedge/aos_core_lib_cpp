@@ -24,13 +24,14 @@ namespace {
 
 Error FileErrnoToError(int32_t code)
 {
+    // The errno is kept as the error code, so it is shown when the error is formatted.
     switch (code) {
     case EIO:
     case EBADMSG:
-        return ErrorEnum::eIntegrity;
+        return Error(ErrorEnum::eIntegrity, code);
 
     case ENOENT:
-        return ErrorEnum::eNotFound;
+        return Error(ErrorEnum::eNotFound, code);
 
     default:
         return Error(code);
