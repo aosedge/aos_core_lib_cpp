@@ -491,6 +491,47 @@ TEST_F(FSTest, ReadFileErrors)
     }
 }
 
+TEST_F(FSTest, FileErrors)
+{
+    const auto testFile = cBaseTestDir / "file_errors_file";
+
+    CreateFile(testFile.c_str());
+
+    struct TestData {
+        int   mErrno;
+        Error mExpected;
+    };
+
+    const TestData testData[] = {
+        {EIO, ErrorEnum::eIntegrity},
+        {EBADMSG, ErrorEnum::eIntegrity},
+        {EPERM, Error(EPERM)},
+    };
+
+    for (const auto& data : testData) {
+        fs::File                  file;
+        StaticArray<uint8_t, 100> buff;
+
+        ASSERT_TRUE(file.Open(testFile.c_str(), fs::File::Mode::Read).IsNone());
+
+        sReadErrno = data.mErrno;
+
+        const auto err = file.ReadBlock(buff);
+
+        sReadErrno = 0;
+
+        EXPECT_TRUE(err.Is(data.mExpected)) << "errno: " << data.mErrno;
+        EXPECT_EQ(err.Code(), data.mErrno);
+    }
+
+    fs::File file;
+
+    const auto err = file.Open((cBaseTestDir / "missing_file").c_str(), fs::File::Mode::Read);
+
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound));
+    EXPECT_EQ(err.Code(), ENOENT);
+}
+
 TEST_F(FSTest, ReadFileMissingIsNotFound)
 {
     const auto testFile = cBaseTestDir / "missing_file";

@@ -709,7 +709,7 @@ Error File::Open(const String& path, Mode mode, uint32_t perm)
 
     mFd = open(path.CStr(), flags, perm);
     if (mFd < 0) {
-        return Error(errno, "file open failed");
+        return FileErrnoToError(errno);
     }
 
     return ErrorEnum::eNone;
@@ -743,7 +743,7 @@ Error File::ReadBlock(Array<uint8_t>& buffer) const
     while (totalRead < blockSize) {
         ssize_t result = read(mFd, buffer.Get() + totalRead, blockSize - totalRead);
         if (result < 0) {
-            return Error(errno, "file read failed");
+            return FileErrnoToError(errno);
         } else if (result == 0) {
             eof = true;
             break; // EOF
