@@ -509,7 +509,8 @@ Error WriteStringToFile(const String& fileName, const String& text, uint32_t per
  *
  * @param allocator allocator to use for temporary objects.
  * @param path file or directory path.
- * @return RetWithError<size_t>.
+ * @return RetWithError<size_t>: eNotFound if the path doesn't exist, eIntegrity on EIO or EBADMSG, otherwise
+ *         errno as is.
  */
 RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path);
 

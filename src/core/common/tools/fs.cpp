@@ -602,7 +602,7 @@ RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path)
     struct stat st;
 
     if (auto ret = StatNoFollow(path.CStr(), &st); ret != 0) {
-        return {0, AOS_ERROR_WRAP(Error(errno))};
+        return {0, AOS_ERROR_WRAP(FileErrnoToError(errno))};
     }
 
     if (!S_ISDIR(st.st_mode)) {
@@ -629,7 +629,7 @@ RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path)
 
             // Symlinks are not followed: they may point outside the path or to the content counted elsewhere.
             if (auto ret = StatNoFollow(fullPath.CStr(), &st); ret != 0) {
-                return {0, AOS_ERROR_WRAP(Error(errno))};
+                return {0, AOS_ERROR_WRAP(FileErrnoToError(errno))};
             }
 
             if (S_ISDIR(st.st_mode)) {
