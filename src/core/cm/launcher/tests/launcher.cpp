@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cerrno>
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
@@ -2743,6 +2744,107 @@ TEST_F(CMLauncherTest, RunInstanceWithUnknownIndexDigest)
 
     ASSERT_EQ(*runStatuses, *expectedRunStatus);
     EXPECT_TRUE((*runStatuses)[0].mError.Is(ErrorEnum::eNotFound));
+}
+
+TEST_F(CMLauncherTest, SchedulingErrorIsKeptAfterNodeStopStatus)
+{
+    mStorageState.Init();
+    mStorageState.SetTotalStateSize(1024);
+    mStorageState.SetTotalStorageSize(1024);
+
+    mNodeInfoProvider.Init();
+    mImageStore.Init();
+    mMonitoringProvider.Init();
+    mResourceManager.Init();
+    mStorage.Init();
+
+    auto nodeInfoLocalSM = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {});
+    mNodeInfoProvider.AddNodeInfo(cNodeIDLocalSM, nodeInfoLocalSM);
+
+    auto nodeConfig = std::make_unique<NodeConfig>();
+    CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
+    mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
+
+    auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+    CreateNodeMonitoring(*nodeMonitoring, cNodeIDLocalSM, 0.0);
+    mMonitoringProvider.SetAverageMonitoring(cNodeIDLocalSM, *nodeMonitoring);
+
+    auto itemConfig = std::make_unique<oci::ItemConfig>();
+    CreateItemConfig(*itemConfig, {cRunnerRunc});
+    AddItem(cService1, cImageID1, *itemConfig, CreateImageConfig());
+
+    mInstanceRunner.Init(mLauncher, true, aos::InstanceStateEnum::eActive);
+
+    ASSERT_TRUE(mLauncher
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
+                        ValidateGID, ValidateUID, mStorage, mSender)
+                    .IsNone());
+
+    ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    mInstanceRunner.SendInitialStatuses(cNodeIDLocalSM);
+
+    InstanceStatusListenerStub instanceStatusListener;
+    mLauncher.SubscribeListener(instanceStatusListener);
+
+    const auto instanceIdent = CreateInstanceIdent(cService1, cSubject1, 0);
+
+    auto runRequest = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    runRequest->PushBack(CreateRunRequest(cService1, cSubject1, 50, 1));
+
+    auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    ASSERT_TRUE(mLauncher.RunInstances(*runRequest, *runStatuses).IsNone());
+
+    ASSERT_EQ(runStatuses->Size(), 1);
+    EXPECT_EQ((*runStatuses)[0].mState, aos::InstanceStateEnum::eActive);
+    EXPECT_EQ((*runStatuses)[0].mNodeID, cNodeIDLocalSM);
+
+    mImageStore.SetBlobError(
+        imagemanager::ImageStoreStub::BuildIndexDigest(cService1, ""), Error(ErrorEnum::eIntegrity, EIO));
+
+    ASSERT_TRUE(mLauncher.RunInstances(*runRequest, *runStatuses).IsNone());
+
+    ASSERT_EQ(runStatuses->Size(), 1);
+    EXPECT_EQ(static_cast<const InstanceIdent&>((*runStatuses)[0]), instanceIdent);
+    EXPECT_EQ((*runStatuses)[0].mState, aos::InstanceStateEnum::eFailed);
+    EXPECT_TRUE((*runStatuses)[0].mError.Is(ErrorEnum::eIntegrity));
+    EXPECT_TRUE((*runStatuses)[0].mNodeID.IsEmpty());
+
+    std::map<std::string, InstanceRunnerStub::NodeRunRequest> expectedRunRequests
+        = {{cNodeIDLocalSM, {{CreateAosStopInstanceInfo(instanceIdent, cRunnerRunc)}, {}}}};
+    EXPECT_EQ(mInstanceRunner.GetRunRequests(), expectedRunRequests);
+
+    const auto notifyCount = instanceStatusListener.GetNotifyCount();
+
+    std::vector<InstanceStatus> nodeStatuses
+        = {CreateInstanceStatus(instanceIdent, cNodeIDLocalSM, cRunnerRunc, aos::InstanceStateEnum::eInactive,
+            ErrorEnum::eNone, "", false, BuildManifestDigest(cService1, cImageID1).CStr())};
+
+    InstanceStatusReceiverItf& statusReceiver = mLauncher;
+
+    ASSERT_TRUE(statusReceiver
+                    .OnNodeInstancesStatusesReceived(
+                        cNodeIDLocalSM, Array<InstanceStatus>(nodeStatuses.data(), nodeStatuses.size()))
+                    .IsNone());
+
+    auto statuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    ASSERT_TRUE(mLauncher.GetInstancesStatuses(*statuses).IsNone());
+
+    ASSERT_EQ(statuses->Size(), 1);
+    EXPECT_EQ(static_cast<const InstanceIdent&>((*statuses)[0]), instanceIdent);
+    EXPECT_EQ((*statuses)[0].mState, aos::InstanceStateEnum::eFailed);
+    EXPECT_TRUE((*statuses)[0].mError.Is(ErrorEnum::eIntegrity));
+    EXPECT_TRUE((*statuses)[0].mNodeID.IsEmpty());
+
+    EXPECT_EQ(instanceStatusListener.GetNotifyCount(), notifyCount);
+
+    for (const auto& status : instanceStatusListener.GetLastStatuses()) {
+        EXPECT_NE(status.mState, aos::InstanceStateEnum::eInactive);
+    }
+
+    mLauncher.UnsubscribeListener(instanceStatusListener);
+    ASSERT_TRUE(mLauncher.Stop().IsNone());
 }
 
 TEST_F(CMLauncherTest, RunInstanceWithEmptyIndexDigest)

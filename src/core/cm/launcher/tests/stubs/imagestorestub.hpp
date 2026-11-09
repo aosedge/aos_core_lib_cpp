@@ -30,7 +30,16 @@ public:
         mImageConfigs.clear();
         mItemConfigs.clear();
         mKnownDigests.clear();
+        mBlobErrors.clear();
     }
+
+    /**
+     * Makes GetBlobPath fail with the specified error for the digest.
+     *
+     * @param digest blob digest.
+     * @param err error to return.
+     */
+    void SetBlobError(const String& digest, const Error& err) { mBlobErrors[digest.CStr()] = err; }
 
     void AddItem(const String& itemID, const String& imageID, const oci::ItemConfig& itemCfg,
         const oci::ImageConfig& imageCfg, const String& version = DefaultVersion)
@@ -82,6 +91,10 @@ public:
     //
     Error GetBlobPath(const String& digest, String& path) const override
     {
+        if (auto it = mBlobErrors.find(digest.CStr()); it != mBlobErrors.end()) {
+            return it->second;
+        }
+
         if (!mKnownDigests.count(digest.CStr())) {
             return ErrorEnum::eNotFound;
         }
@@ -195,6 +208,7 @@ private:
     std::map<std::string, oci::ImageConfig>   mImageConfigs;
     std::map<std::string, oci::ItemConfig>    mItemConfigs;
     std::set<std::string>                     mKnownDigests;
+    std::map<std::string, Error>              mBlobErrors;
 };
 
 } // namespace aos::cm::imagemanager
