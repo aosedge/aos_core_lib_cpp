@@ -255,6 +255,17 @@ private:
     Error SetStatus(const InstanceStatus& status);
     Error SetStatus(Array<InstanceStatus>& statuses, const InstanceStatus& status) const;
 
+    /**
+     * Applies node instance status to the instance if the instance is scheduled on the status node and runtime.
+     * Otherwise the status confirms the instance stop on a node the instance left, or the stop of an instance which
+     * failed scheduling, and the instance keeps its own status.
+     *
+     * @param instance instance.
+     * @param status node instance status.
+     * @return Error.
+     */
+    Error ApplyNodeStatus(Instance& instance, const InstanceStatus& status) const;
+
     Error LoadInstancesFromStorage();
     Error LoadInstanceFromStorage(const InstanceInfo& info);
     Error LoadInstanceStatuses();
