@@ -231,6 +231,11 @@ states are changed all subscribed to status change listeners are notified.
 This notification is sent by SM on start after all previously scheduled instances are launched and as the response on
 update instances request.
 
+A node instance status (received by `OnInstanceStatusReceived` or `OnNodeInstancesStatusesReceived`) is applied to an
+instance only if the instance is scheduled on that node and runtime. The status of an instance stopped on a node it left
+doesn't override the scheduling error, so a failed scheduling (e.g. `eIntegrity` on reading the item blobs) stays
+reported to the update manager.
+
 ## Class structure
 
 This class diagram illustrates the architecture of the Launcher system, which manages the lifecycle of service and
