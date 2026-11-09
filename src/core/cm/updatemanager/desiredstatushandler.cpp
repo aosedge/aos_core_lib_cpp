@@ -128,6 +128,10 @@ Error DesiredStatusHandler::Start()
 
         mHasPendingDesiredStatus = true;
         StartUpdate(updateState);
+    } else if (err = mStorage->GetDesiredStatus(mCurrentDesiredStatus); err.IsNone()) {
+        mHasCurrentDesiredStatus = true;
+    } else if (!err.Is(ErrorEnum::eNotFound)) {
+        LOG_ERR() << "Failed to get desired status" << Log::Field(err);
     }
 
     return ErrorEnum::eNone;
@@ -175,6 +179,8 @@ Error DesiredStatusHandler::ProcessDesiredStatus(const DesiredStatus& desiredSta
 
     LogDesiredStatus(desiredStatus);
 
+    UpdateState startState = UpdateStateEnum::eDownloading;
+
     if (mUpdateState != UpdateStateEnum::eNone) {
         if (IsSameUpdate(desiredStatus)) {
             LOG_DBG() << "No update is required";
@@ -187,19 +193,26 @@ Error DesiredStatusHandler::ProcessDesiredStatus(const DesiredStatus& desiredSta
         CancelUpdate();
     } else {
         if (!IsUpdateRequired(desiredStatus)) {
-            LOG_INF() << "No update is required";
+            if (!SetIntegrityFailedItems(desiredStatus)) {
+                LOG_INF() << "No update is required";
 
-            return ErrorEnum::eNone;
+                StoreDesiredStatus(desiredStatus);
+
+                mCurrentDesiredStatus    = desiredStatus;
+                mHasCurrentDesiredStatus = true;
+
+                return ErrorEnum::eNone;
+            }
+
+            startState = UpdateStateEnum::eRecovering;
         }
 
-        StartUpdate();
+        StartUpdate(startState);
     }
 
-    if (auto err = mStorage->StoreDesiredStatus(desiredStatus); !err.IsNone()) {
-        LOG_ERR() << "Failed to store desired status" << Log::Field(err);
-    }
+    StoreDesiredStatus(desiredStatus);
 
-    if (auto err = mStorage->StoreUpdateState(UpdateStateEnum::eDownloading); !err.IsNone()) {
+    if (auto err = mStorage->StoreUpdateState(startState); !err.IsNone()) {
         LOG_ERR() << "Failed to store update state" << Log::Field(err);
     }
 
@@ -217,6 +230,12 @@ void DesiredStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus
 {
     (void)statuses;
 
+    {
+        LockGuard lock {mIntegrityCheckMutex};
+
+        mIntegrityCheckRequired = true;
+    }
+
     if (auto err = mCondVar.NotifyOne(); !err.IsNone()) {
         LOG_ERR() << "Can't notify desired status handler" << Log::Field(AOS_ERROR_WRAP(err));
     }
@@ -224,6 +243,8 @@ void DesiredStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus
 
 void DesiredStatusHandler::StartUpdate(const UpdateState& state)
 {
+    (void)ResetIntegrityCheckRequired();
+
     SetState(state);
 
     if (auto err = mCondVar.NotifyOne(); !err.IsNone()) {
@@ -253,9 +274,11 @@ void DesiredStatusHandler::Run()
         {
             UniqueLock lock {mMutex};
 
-            if (auto err
-                = mCondVar.Wait(lock, [this]() { return !mIsRunning || mUpdateState != UpdateStateEnum::eNone; });
-                !err.IsNone()) {
+            if (auto err = mCondVar.Wait(lock, cIntegrityCheckPeriod,
+                    [this]() {
+                        return !mIsRunning || mUpdateState != UpdateStateEnum::eNone || IsIntegrityCheckRequired();
+                    });
+                !err.IsNone() && !err.Is(ErrorEnum::eTimeout)) {
                 LOG_ERR() << "Error waiting cond var" << Log::Field(err);
             }
 
@@ -263,10 +286,25 @@ void DesiredStatusHandler::Run()
                 return;
             }
 
-            mCurrentDesiredStatus    = mPendingDesiredStatus;
-            mHasPendingDesiredStatus = false;
-            mRecoveryRequired        = false;
-            mRecoveryDone            = false;
+            if (mUpdateState == UpdateStateEnum::eNone) {
+                if (!ResetIntegrityCheckRequired() || !mHasCurrentDesiredStatus
+                    || !SetIntegrityFailedItems(mCurrentDesiredStatus)) {
+                    continue;
+                }
+
+                mPendingDesiredStatus = mCurrentDesiredStatus;
+
+                SetState(UpdateStateEnum::eRecovering);
+            }
+
+            if (mHasPendingDesiredStatus) {
+                mCurrentDesiredStatus    = mPendingDesiredStatus;
+                mHasCurrentDesiredStatus = true;
+                mHasPendingDesiredStatus = false;
+            }
+
+            mRecoveryRequired = false;
+            mRecoveryDone     = false;
 
             while (mUpdateState != UpdateStateEnum::eNone && mIsRunning) {
                 Error (DesiredStatusHandler::*stateAction)() = nullptr;
@@ -543,6 +581,95 @@ void DesiredStatusHandler::SetItemsFailed(const Array<InstanceStatus>& instances
                       << Log::Field("version", item.mVersion) << Log::Field(err);
         }
     }
+}
+
+bool DesiredStatusHandler::IsIntegrityCheckRequired()
+{
+    LockGuard lock {mIntegrityCheckMutex};
+
+    return mIntegrityCheckRequired;
+}
+
+bool DesiredStatusHandler::ResetIntegrityCheckRequired()
+{
+    LockGuard lock {mIntegrityCheckMutex};
+
+    auto integrityCheckRequired = mIntegrityCheckRequired;
+
+    mIntegrityCheckRequired = false;
+
+    return integrityCheckRequired;
+}
+
+void DesiredStatusHandler::StoreDesiredStatus(const DesiredStatus& desiredStatus)
+{
+    if (auto err = mStorage->StoreDesiredStatus(desiredStatus); !err.IsNone()) {
+        LOG_ERR() << "Failed to store desired status" << Log::Field(err);
+    }
+}
+
+bool DesiredStatusHandler::SetIntegrityFailedItems(const DesiredStatus& desiredStatus)
+{
+    auto itemsStatuses = MakeUnique<UpdateItemStatusArray>(mAllocator);
+    if (!itemsStatuses) {
+        LOG_ERR() << "Failed to allocate update items statuses" << Log::Field(ErrorEnum::eNoMemory);
+
+        return false;
+    }
+
+    auto instancesStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(mAllocator);
+    if (!instancesStatuses) {
+        LOG_ERR() << "Failed to allocate instances statuses" << Log::Field(ErrorEnum::eNoMemory);
+
+        return false;
+    }
+
+    if (auto err = mItemStatusProvider->GetItemsStatuses(*itemsStatuses); !err.IsNone()) {
+        LOG_ERR() << "Failed to get update items statuses" << Log::Field(err);
+
+        return false;
+    }
+
+    if (auto err = mLauncher->GetInstancesStatuses(*instancesStatuses); !err.IsNone()) {
+        LOG_ERR() << "Failed to get instances statuses" << Log::Field(err);
+
+        return false;
+    }
+
+    size_t numFailedItems = 0;
+
+    for (const auto& item : desiredStatus.mUpdateItems) {
+        const auto* itemStatus = FindItemStatus(item, *itemsStatuses);
+        if (itemStatus == nullptr || itemStatus->mState != ItemStateEnum::eInstalled) {
+            continue;
+        }
+
+        const auto* failureCause = FindItemFailureCause(item, *instancesStatuses);
+        if (failureCause == nullptr || !failureCause->mError.Is(ErrorEnum::eIntegrity)) {
+            continue;
+        }
+
+        LOG_ERR() << "Set update item failed" << Log::Field("id", item.mItemID) << Log::Field("version", item.mVersion)
+                  << Log::Field("err", failureCause->mError);
+
+        if (auto err = mItemStatusProvider->SetItemFail(item.mItemID, item.mVersion, failureCause->mError);
+            !err.IsNone()) {
+            LOG_ERR() << "Failed to set update item failed" << Log::Field("id", item.mItemID)
+                      << Log::Field("version", item.mVersion) << Log::Field(err);
+
+            continue;
+        }
+
+        numFailedItems++;
+    }
+
+    if (numFailedItems == 0) {
+        return false;
+    }
+
+    LOG_WRN() << "Recover items with integrity error" << Log::Field("count", numFailedItems);
+
+    return true;
 }
 
 void DesiredStatusHandler::AddInstallTask(const UpdateItemInfo& item)
