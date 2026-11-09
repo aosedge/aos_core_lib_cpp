@@ -210,6 +210,7 @@ private:
     void  StartInstances(const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& startedInstances);
     void  RepairInstances(
          const Array<InstanceIdent>& instances, Array<InstallItem>& repairedItems, AddInstanceTaskFunc addRetryTask);
+    void  RepairModuleStartInstances();
     Error AddStartInstanceTask(InstanceData& instanceData);
     Error StartInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData) const;
     Error AppendInstancesWithModifiedParams(
@@ -273,6 +274,7 @@ private:
     bool                                                                  mLaunchInProgress {};
     bool                                                                  mIsRunning {};
     bool                                                                  mFirstStart {true};
+    bool                                                                  mModuleStartRepair {};
     Optional<Time>                                                        mOfflineTime {};
 };
 
