@@ -191,7 +191,7 @@ Error InstanceManager::UpdateStatus(const InstanceStatus& status)
     if (!status.mPreinstalled) {
         auto instance = FindActiveInstance(static_cast<const InstanceIdent&>(status), status.mVersion);
         if (instance) {
-            if (auto err = instance->UpdateStatus(status); !err.IsNone()) {
+            if (auto err = ApplyNodeStatus(*instance, status); !err.IsNone()) {
                 firstErr = err;
             }
         } else {
@@ -649,7 +649,7 @@ Error InstanceManager::SetStatus(const InstanceStatus& status)
     }
 
     if (auto instance = FindActiveInstance(static_cast<const InstanceIdent&>(status), status.mVersion); instance) {
-        if (auto err = instance->UpdateStatus(status); !err.IsNone() && firstErr.IsNone()) {
+        if (auto err = ApplyNodeStatus(*instance, status); !err.IsNone() && firstErr.IsNone()) {
             firstErr = err;
         }
     } else {
@@ -659,6 +659,23 @@ Error InstanceManager::SetStatus(const InstanceStatus& status)
     }
 
     return firstErr;
+}
+
+Error InstanceManager::ApplyNodeStatus(Instance& instance, const InstanceStatus& status) const
+{
+    if (instance.GetInfo().mNodeID != status.mNodeID || instance.GetInfo().mRuntimeID != status.mRuntimeID) {
+        LOG_DBG() << "Skip node status for instance not scheduled on node"
+                  << Log::Field("instance", static_cast<const InstanceIdent&>(status))
+                  << Log::Field("nodeID", status.mNodeID) << Log::Field("runtimeID", status.mRuntimeID);
+
+        return ErrorEnum::eNone;
+    }
+
+    if (auto err = instance.UpdateStatus(status); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error InstanceManager::ScheduleInstance(SharedPtr<Instance>& instance, NodeItf& node, const String& runtimeID)
