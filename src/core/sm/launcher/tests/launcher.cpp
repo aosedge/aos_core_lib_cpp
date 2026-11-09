@@ -1292,12 +1292,11 @@ TEST_F(LauncherTest, DoesNotRepairItemsOfInstancesFailedWithOtherErrors)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
-TEST_F(LauncherTest, RepairsItemFailedOnModuleStartOnFirstRequest)
+TEST_F(LauncherTest, RepairsItemFailedOnModuleStart)
 {
     const std::vector cStoredInfos = {
         CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
     };
-    const Array<InstanceInfo> cStartInstances(&cStoredInfos.front(), cStoredInfos.size());
 
     mStorage.Init(cStoredInfos);
 
@@ -1305,36 +1304,26 @@ TEST_F(LauncherTest, RepairsItemFailedOnModuleStartOnFirstRequest)
         mOCISpec, mItemInfoProvider, mCloudConnection, mNetworkManager, mInstanceIDProvider, mResourceInfoProvider);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    // The repair needs the CM, which may be not connected on module start, so the broken item is not repaired. The
-    // first request starts the failed instance again and repairs the item.
+    // The start of the stored instance fails, as the item content is broken: the item is repaired on module start and
+    // the instance is started again.
     EXPECT_CALL(mRuntime0, StartInstance)
-        .WillOnce(Return(ErrorEnum::eIntegrity))
         .WillOnce(Return(ErrorEnum::eIntegrity))
         .WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
             SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
 
             return ErrorEnum::eNone;
         }));
-    EXPECT_CALL(mImageManager, InstallItem).Times(0);
+    EXPECT_CALL(mImageManager, InstallItem).WillOnce(Invoke([](const imagemanager::UpdateItemInfo& itemInfo) {
+        EXPECT_EQ(itemInfo.mID, "item0");
+        EXPECT_EQ(itemInfo.mVersion, "1.0.0");
+
+        return ErrorEnum::eNone;
+    }));
 
     err = mLauncher.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
-    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
-
-    ASSERT_EQ(mReceivedStatuses.Size(), 1);
-    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eFailed);
-    EXPECT_TRUE(mReceivedStatuses[0].mError.Is(ErrorEnum::eIntegrity)) << mReceivedStatuses[0];
-
-    ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mImageManager));
-
-    EXPECT_CALL(mItemStatusProvider, GetItemsStatuses).WillOnce(Invoke(ItemsInstalled({"item0"})));
-    EXPECT_CALL(mImageManager, InstallItem).WillOnce(Return(ErrorEnum::eNone));
-
-    err = mLauncher.UpdateInstances({}, cStartInstances);
-    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
-
+    // The statuses are sent when the module start repair is finished.
     err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
@@ -1504,7 +1493,7 @@ TEST_F(LauncherTest, RepairsItemWithBrokenConfigsOncePerRequest)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
-TEST_F(LauncherTest, RepairsBrokenConfigsOfModuleStartOnFirstRequest)
+TEST_F(LauncherTest, ModuleStartRepairDoesNotBlockStatusesAndRequests)
 {
     const std::vector cStoredInfos = {
         CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
@@ -1517,17 +1506,102 @@ TEST_F(LauncherTest, RepairsBrokenConfigsOfModuleStartOnFirstRequest)
         mOCISpec, mItemInfoProvider, mCloudConnection, mNetworkManager, mInstanceIDProvider, mResourceInfoProvider);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    // The repair needs the CM, which may be not connected on module start, so the broken configs are not repaired.
-    // The first request prepares the running instance again, as its configs aren't loaded, and repairs the item. The
-    // configs are loaded then, so the next request doesn't prepare the running instance again.
+    std::promise<void> installStarted;
+    std::promise<void> installReleased;
+    auto               installReleasedFuture = installReleased.get_future().share();
+
+    EXPECT_CALL(mRuntime0, StartInstance)
+        .WillOnce(Return(ErrorEnum::eIntegrity))
+        .WillRepeatedly(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+            SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+            return ErrorEnum::eNone;
+        }));
+
+    // The repair waits for the CM, which is connected only after the modules started after the launcher.
+    EXPECT_CALL(mImageManager, InstallItem)
+        .WillOnce(Invoke([&installStarted, installReleasedFuture](const imagemanager::UpdateItemInfo&) {
+            installStarted.set_value();
+            installReleasedFuture.wait();
+
+            return ErrorEnum::eNone;
+        }));
+
+    err = mLauncher.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(installStarted.get_future().wait_for(std::chrono::seconds(5)), std::future_status::ready);
+
+    // The statuses are returned while the repair is in progress.
+    auto statuses = std::async(std::launch::async, [this]() {
+        StaticArray<InstanceStatus, cMaxNumInstances> result;
+
+        EXPECT_TRUE(mLauncher.GetInstancesStatuses(result).IsNone());
+
+        return std::vector<InstanceStatus>(result.begin(), result.end());
+    });
+
+    ASSERT_EQ(statuses.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+
+    const auto repairStatuses = statuses.get();
+
+    ASSERT_EQ(repairStatuses.size(), 1);
+    EXPECT_EQ(repairStatuses[0].mState, InstanceStateEnum::eFailed);
+    EXPECT_TRUE(repairStatuses[0].mError.Is(ErrorEnum::eIntegrity)) << repairStatuses[0];
+
+    // The request received during the repair waits for it instead of being rejected.
+    EXPECT_CALL(mItemStatusProvider, GetItemsStatuses).WillOnce(Invoke(ItemsInstalled({"item0"})));
+
+    auto request = std::async(
+        std::launch::async, [this, &cStartInstances]() { return mLauncher.UpdateInstances({}, cStartInstances); });
+
+    EXPECT_EQ(request.wait_for(std::chrono::milliseconds(200)), std::future_status::timeout);
+
+    installReleased.set_value();
+
+    ASSERT_EQ(request.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+
+    err = request.get();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    // The statuses of the repair, then of the request.
+    for (size_t i = 0; i < 2; ++i) {
+        err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        ASSERT_EQ(mReceivedStatuses.Size(), 1);
+        EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive) << mReceivedStatuses[0];
+    }
+
+    EXPECT_CALL(mRuntime0, StopInstance).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    err = mLauncher.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, RepairsBrokenConfigsOnModuleStart)
+{
+    const std::vector cStoredInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+    };
+    const Array<InstanceInfo> cStartInstances(&cStoredInfos.front(), cStoredInfos.size());
+
+    mStorage.Init(cStoredInfos);
+
+    auto err = mLauncher.Init(mAllocator, GetRuntimesArray(), mImageManager, mItemStatusProvider, mSender, mStorage,
+        mOCISpec, mItemInfoProvider, mCloudConnection, mNetworkManager, mInstanceIDProvider, mResourceInfoProvider);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    // The configs read fails on module start and on the instance start, as the item content is broken. The item is
+    // repaired on module start, the configs are loaded and the instance is started.
     EXPECT_CALL(mOCISpec, LoadItemConfig)
         .Times(3)
         .WillOnce(Return(ErrorEnum::eIntegrity))
         .WillOnce(Return(ErrorEnum::eIntegrity))
         .WillOnce(DoAll(SetArgReferee<1>(mItemConfig), Return(ErrorEnum::eNone)));
-    EXPECT_CALL(mImageManager, InstallItem).Times(0);
+    EXPECT_CALL(mImageManager, InstallItem).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mRuntime0, StartInstance)
-        .Times(3)
+        .Times(2)
         .WillRepeatedly(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
             SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
 
@@ -1537,16 +1611,15 @@ TEST_F(LauncherTest, RepairsBrokenConfigsOfModuleStartOnFirstRequest)
     err = mLauncher.Start();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    // The statuses are sent when the module start repair is finished.
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     ASSERT_EQ(mReceivedStatuses.Size(), cStoredInfos.size());
     EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive) << mReceivedStatuses[0];
 
-    ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mImageManager));
-
+    // The configs are loaded, so the next request neither prepares the running instance again nor repairs the item.
     EXPECT_CALL(mItemStatusProvider, GetItemsStatuses).WillOnce(Invoke(ItemsInstalled({"item0"})));
-    EXPECT_CALL(mImageManager, InstallItem).WillOnce(Return(ErrorEnum::eNone));
 
     err = mLauncher.UpdateInstances({}, cStartInstances);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
@@ -1556,14 +1629,6 @@ TEST_F(LauncherTest, RepairsBrokenConfigsOfModuleStartOnFirstRequest)
 
     ASSERT_EQ(mReceivedStatuses.Size(), 1);
     EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive) << mReceivedStatuses[0];
-
-    EXPECT_CALL(mItemStatusProvider, GetItemsStatuses).WillOnce(Invoke(ItemsInstalled({"item0"})));
-
-    err = mLauncher.UpdateInstances({}, cStartInstances);
-    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
-
-    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
-    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, StopInstance).WillRepeatedly(Return(ErrorEnum::eNone));
 

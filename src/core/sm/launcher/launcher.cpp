@@ -210,7 +210,15 @@ Error Launcher::UpdateInstances(const Array<InstanceIdent>& stopInstances, const
     }
 
     err = mThread.Run([this, stop, start](void*) {
+        // mFirstStart is changed only by this thread.
+        const auto moduleStart = mFirstStart;
+
         UpdateInstancesImpl(*stop, *start);
+
+        if (moduleStart) {
+            RepairModuleStartInstances();
+        }
+
         FinishLaunch();
     });
     if (!err.IsNone()) {
@@ -282,7 +290,9 @@ Error Launcher::GetInstancesStatuses(Array<InstanceStatus>& statuses)
 {
     UniqueLock lock {mMutex};
 
-    if (auto err = mCondVar.Wait(lock, [this]() { return !mLaunchInProgress; }); !err.IsNone()) {
+    // The module start repair may wait for the CM, which is connected by the modules that get the statuses: don't wait
+    // for it. The statuses changed by the repair are sent when it is finished.
+    if (auto err = mCondVar.Wait(lock, [this]() { return !mLaunchInProgress || mModuleStartRepair; }); !err.IsNone()) {
         LOG_ERR() << "Can't wait for launch finish" << Log::Field(AOS_ERROR_WRAP(err));
     }
 
@@ -676,8 +686,9 @@ Error Launcher::LoadInstanceData(InstanceData& instanceData)
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    // The broken content is not repaired on start: the repair needs the CM, which may be not connected yet. The first
-    // UpdateInstances prepares again the instance whose configs aren't loaded and repairs the broken content.
+    // If the configs aren't loaded on module start, the start of the instance loads them again: the broken content
+    // fails the instance with eIntegrity and is repaired. Otherwise the next UpdateInstances prepares the instance
+    // again.
     if (auto err = LoadInstanceConfigs(instanceData.mInfo, *itemConfig, *imageConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -812,7 +823,8 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
 
     StartInstances(startInstances, *processedInstances);
 
-    // The repair needs the CM, which may be not connected on module start: the first request repairs the failed items.
+    // On module start, the items are repaired after the launch by RepairModuleStartInstances: the repair may wait for
+    // the CM, which needs the modules started after the launcher.
     if (!mFirstStart) {
         RepairInstances(*processedInstances, *repairedItems, &Launcher::AddStartInstanceTask);
     }
@@ -1393,6 +1405,70 @@ void Launcher::RepairInstances(
     LOG_INF() << "[profiling] Repair instances end";
 }
 
+void Launcher::RepairModuleStartInstances()
+{
+    auto brokenInstances = MakeUnique<StaticArray<InstanceIdent, cMaxNumInstances>>(mAllocator);
+    if (!brokenInstances) {
+        LOG_ERR() << "Failed to allocate broken instances" << Log::Field(ErrorEnum::eNoMemory);
+
+        return;
+    }
+
+    auto repairedItems = MakeUnique<StaticArray<InstallItem, cMaxNumUpdateItems>>(mAllocator);
+    if (!repairedItems) {
+        LOG_ERR() << "Failed to allocate repaired items" << Log::Field(ErrorEnum::eNoMemory);
+
+        return;
+    }
+
+    {
+        LockGuard lock {mMutex};
+
+        for (const auto& instance : mInstances) {
+            if (instance.mStatus.mState != InstanceStateEnum::eFailed
+                || !instance.mStatus.mError.Is(ErrorEnum::eIntegrity)) {
+                continue;
+            }
+
+            if (auto err = brokenInstances->PushBack(static_cast<const InstanceIdent&>(instance.mInfo));
+                !err.IsNone()) {
+                LOG_ERR() << "Failed to add broken instance" << Log::Field("instance", instance.mInfo)
+                          << Log::Field(AOS_ERROR_WRAP(err));
+            }
+        }
+
+        if (brokenInstances->IsEmpty()) {
+            return;
+        }
+
+        mModuleStartRepair = true;
+
+        if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+            LOG_ERR() << "Can't notify launcher" << Log::Field(AOS_ERROR_WRAP(err));
+        }
+    }
+
+    LOG_INF() << "[profiling] Module start repair begin" << Log::Field("count", brokenInstances->Size());
+
+    if (auto err = mLaunchPool.Run(); err.IsNone()) {
+        RepairInstances(*brokenInstances, *repairedItems, &Launcher::AddStartInstanceTask);
+
+        if (err = mLaunchPool.Shutdown(); !err.IsNone()) {
+            LOG_ERR() << "Thread pool shutdown failed" << Log::Field(AOS_ERROR_WRAP(err));
+        }
+    } else {
+        LOG_ERR() << "Can't start thread pool" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    LOG_INF() << "[profiling] Module start repair end";
+
+    // mModuleStartRepair is reset by FinishLaunch, so a request waiting for the repair starts after the launch is
+    // finished.
+    LockGuard lock {mMutex};
+
+    SendNodeInstancesStatuses();
+}
+
 Error Launcher::AddStartInstanceTask(InstanceData& instanceData)
 {
     auto runtime = FindInstanceRuntime(instanceData.mInfo.mRuntimeID);
@@ -1402,6 +1478,19 @@ Error Launcher::AddStartInstanceTask(InstanceData& instanceData)
 
     if (auto err = mLaunchPool.AddTask([this, runtime, &instanceData](void*) {
             SetInstanceState(instanceData, InstanceStateEnum::eActivating);
+
+            // The configs of the instance restored on module start aren't loaded if their read failed. The broken
+            // content fails the instance with eIntegrity, so the item is repaired and the instance is started again.
+            if (instanceData.mInfo.mType == UpdateItemTypeEnum::eService && !instanceData.mConfigsLoaded) {
+                if (auto err = LoadInstanceData(instanceData); err.Is(ErrorEnum::eIntegrity)) {
+                    LOG_ERR() << "Failed to start instance" << Log::Field("instance", instanceData.mInfo)
+                              << Log::Field(AOS_ERROR_WRAP(err));
+
+                    SetInstanceState(instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+
+                    return;
+                }
+            }
 
             if (auto err = StartInstance(runtime, instanceData); !err.IsNone()) {
                 LOG_ERR() << "Failed to start instance" << Log::Field("instance", instanceData.mInfo)
@@ -1514,7 +1603,12 @@ void Launcher::CancelInstalls()
 
 Error Launcher::StartLaunch()
 {
-    LockGuard lock {mMutex};
+    UniqueLock lock {mMutex};
+
+    // The request received while the module start repair waits for the CM is processed after the repair.
+    if (auto err = mCondVar.Wait(lock, [this]() { return !mModuleStartRepair; }); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     if (mLaunchInProgress) {
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
@@ -1529,7 +1623,8 @@ void Launcher::FinishLaunch()
 {
     LockGuard lock {mMutex};
 
-    mLaunchInProgress = false;
+    mLaunchInProgress  = false;
+    mModuleStartRepair = false;
 
     if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
         LOG_ERR() << "Can't notify launcher" << Log::Field(AOS_ERROR_WRAP(err));
