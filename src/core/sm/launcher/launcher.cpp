@@ -722,9 +722,9 @@ void Launcher::LoadInstancesData(const Array<InstanceInfo>& storedInstances)
             continue;
         }
 
-        err = mLaunchPool.AddTask([this, instanceData](void*) {
-            if (auto err = LoadInstanceData(*instanceData); !err.IsNone()) {
-                LOG_ERR() << "Failed to load instance data" << Log::Field("instance", instanceData->mInfo)
+        err = mLaunchPool.AddTask([this, data = instanceData](void*) {
+            if (auto err = LoadInstanceData(*data); !err.IsNone()) {
+                LOG_ERR() << "Failed to load instance data" << Log::Field("instance", data->mInfo)
                           << Log::Field(AOS_ERROR_WRAP(err));
             }
         });
