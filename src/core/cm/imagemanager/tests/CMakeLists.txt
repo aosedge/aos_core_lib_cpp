@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2025 EPAM Systems, Inc.
+# Copyright (C) 2026 EPAM Systems, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -16,7 +16,9 @@ set(SOURCES imagemanager.cpp)
 # Libraries
 # ######################################################################################################################
 
-set(LIBRARIES aos::core::cm::imagemanager GTest::gmock_main)
+set(LIBRARIES aos::core::cm::imagemanager aos::core::cm::tests::mocks aos::core::common::tests::mocks
+              aos::core::common::tests::utils GTest::gmock_main
+)
 
 # ######################################################################################################################
 # Target

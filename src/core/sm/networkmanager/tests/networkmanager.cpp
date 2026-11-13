@@ -1689,7 +1689,7 @@ TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_RunningInstance_CallsFirewall
     mNetManager->OnPendingFirewallUpdate("test-node", update);
 }
 
-TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_KeepsRulesResolvedEarlier)
+TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_ReplacesRuleSet)
 {
     auto params          = CreateTestInstanceNetworkConfig();
     auto allocatedParams = CreateTestAllocatedParams();
@@ -1702,6 +1702,13 @@ TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_KeepsRulesResolvedEarlier)
     resolvedAtAllocation.mProto   = "udp";
     resolvedAtAllocation.mSrcIP   = "192.168.1.2";
     allocatedParams.mFirewallRules.PushBack(resolvedAtAllocation);
+
+    aos::FirewallRule movedTarget;
+    movedTarget.mDstIP   = "10.0.0.8";
+    movedTarget.mDstPort = "8080";
+    movedTarget.mProto   = "udp";
+    movedTarget.mSrcIP   = "192.168.1.2";
+    allocatedParams.mFirewallRules.PushBack(movedTarget);
 
     SetupEnsureNodeNetworkCreateMocks("test-network", "192.168.1.0/24", "192.168.1.1", 100);
 
@@ -1722,11 +1729,9 @@ TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_KeepsRulesResolvedEarlier)
 
     ASSERT_EQ(mNetManager->StartInstanceNetwork("test-instance", "test-network"), aos::ErrorEnum::eNone);
 
-    // A second allowed connection, resolvable only once its own target came up.
-    // CM sends this one alone: it does not repeat the rule it handed over
-    // earlier, so the update has to be merged rather than assigned.
     aos::networkmanager::PendingFirewallUpdate update;
     update.mInstanceIdent = params.mInstanceIdent;
+    update.mFirewallRules.PushBack(resolvedAtAllocation);
 
     aos::FirewallRule resolvedLater;
     resolvedLater.mDstIP   = "10.0.0.6";
@@ -1735,7 +1740,10 @@ TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_KeepsRulesResolvedEarlier)
     resolvedLater.mSrcIP   = "192.168.1.2";
     update.mFirewallRules.PushBack(resolvedLater);
 
-    EXPECT_CALL(mStorage, UpdateInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    aos::sm::networkmanager::InstanceNetworkInfo stored;
+
+    EXPECT_CALL(mStorage, UpdateInstanceNetworkInfo(_))
+        .WillOnce(DoAll(SaveArg<0>(&stored), Return(aos::ErrorEnum::eNone)));
 
     InstanceFirewallParams applied;
 
@@ -1746,6 +1754,255 @@ TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_KeepsRulesResolvedEarlier)
     ASSERT_EQ(applied.mOutput.Size(), 2U);
     EXPECT_TRUE(applied.mOutput[0].mDstIP == "10.0.0.5");
     EXPECT_TRUE(applied.mOutput[1].mDstIP == "10.0.0.6");
+    EXPECT_EQ(stored.mAllocatedParams.mFirewallRules, update.mFirewallRules);
+}
+
+TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_RemovesRulesOfReleasedTarget)
+{
+    auto params          = CreateTestInstanceNetworkConfig();
+    auto allocatedParams = CreateTestAllocatedParams();
+
+    aos::FirewallRule releasedTarget;
+    releasedTarget.mDstIP   = "10.0.0.5";
+    releasedTarget.mDstPort = "8080";
+    releasedTarget.mProto   = "tcp";
+    releasedTarget.mSrcIP   = "192.168.1.2";
+    allocatedParams.mFirewallRules.PushBack(releasedTarget);
+
+    SetupEnsureNodeNetworkCreateMocks("test-network", "192.168.1.0/24", "192.168.1.1", 100);
+
+    EXPECT_CALL(mNetworkProvider, AllocateInstanceNetwork(_, _, _, _, _))
+        .WillOnce(DoAll(SetArgReferee<4>(allocatedParams), Return(aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->CreateInstanceNetwork("test-instance", "test-network", params), aos::ErrorEnum::eNone);
+
+    SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", "192.168.1.0/24", 100);
+
+    EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
+        .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
+    ExpectAddInstanceCalls();
+    ExpectPersistInstanceCalls();
+    EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->StartInstanceNetwork("test-instance", "test-network"), aos::ErrorEnum::eNone);
+
+    aos::networkmanager::PendingFirewallUpdate update;
+    update.mInstanceIdent = params.mInstanceIdent;
+
+    aos::sm::networkmanager::InstanceNetworkInfo stored;
+
+    EXPECT_CALL(mStorage, UpdateInstanceNetworkInfo(_))
+        .WillOnce(DoAll(SaveArg<0>(&stored), Return(aos::ErrorEnum::eNone)));
+
+    InstanceFirewallParams applied;
+
+    EXPECT_CALL(mFirewall, UpdateInstance(_, _)).WillOnce(DoAll(SaveArg<1>(&applied), Return(aos::ErrorEnum::eNone)));
+
+    mNetManager->OnPendingFirewallUpdate("test-node", update);
+
+    EXPECT_TRUE(applied.mOutput.IsEmpty());
+    EXPECT_TRUE(stored.mAllocatedParams.mFirewallRules.IsEmpty());
+}
+
+TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_IgnoresUpdateForPreviousAddress)
+{
+    auto params          = CreateTestInstanceNetworkConfig();
+    auto allocatedParams = CreateTestAllocatedParams();
+
+    SetupEnsureNodeNetworkCreateMocks("test-network", "192.168.1.0/24", "192.168.1.1", 100);
+
+    EXPECT_CALL(mNetworkProvider, AllocateInstanceNetwork(_, _, _, _, _))
+        .WillOnce(DoAll(SetArgReferee<4>(allocatedParams), Return(aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->CreateInstanceNetwork("test-instance", "test-network", params), aos::ErrorEnum::eNone);
+
+    aos::networkmanager::PendingFirewallUpdate update;
+    update.mInstanceIdent = params.mInstanceIdent;
+
+    aos::FirewallRule rule;
+    rule.mDstIP   = "10.0.0.5";
+    rule.mDstPort = "8080";
+    rule.mProto   = "tcp";
+    rule.mSrcIP   = "192.168.2.7";
+    update.mFirewallRules.PushBack(rule);
+
+    EXPECT_CALL(mStorage, UpdateInstanceNetworkInfo(_)).Times(0);
+    EXPECT_CALL(mFirewall, UpdateInstance(_, _)).Times(0);
+
+    mNetManager->OnPendingFirewallUpdate("test-node", update);
+}
+
+TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_ReappliesAfterFailedApply)
+{
+    auto params          = CreateTestInstanceNetworkConfig();
+    auto allocatedParams = CreateTestAllocatedParams();
+
+    SetupEnsureNodeNetworkCreateMocks("test-network", "192.168.1.0/24", "192.168.1.1", 100);
+
+    EXPECT_CALL(mNetworkProvider, AllocateInstanceNetwork(_, _, _, _, _))
+        .WillOnce(DoAll(SetArgReferee<4>(allocatedParams), Return(aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->CreateInstanceNetwork("test-instance", "test-network", params), aos::ErrorEnum::eNone);
+
+    SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", "192.168.1.0/24", 100);
+
+    EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
+        .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
+    ExpectAddInstanceCalls();
+    ExpectPersistInstanceCalls();
+    EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->StartInstanceNetwork("test-instance", "test-network"), aos::ErrorEnum::eNone);
+
+    aos::networkmanager::PendingFirewallUpdate update;
+    update.mInstanceIdent = params.mInstanceIdent;
+
+    aos::FirewallRule rule;
+    rule.mDstIP   = "10.0.0.5";
+    rule.mDstPort = "8080";
+    rule.mProto   = "tcp";
+    rule.mSrcIP   = "192.168.1.2";
+    update.mFirewallRules.PushBack(rule);
+
+    EXPECT_CALL(mStorage, UpdateInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mFirewall, UpdateInstance(_, _))
+        .WillOnce(Return(aos::ErrorEnum::eFailed))
+        .WillOnce(Return(aos::ErrorEnum::eNone));
+
+    mNetManager->OnPendingFirewallUpdate("test-node", update);
+    mNetManager->OnPendingFirewallUpdate("test-node", update);
+    mNetManager->OnPendingFirewallUpdate("test-node", update);
+}
+
+TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_RetriesStoreAfterStorageFailure)
+{
+    auto params          = CreateTestInstanceNetworkConfig();
+    auto allocatedParams = CreateTestAllocatedParams();
+
+    SetupEnsureNodeNetworkCreateMocks("test-network", "192.168.1.0/24", "192.168.1.1", 100);
+
+    EXPECT_CALL(mNetworkProvider, AllocateInstanceNetwork(_, _, _, _, _))
+        .WillOnce(DoAll(SetArgReferee<4>(allocatedParams), Return(aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->CreateInstanceNetwork("test-instance", "test-network", params), aos::ErrorEnum::eNone);
+
+    aos::networkmanager::PendingFirewallUpdate update;
+    update.mInstanceIdent = params.mInstanceIdent;
+
+    aos::FirewallRule rule;
+    rule.mDstIP   = "10.0.0.5";
+    rule.mDstPort = "8080";
+    rule.mProto   = "tcp";
+    rule.mSrcIP   = "192.168.1.2";
+    update.mFirewallRules.PushBack(rule);
+
+    aos::sm::networkmanager::InstanceNetworkInfo stored;
+
+    EXPECT_CALL(mStorage, UpdateInstanceNetworkInfo(_))
+        .WillOnce(Return(aos::ErrorEnum::eFailed))
+        .WillOnce(DoAll(SaveArg<0>(&stored), Return(aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mFirewall, UpdateInstance(_, _)).Times(0);
+
+    mNetManager->OnPendingFirewallUpdate("test-node", update);
+    mNetManager->OnPendingFirewallUpdate("test-node", update);
+    mNetManager->OnPendingFirewallUpdate("test-node", update);
+
+    EXPECT_EQ(stored.mAllocatedParams.mFirewallRules, update.mFirewallRules);
+}
+
+TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_ReplacesRulesAgainWhileUnapplied)
+{
+    auto params          = CreateTestInstanceNetworkConfig();
+    auto allocatedParams = CreateTestAllocatedParams();
+
+    SetupEnsureNodeNetworkCreateMocks("test-network", "192.168.1.0/24", "192.168.1.1", 100);
+
+    EXPECT_CALL(mNetworkProvider, AllocateInstanceNetwork(_, _, _, _, _))
+        .WillOnce(DoAll(SetArgReferee<4>(allocatedParams), Return(aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->CreateInstanceNetwork("test-instance", "test-network", params), aos::ErrorEnum::eNone);
+
+    SetupEnsureNodeNetworkPhysicalMocks("192.168.1.1", "192.168.1.0/24", 100);
+
+    EXPECT_CALL(mNetns, CreateNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetns, GetNetworkNamespacePath(_))
+        .WillOnce(Return(aos::RetWithError<aos::StaticString<aos::cFilePathLen>> {{}, aos::ErrorEnum::eNone}));
+    ExpectAddInstanceCalls();
+    ExpectPersistInstanceCalls();
+    EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(_, _, _, _)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->StartInstanceNetwork("test-instance", "test-network"), aos::ErrorEnum::eNone);
+
+    aos::networkmanager::PendingFirewallUpdate first;
+    first.mInstanceIdent = params.mInstanceIdent;
+
+    aos::FirewallRule rule;
+    rule.mDstIP   = "10.0.0.5";
+    rule.mDstPort = "8080";
+    rule.mProto   = "tcp";
+    rule.mSrcIP   = "192.168.1.2";
+    first.mFirewallRules.PushBack(rule);
+
+    auto second                     = first;
+    second.mFirewallRules[0].mDstIP = "10.0.0.6";
+
+    InstanceFirewallParams applied;
+
+    EXPECT_CALL(mStorage, UpdateInstanceNetworkInfo(_)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mFirewall, UpdateInstance(_, _))
+        .WillOnce(Return(aos::ErrorEnum::eFailed))
+        .WillOnce(Return(aos::ErrorEnum::eFailed))
+        .WillOnce(DoAll(SaveArg<1>(&applied), Return(aos::ErrorEnum::eNone)));
+
+    mNetManager->OnPendingFirewallUpdate("test-node", first);
+    mNetManager->OnPendingFirewallUpdate("test-node", second);
+    mNetManager->OnPendingFirewallUpdate("test-node", second);
+    mNetManager->OnPendingFirewallUpdate("test-node", second);
+
+    ASSERT_EQ(applied.mOutput.Size(), 1U);
+    EXPECT_TRUE(applied.mOutput[0].mDstIP == "10.0.0.6");
+}
+
+TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_SameRulesDoNotUpdateFirewall)
+{
+    auto params          = CreateTestInstanceNetworkConfig();
+    auto allocatedParams = CreateTestAllocatedParams();
+
+    aos::FirewallRule first;
+    first.mDstIP   = "10.0.0.5";
+    first.mDstPort = "8080";
+    first.mProto   = "tcp";
+    first.mSrcIP   = "192.168.1.2";
+    allocatedParams.mFirewallRules.PushBack(first);
+
+    aos::FirewallRule second = first;
+    second.mDstIP            = "10.0.0.6";
+    allocatedParams.mFirewallRules.PushBack(second);
+
+    SetupEnsureNodeNetworkCreateMocks("test-network", "192.168.1.0/24", "192.168.1.1", 100);
+
+    EXPECT_CALL(mNetworkProvider, AllocateInstanceNetwork(_, _, _, _, _))
+        .WillOnce(DoAll(SetArgReferee<4>(allocatedParams), Return(aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    ASSERT_EQ(mNetManager->CreateInstanceNetwork("test-instance", "test-network", params), aos::ErrorEnum::eNone);
+
+    aos::networkmanager::PendingFirewallUpdate update;
+    update.mInstanceIdent = params.mInstanceIdent;
+    update.mFirewallRules.PushBack(second);
+    update.mFirewallRules.PushBack(first);
+
+    EXPECT_CALL(mStorage, UpdateInstanceNetworkInfo(_)).Times(0);
+    EXPECT_CALL(mFirewall, UpdateInstance(_, _)).Times(0);
+
+    mNetManager->OnPendingFirewallUpdate("test-node", update);
 }
 
 TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_AppliesRulesArrivedBeforeInstance)
@@ -1765,6 +2022,10 @@ TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_AppliesRulesArrivedBeforeInst
 
     EXPECT_CALL(mFirewall, UpdateInstance(_, _)).Times(0);
 
+    aos::networkmanager::PendingFirewallUpdate outdated = update;
+    outdated.mFirewallRules[0].mDstIP                   = "10.0.0.6";
+
+    mNetManager->OnPendingFirewallUpdate("test-node", outdated);
     mNetManager->OnPendingFirewallUpdate("test-node", update);
 
     SetupEnsureNodeNetworkCreateMocks("test-network", "192.168.1.0/24", "192.168.1.1", 100);
@@ -1801,6 +2062,154 @@ TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_AppliesRulesArrivedBeforeInst
 
     ASSERT_EQ(applied.mOutput.Size(), 1U);
     EXPECT_TRUE(applied.mOutput[0].mDstIP == "10.0.0.7");
+}
+
+TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_FailedCreateDropsDeferredUpdate)
+{
+    auto params          = CreateTestInstanceNetworkConfig();
+    auto allocatedParams = CreateTestAllocatedParams();
+
+    aos::networkmanager::PendingFirewallUpdate update;
+    update.mInstanceIdent = params.mInstanceIdent;
+
+    aos::FirewallRule rule;
+    rule.mDstIP   = "10.0.0.7";
+    rule.mDstPort = "8080";
+    rule.mProto   = "udp";
+    rule.mSrcIP   = "192.168.1.2";
+    update.mFirewallRules.PushBack(rule);
+
+    mNetManager->OnPendingFirewallUpdate("test-node", update);
+
+    EXPECT_CALL(mNetworkProvider, GetNodeNetworkParams(aos::String("test-network"), aos::String("test-node"), _))
+        .WillOnce(Return(aos::ErrorEnum::eFailed));
+
+    ASSERT_NE(mNetManager->CreateInstanceNetwork("test-instance", "test-network", params), aos::ErrorEnum::eNone);
+
+    SetupEnsureNodeNetworkCreateMocks("test-network", "192.168.1.0/24", "192.168.1.1", 100);
+
+    EXPECT_CALL(mNetworkProvider, AllocateInstanceNetwork(_, _, _, _, _))
+        .WillOnce(DoAll(SetArgReferee<4>(allocatedParams), Return(aos::ErrorEnum::eNone)));
+
+    aos::sm::networkmanager::InstanceNetworkInfo stored;
+
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_))
+        .WillOnce(DoAll(SaveArg<0>(&stored), Return(aos::ErrorEnum::eNone)));
+
+    ASSERT_EQ(mNetManager->CreateInstanceNetwork("test-instance", "test-network", params), aos::ErrorEnum::eNone);
+
+    EXPECT_TRUE(stored.mAllocatedParams.mFirewallRules.IsEmpty());
+}
+
+TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_DeferredRulesMergeWithoutDuplicates)
+{
+    auto params          = CreateTestInstanceNetworkConfig();
+    auto allocatedParams = CreateTestAllocatedParams();
+
+    aos::FirewallRule resolvedAtAllocation;
+    resolvedAtAllocation.mDstIP   = "10.0.0.5";
+    resolvedAtAllocation.mDstPort = "8080";
+    resolvedAtAllocation.mProto   = "udp";
+    resolvedAtAllocation.mSrcIP   = "192.168.1.2";
+    allocatedParams.mFirewallRules.PushBack(resolvedAtAllocation);
+
+    aos::networkmanager::PendingFirewallUpdate update;
+    update.mInstanceIdent = params.mInstanceIdent;
+    update.mFirewallRules.PushBack(resolvedAtAllocation);
+
+    aos::FirewallRule resolvedWhileAllocating = resolvedAtAllocation;
+    resolvedWhileAllocating.mDstIP            = "10.0.0.7";
+    update.mFirewallRules.PushBack(resolvedWhileAllocating);
+
+    mNetManager->OnPendingFirewallUpdate("test-node", update);
+
+    SetupEnsureNodeNetworkCreateMocks("test-network", "192.168.1.0/24", "192.168.1.1", 100);
+
+    EXPECT_CALL(mNetworkProvider, AllocateInstanceNetwork(_, _, _, _, _))
+        .WillOnce(DoAll(SetArgReferee<4>(allocatedParams), Return(aos::ErrorEnum::eNone)));
+
+    aos::sm::networkmanager::InstanceNetworkInfo stored;
+
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_))
+        .WillOnce(DoAll(SaveArg<0>(&stored), Return(aos::ErrorEnum::eNone)));
+
+    ASSERT_EQ(mNetManager->CreateInstanceNetwork("test-instance", "test-network", params), aos::ErrorEnum::eNone);
+
+    ASSERT_EQ(stored.mAllocatedParams.mFirewallRules.Size(), 2U);
+    EXPECT_EQ(stored.mAllocatedParams.mFirewallRules[0], resolvedAtAllocation);
+    EXPECT_EQ(stored.mAllocatedParams.mFirewallRules[1], resolvedWhileAllocating);
+}
+
+TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_DeferredRulesBeyondLimitAreDropped)
+{
+    auto params          = CreateTestInstanceNetworkConfig();
+    auto allocatedParams = CreateTestAllocatedParams();
+
+    aos::FirewallRule rule;
+    rule.mDstPort = "8080";
+    rule.mProto   = "udp";
+    rule.mSrcIP   = "192.168.1.2";
+
+    for (size_t i = 0; i < aos::cMaxNumFirewallRules; ++i) {
+        const auto dstIP = "10.0.1." + std::to_string(i);
+
+        rule.mDstIP = dstIP.c_str();
+        allocatedParams.mFirewallRules.PushBack(rule);
+    }
+
+    aos::networkmanager::PendingFirewallUpdate update;
+    update.mInstanceIdent = params.mInstanceIdent;
+
+    rule.mDstIP = "10.0.0.7";
+    update.mFirewallRules.PushBack(rule);
+
+    mNetManager->OnPendingFirewallUpdate("test-node", update);
+
+    SetupEnsureNodeNetworkCreateMocks("test-network", "192.168.1.0/24", "192.168.1.1", 100);
+
+    EXPECT_CALL(mNetworkProvider, AllocateInstanceNetwork(_, _, _, _, _))
+        .WillOnce(DoAll(SetArgReferee<4>(allocatedParams), Return(aos::ErrorEnum::eNone)));
+
+    aos::sm::networkmanager::InstanceNetworkInfo stored;
+
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_))
+        .WillOnce(DoAll(SaveArg<0>(&stored), Return(aos::ErrorEnum::eNone)));
+
+    ASSERT_EQ(mNetManager->CreateInstanceNetwork("test-instance", "test-network", params), aos::ErrorEnum::eNone);
+
+    EXPECT_EQ(stored.mAllocatedParams.mFirewallRules, allocatedParams.mFirewallRules);
+}
+
+TEST_F(NetworkManagerTest, OnPendingFirewallUpdate_DropsDeferredUpdateForPreviousAddress)
+{
+    auto params          = CreateTestInstanceNetworkConfig();
+    auto allocatedParams = CreateTestAllocatedParams();
+
+    aos::networkmanager::PendingFirewallUpdate update;
+    update.mInstanceIdent = params.mInstanceIdent;
+
+    aos::FirewallRule outdated;
+    outdated.mDstIP   = "10.0.0.7";
+    outdated.mDstPort = "8080";
+    outdated.mProto   = "udp";
+    outdated.mSrcIP   = "192.168.2.7";
+    update.mFirewallRules.PushBack(outdated);
+
+    mNetManager->OnPendingFirewallUpdate("test-node", update);
+
+    SetupEnsureNodeNetworkCreateMocks("test-network", "192.168.1.0/24", "192.168.1.1", 100);
+
+    EXPECT_CALL(mNetworkProvider, AllocateInstanceNetwork(_, _, _, _, _))
+        .WillOnce(DoAll(SetArgReferee<4>(allocatedParams), Return(aos::ErrorEnum::eNone)));
+
+    aos::sm::networkmanager::InstanceNetworkInfo stored;
+
+    EXPECT_CALL(mStorage, AddInstanceNetworkInfo(_))
+        .WillOnce(DoAll(SaveArg<0>(&stored), Return(aos::ErrorEnum::eNone)));
+
+    ASSERT_EQ(mNetManager->CreateInstanceNetwork("test-instance", "test-network", params), aos::ErrorEnum::eNone);
+
+    EXPECT_TRUE(stored.mAllocatedParams.mFirewallRules.IsEmpty());
 }
 
 TEST_F(NetworkManagerTest, OnConnect_SyncsNetworkStateWithCM)

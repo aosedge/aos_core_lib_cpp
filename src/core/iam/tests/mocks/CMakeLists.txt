@@ -14,7 +14,16 @@ set(TARGET_NAME mocks)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS certhandlermock.hpp certloadermock.hpp currentnodemock.hpp nodemanagermock.hpp permhandlermock.hpp)
+set(HEADERS
+    certhandlermock.hpp
+    certloadermock.hpp
+    currentnodemock.hpp
+    hwinfoprovidermock.hpp
+    identmodulemock.hpp
+    nodeidprovidermock.hpp
+    nodemanagermock.hpp
+    permhandlermock.hpp
+)
 
 # ######################################################################################################################
 # Target

@@ -13,17 +13,222 @@
 namespace aos::crypto {
 
 /***********************************************************************************************************************
+ * Static
+ **********************************************************************************************************************/
+
+namespace {
+
+/**
+ * Decrypts a file with an AES decoder.
+ *
+ * The plaintext is staged in a newly created, unpredictably named, owner-only file, which becomes the decrypted file
+ * only after the whole content is processed: authenticated modes (GCM) return plaintext before the authentication tag
+ * is verified, and a failed decryption must not leave partial output behind. The decrypted file keeps the staged
+ * file's owner-only permission; a caller that needs a different policy sets it after Decrypt returns. The directory
+ * of the decrypted file must be trusted: only the last component of the staged path is protected from symlinks.
+ */
+class FileDecoder {
+public:
+    /**
+     * Constructor.
+     *
+     * @param allocator allocator to use for temporary objects.
+     * @param random    random generator used to name the staged file.
+     * @param decoder   AES decoder.
+     * @param tagSize   size of the authentication tag stored at the end of the file, 0 if the mode has no tag.
+     */
+    FileDecoder(AllocatorItf& allocator, RandomItf& random, AESCipherItf& decoder, size_t tagSize)
+        : mAllocator(allocator)
+        , mRandom(random)
+        , mDecoder(decoder)
+        , mTagSize(tagSize)
+    {
+    }
+
+    /**
+     * Decrypts a file.
+     *
+     * @param encryptedFile path to the encrypted file.
+     * @param decryptedFile path where the decrypted file will be written.
+     * @return Error.
+     */
+    Error Decode(const String& encryptedFile, const String& decryptedFile)
+    {
+        mBuffers = MakeUnique<Buffers>(&mAllocator);
+        if (!mBuffers) {
+            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        }
+
+        // errors of file operations have no location yet: they are wrapped once here
+        return AOS_ERROR_WRAP(DecodeFile(encryptedFile, decryptedFile));
+    }
+
+private:
+    /**
+     * Buffers used to process a file chunk by chunk.
+     */
+    struct Buffers {
+        StaticArray<uint8_t, cFileChunkSize>                             mRead;
+        StaticArray<uint8_t, cFileChunkSize + AESCipherItf::cGCMTagSize> mIn;
+        StaticArray<uint8_t, cFileChunkSize>                             mOut;
+    };
+
+    /**
+     * Decrypts a file into a staged file and moves the staged file to its final path on success.
+     *
+     * @param encryptedFile path to the encrypted file.
+     * @param decryptedFile path where the decrypted file will be written.
+     * @return Error.
+     */
+    Error DecodeFile(const String& encryptedFile, const String& decryptedFile)
+    {
+        constexpr size_t cStagedFileSuffixSize = 16;
+        // owner-only: the staged file holds unauthenticated plaintext, and this stays the decrypted file's
+        // permission too, since renaming it into place doesn't change it. A caller that wants a different policy
+        // sets it after Decrypt returns.
+        constexpr uint32_t cStagedFilePerm = 0600;
+
+        StaticString<cStagedFileSuffixSize * 2> suffix;
+
+        if (auto err = GenerateRandomString<cStagedFileSuffixSize>(suffix, mRandom); !err.IsNone()) {
+            return err;
+        }
+
+        StaticString<cFilePathLen> stagedFile;
+
+        if (auto err = stagedFile.Format("%s.%s.tmp", decryptedFile.CStr(), suffix.CStr()); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = mInputFile.Open(encryptedFile, fs::File::Mode::Read); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = mOutputFile.Open(stagedFile, fs::File::Mode::WriteNew, cStagedFilePerm); !err.IsNone()) {
+            return err;
+        }
+
+        auto err = Process();
+
+        if (err.IsNone()) {
+            err = mOutputFile.Close();
+        }
+
+        if (err.IsNone()) {
+            err = fs::Rename(stagedFile, decryptedFile);
+        }
+
+        if (!err.IsNone()) {
+            (void)mOutputFile.Close();
+
+            return DiscardStagedFile(stagedFile, err);
+        }
+
+        return ErrorEnum::eNone;
+    }
+
+    /**
+     * Reads the encrypted file chunk by chunk, decrypts it and writes the result to the staged file.
+     *
+     * @return Error.
+     */
+    Error Process()
+    {
+        auto& [readBlock, inBlock, outBlock] = *mBuffers;
+
+        // The authentication tag can only be recognized once the end of the file is reached, so the last tag-size
+        // bytes read are always held back.
+        StaticArray<uint8_t, AESCipherItf::cGCMTagSize> tail;
+
+        while (true) {
+            if (auto err = mInputFile.ReadBlock(readBlock); !err.IsNone() && !err.Is(ErrorEnum::eEOF)) {
+                return err;
+            }
+
+            if (readBlock.IsEmpty()) {
+                break;
+            }
+
+            inBlock.Clear();
+            (void)inBlock.Append(tail).Append(readBlock);
+
+            if (inBlock.Size() <= mTagSize) {
+                tail = inBlock;
+
+                continue;
+            }
+
+            const auto dataSize = inBlock.Size() - mTagSize;
+
+            if (auto err = mDecoder.DecryptBlock(Array<uint8_t>(inBlock.Get(), dataSize), outBlock); !err.IsNone()) {
+                return err;
+            }
+
+            if (auto err = mOutputFile.WriteBlock(outBlock); !err.IsNone()) {
+                return err;
+            }
+
+            tail = Array<uint8_t>(inBlock.Get() + dataSize, mTagSize);
+        }
+
+        if (tail.Size() != mTagSize) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "file is too short to contain an auth tag"));
+        }
+
+        if (mTagSize != 0) {
+            if (auto err = mDecoder.SetTag(tail); !err.IsNone()) {
+                return err;
+            }
+        }
+
+        // fails if the authentication tag doesn't match
+        if (auto err = mDecoder.Finalize(outBlock); !err.IsNone()) {
+            return err;
+        }
+
+        return mOutputFile.WriteBlock(outBlock);
+    }
+
+    /**
+     * Removes the staged file on a best-effort basis, so unauthenticated plaintext isn't left behind. If it can't be
+     * removed, that failure is reported instead of being hidden behind the original error, but the staged file can
+     * still remain.
+     *
+     * @param stagedFile path to the staged file.
+     * @param cause      error that caused the staged file to be discarded.
+     * @return Error.
+     */
+    Error DiscardStagedFile(const String& stagedFile, const Error& cause) const
+    {
+        if (auto err = fs::Remove(stagedFile); !err.IsNone()) {
+            LOG_ERR() << "Can't remove staged file" << Log::Field("path", stagedFile) << Log::Field(err)
+                      << Log::Field("cause", cause);
+
+            return Error(err, "can't remove unauthenticated data");
+        }
+
+        return cause;
+    }
+
+    AllocatorItf&      mAllocator;
+    RandomItf&         mRandom;
+    AESCipherItf&      mDecoder;
+    size_t             mTagSize;
+    UniquePtr<Buffers> mBuffers;
+    fs::File           mInputFile;
+    fs::File           mOutputFile;
+};
+
+} // namespace
+
+/***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
 
-CryptoHelper::CryptoHelper()
-    : mSemaphore(cMaxNumConcurrentItems)
-{
-}
+CryptoHelper::CryptoHelper() = default;
 
 Error CryptoHelper::Init(AllocatorItf& allocator, iamclient::CertProviderItf& certProvider,
-    CryptoProviderItf& cryptoProvider, CertLoaderItf& certLoader, const String& serviceDiscoveryURL,
-    const String& caCert)
+    CryptoProviderItf& cryptoProvider, CertLoaderItf& certLoader, const String& serviceDiscoveryURL)
 {
     mAllocator           = &allocator;
     mCertProvider        = &certProvider;
@@ -31,20 +236,7 @@ Error CryptoHelper::Init(AllocatorItf& allocator, iamclient::CertProviderItf& ce
     mCertLoader          = &certLoader;
     mServiceDiscoveryURL = serviceDiscoveryURL;
 
-    auto caCertsPEM = MakeUnique<StaticString<cCertPEMLen>>(mAllocator);
-    if (!caCertsPEM) {
-        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
-    }
-
-    if (auto err = fs::ReadFileToString(caCert, *caCertsPEM); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (auto err = mCryptoProvider->PEMToX509Certs(*caCertsPEM, mCACerts); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    return ErrorEnum::eNone;
+    return LoadRootCerts();
 }
 
 Error CryptoHelper::GetServiceDiscoveryURLs(Array<StaticString<cURLLen>>& urls)
@@ -87,10 +279,11 @@ Error CryptoHelper::Decrypt(const String& encryptedFile, const String& decrypted
     const auto& sessionKey       = decryptInfo.mBlockKey;
     const auto& sessionIV        = decryptInfo.mBlockIV;
 
-    StaticString<cAlgLen> algName, modeName, paddingName;
+    StaticString<cAlgLen> algName;
+    StaticString<cAlgLen> modeName;
+    StaticString<cAlgLen> paddingName;
 
-    auto err = DecodeSymAlgNames(symmetricAlgName, algName, modeName, paddingName);
-    if (!err.IsNone()) {
+    if (auto err = DecodeSymAlgNames(symmetricAlgName, algName, modeName, paddingName); !err.IsNone()) {
         return err;
     }
 
@@ -99,15 +292,14 @@ Error CryptoHelper::Decrypt(const String& encryptedFile, const String& decrypted
         return AOS_ERROR_WRAP(createDecoderErr);
     }
 
-    if (auto checkErr = CheckSessionKey(algName, sessionIV, sessionKey); !checkErr.IsNone()) {
+    if (auto checkErr = CheckSessionKey(algName, modeName, sessionIV, sessionKey); !checkErr.IsNone()) {
         return AOS_ERROR_WRAP(checkErr);
     }
 
-    if (auto decodeErr = DecodeFile(encryptedFile, decryptedFile, *decoder); !decodeErr.IsNone()) {
-        return AOS_ERROR_WRAP(decodeErr);
-    }
+    // GCM is authenticated and has no padding: the padding part of the algorithm name is not used.
+    const size_t tagSize = modeName == "GCM" ? AESCipherItf::cGCMTagSize : 0;
 
-    return ErrorEnum::eNone;
+    return FileDecoder(*mAllocator, *mCryptoProvider, *decoder, tagSize).Decode(encryptedFile, decryptedFile);
 }
 
 Error CryptoHelper::ValidateSigns(const String& decryptedPath, const SignInfo& signs,
@@ -149,20 +341,17 @@ Error CryptoHelper::DecryptMetadata(const Array<uint8_t>& input, Array<uint8_t>&
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto err = UnmarshalCMS(input, *contentInfo);
-    if (!err.IsNone()) {
+    if (auto err = UnmarshalCMS(input, *contentInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     for (const auto& recipient : contentInfo->mEnvelopeData.mRecipientInfos) {
-        err = GetKeyForEnvelope(recipient, *symKey);
-        if (!err.IsNone()) {
+        if (auto err = GetKeyForEnvelope(recipient, *symKey); !err.IsNone()) {
             LOG_WRN() << "Can't get key for envelope" << Log::Field(err);
             continue;
         }
 
-        err = DecryptMessage(contentInfo->mEnvelopeData.mEncryptedContent, *symKey, output);
-        if (!err.IsNone()) {
+        if (auto err = DecryptMessage(contentInfo->mEnvelopeData.mEncryptedContent, *symKey, output); !err.IsNone()) {
             LOG_WRN() << "Can't decrypt message" << Log::Field(err);
             continue;
         }
@@ -177,6 +366,45 @@ Error CryptoHelper::DecryptMetadata(const Array<uint8_t>& input, Array<uint8_t>&
  * Private
  **********************************************************************************************************************/
 
+Error CryptoHelper::LoadRootCerts()
+{
+    auto certInfos = MakeUnique<StaticArray<CertInfo, cMaxNumRootCerts>>(mAllocator);
+    if (!certInfos) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mCertProvider->GetRootCerts(*certInfos); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    mCACerts.Clear();
+
+    for (const auto& certInfo : *certInfos) {
+        auto [certs, err] = mCertLoader->LoadCertsChainByURL(certInfo.mCertURL);
+        if (!err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        for (const auto& cert : *certs) {
+            err = ValidateCACert(cert);
+            if (!err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+
+            err = mCACerts.PushBack(cert);
+            if (!err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
+        }
+    }
+
+    if (mCACerts.IsEmpty()) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no root certificates found"));
+    }
+
+    return ErrorEnum::eNone;
+}
+
 RetWithError<SharedPtr<x509::CertificateChain>> CryptoHelper::GetOnlineCert()
 {
     auto certInfo = MakeUnique<CertInfo>(mAllocator);
@@ -184,7 +412,7 @@ RetWithError<SharedPtr<x509::CertificateChain>> CryptoHelper::GetOnlineCert()
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
     }
 
-    if (auto err = mCertProvider->GetCert(cOnlineCert, {}, {}, *certInfo); !err.IsNone()) {
+    if (auto err = mCertProvider->GetCertKey(cOnlineCert, {}, {}, *certInfo); !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
 
@@ -196,7 +424,7 @@ RetWithError<SharedPtr<x509::CertificateChain>> CryptoHelper::GetOnlineCert()
     return chain;
 }
 
-Error CryptoHelper::SetDefaultServiceDiscoveryURL(Array<StaticString<cURLLen>>& urls)
+Error CryptoHelper::SetDefaultServiceDiscoveryURL(Array<StaticString<cURLLen>>& urls) const
 {
     if (urls.IsEmpty()) {
         LOG_WRN() << "Service discovery URL can't be found in certificate and will be used from config";
@@ -207,10 +435,10 @@ Error CryptoHelper::SetDefaultServiceDiscoveryURL(Array<StaticString<cURLLen>>& 
     return ErrorEnum::eNone;
 }
 
-Error CryptoHelper::GetServiceDiscoveryFromExtensions(const x509::Certificate& cert, Array<StaticString<cURLLen>>& urls)
+Error CryptoHelper::GetServiceDiscoveryFromExtensions(
+    const x509::Certificate& cert, Array<StaticString<cURLLen>>& urls) const
 {
-    auto err = urls.Insert(urls.begin(), cert.mIssuerURLs.begin(), cert.mIssuerURLs.end());
-    if (!err.IsNone()) {
+    if (auto err = urls.Insert(urls.begin(), cert.mIssuerURLs.begin(), cert.mIssuerURLs.end()); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -253,9 +481,9 @@ Error CryptoHelper::GetServiceDiscoveryFromOrganization(
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto assignErr = orgName->Insert(orgName->begin(), subject->begin() + valueStart, subject->begin() + valueEnd);
-    if (!assignErr.IsNone()) {
-        return AOS_ERROR_WRAP(assignErr);
+    if (auto err = orgName->Insert(orgName->begin(), subject->begin() + valueStart, subject->begin() + valueEnd);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     if (orgName->IsEmpty()) {
@@ -273,7 +501,8 @@ Error CryptoHelper::GetServiceDiscoveryFromOrganization(
     return ErrorEnum::eNone;
 }
 
-Error CryptoHelper::DecodeSymAlgNames(const String& algString, String& algName, String& modeName, String& paddingName)
+Error CryptoHelper::DecodeSymAlgNames(
+    const String& algString, String& algName, String& modeName, String& paddingName) const
 {
     // alg string example: AES128/CBC/PKCS7PADDING
     static constexpr auto cAlgoParts = 3;
@@ -315,35 +544,43 @@ Error CryptoHelper::DecodeSymAlgNames(const String& algString, String& algName, 
     return ErrorEnum::eNone;
 }
 
-Error CryptoHelper::GetSymmetricAlgInfo(const String& algName, size_t& keySize, size_t& ivSize)
+Error CryptoHelper::GetSymmetricAlgInfo(
+    const String& algName, const String& modeName, size_t& keySize, size_t& ivSize) const
 {
+    if (modeName == "CBC") {
+        ivSize = AESCipherItf::cBlockSize;
+    } else if (modeName == "GCM") {
+        ivSize = AESCipherItf::cGCMIVSize;
+    } else {
+        return ErrorEnum::eNotSupported;
+    }
+
     if (algName == "AES128") {
         keySize = 16;
-        ivSize  = 16;
 
         return ErrorEnum::eNone;
     } else if (algName == "AES192") {
         keySize = 24;
-        ivSize  = 16;
 
         return ErrorEnum::eNone;
     } else if (algName == "AES256") {
         keySize = 32;
-        ivSize  = 16;
 
         return ErrorEnum::eNone;
+    } else {
+        // unsupported algorithm, handled below
     }
 
     return ErrorEnum::eNotSupported;
 }
 
-Error CryptoHelper::CheckSessionKey(
-    const String& symAlgName, const Array<uint8_t>& sessionIV, const Array<uint8_t>& sessionKey)
+Error CryptoHelper::CheckSessionKey(const String& symAlgName, const String& modeName, const Array<uint8_t>& sessionIV,
+    const Array<uint8_t>& sessionKey) const
 {
-    size_t keySize = 0, ivSize = 0;
+    size_t keySize = 0;
+    size_t ivSize  = 0;
 
-    auto err = GetSymmetricAlgInfo(symAlgName, keySize, ivSize);
-    if (!err.IsNone()) {
+    if (auto err = GetSymmetricAlgInfo(symAlgName, modeName, keySize, ivSize); !err.IsNone()) {
         return err;
     }
 
@@ -358,78 +595,6 @@ Error CryptoHelper::CheckSessionKey(
     return ErrorEnum::eNone;
 }
 
-Error CryptoHelper::DecodeFile(const String& encryptedFile, const String& decryptedFile, AESCipherItf& decoder)
-{
-    auto inBlock = MakeUnique<StaticArray<uint8_t, cFileChunkSize>>(mAllocator);
-    if (!inBlock) {
-        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
-    }
-
-    auto outBlock = MakeUnique<StaticArray<uint8_t, cFileChunkSize>>(mAllocator);
-    if (!outBlock) {
-        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
-    }
-
-    fs::File inputFile, outputFile;
-
-    Error err = inputFile.Open(encryptedFile, fs::File::Mode::Read);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    err = outputFile.Open(decryptedFile, fs::File::Mode::Write);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    while (true) {
-        err = inputFile.ReadBlock(*inBlock);
-        if (!err.IsNone() && !err.Is(ErrorEnum::eEOF)) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        if (inBlock->IsEmpty()) {
-            break;
-        }
-
-        if ((inBlock->Size() % AESCipherItf::cBlockSize) != 0) {
-            return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "file size is incorrect"));
-        }
-
-        err = decoder.DecryptBlock(*inBlock, *outBlock);
-        if (!err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        err = outputFile.WriteBlock(*outBlock);
-        if (!err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-    }
-
-    err = decoder.Finalize(*outBlock);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    err = outputFile.WriteBlock(*outBlock);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    err = inputFile.Close();
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    err = outputFile.Close();
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    return ErrorEnum::eNone;
-}
-
 Error CryptoHelper::AddCertificates(const Array<CertificateInfo>& certs, SignContext& ctx)
 {
     ctx.mCerts.Clear();
@@ -437,12 +602,11 @@ Error CryptoHelper::AddCertificates(const Array<CertificateInfo>& certs, SignCon
     for (const auto& certInfo : certs) {
         StaticString<cCertFingerprintLen> fingerprint = certInfo.mFingerprint;
 
-        fingerprint.ToUpper();
+        (void)fingerprint.ToUpper();
 
-        auto iter = ctx.mCerts.FindIf(
-            [&fingerprint](const X509CertificateInfo& certInfo) { return certInfo.mFingerprint == fingerprint; });
-
-        if (iter != ctx.mCerts.end()) {
+        if (auto iter = ctx.mCerts.FindIf(
+                [&fingerprint](const X509CertificateInfo& certInfo) { return certInfo.mFingerprint == fingerprint; });
+            iter != ctx.mCerts.end()) {
             continue;
         }
 
@@ -466,15 +630,14 @@ Error CryptoHelper::AddCertificates(const Array<CertificateInfo>& certs, SignCon
     return ErrorEnum::eNone;
 }
 
-Error CryptoHelper::AddCertChains(const Array<CertificateChainInfo>& chains, SignContext& ctx)
+Error CryptoHelper::AddCertChains(const Array<CertificateChainInfo>& chains, SignContext& ctx) const
 {
     ctx.mChains.Clear();
 
     for (const auto& chainInfo : chains) {
-        auto iter = ctx.mChains.FindIf(
-            [&chainInfo](const CertificateChainInfo& item) { return item.mName == chainInfo.mName; });
-
-        if (iter != ctx.mChains.end()) {
+        if (auto iter = ctx.mChains.FindIf(
+                [&chainInfo](const CertificateChainInfo& item) { return item.mName == chainInfo.mName; });
+            iter != ctx.mChains.end()) {
             continue;
         }
 
@@ -486,7 +649,7 @@ Error CryptoHelper::AddCertChains(const Array<CertificateChainInfo>& chains, Sig
         ctx.mChains.Back().mFingerprints = chainInfo.mFingerprints;
 
         for (auto& fingerprint : ctx.mChains.Back().mFingerprints) {
-            fingerprint.ToUpper();
+            (void)fingerprint.ToUpper();
         }
     }
 
@@ -502,7 +665,9 @@ Error CryptoHelper::VerifySigns(const String& file, const SignInfo& signs, SignC
         return err;
     }
 
-    StaticString<cAlgLen> algName, hashName, paddingName;
+    StaticString<cAlgLen> algName;
+    StaticString<cAlgLen> hashName;
+    StaticString<cAlgLen> paddingName;
 
     if (auto err = DecodeSignAlgNames(signs.mAlg, algName, hashName, paddingName); !err.IsNone()) {
         return err;
@@ -536,9 +701,10 @@ Error CryptoHelper::VerifySigns(const String& file, const SignInfo& signs, SignC
         AOS_ERROR_WRAP(Error(ErrorEnum::eNotSupported, "unknown padding for RSA"));
     }
 
-    auto verifyErr = mCryptoProvider->Verify(signCert->mPublicKey, hash, padding, *hashSum, signs.mValue);
-    if (!verifyErr.IsNone()) {
-        return AOS_ERROR_WRAP(verifyErr);
+    if (auto err = mCryptoProvider->Verify(signCert->mPublicKey, // NOSONAR cpp:S2259 - non-null on success
+            hash, padding, *hashSum, signs.mValue);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     // Verify certs
@@ -563,7 +729,7 @@ Error CryptoHelper::VerifySigns(const String& file, const SignInfo& signs, SignC
     return ErrorEnum::eNone;
 }
 
-RetWithError<x509::Certificate*> CryptoHelper::GetCert(SignContext& signCtx, const String& fingerprint)
+RetWithError<x509::Certificate*> CryptoHelper::GetCert(SignContext& signCtx, const String& fingerprint) const
 {
     auto iter = signCtx.mCerts.FindIf(
         [&fingerprint](const X509CertificateInfo& info) { return info.mFingerprint == fingerprint; });
@@ -576,7 +742,7 @@ RetWithError<x509::Certificate*> CryptoHelper::GetCert(SignContext& signCtx, con
 }
 
 Error CryptoHelper::GetSignCert(
-    SignContext& signCtx, const String& chainName, x509::Certificate*& signCert, CertificateChainInfo*& chain)
+    SignContext& signCtx, const String& chainName, x509::Certificate*& signCert, CertificateChainInfo*& chain) const
 {
     auto chainIt
         = signCtx.mChains.FindIf([&chainName](const CertificateChainInfo& chain) { return chain.mName == chainName; });
@@ -604,7 +770,8 @@ Error CryptoHelper::GetSignCert(
     return ErrorEnum::eNone;
 }
 
-Error CryptoHelper::DecodeSignAlgNames(const String& algString, String& algName, String& hashName, String& paddingName)
+Error CryptoHelper::DecodeSignAlgNames(
+    const String& algString, String& algName, String& hashName, String& paddingName) const
 {
     // alg string example: RSA/SHA256/PKCS1v1_5 or RSA/SHA256
     static constexpr auto cAlgoParts = 3;
@@ -646,11 +813,11 @@ Error CryptoHelper::DecodeSignAlgNames(const String& algString, String& algName,
     return ErrorEnum::eNone;
 }
 
-RetWithError<Hash> CryptoHelper::DecodeHash(const String& hashName)
+RetWithError<Hash> CryptoHelper::DecodeHash(const String& hashName) const
 {
     StaticString<cAlgLen> upperHash = hashName;
 
-    upperHash.ToUpper();
+    (void)upperHash.ToUpper();
 
     if (upperHash == "SHA256") {
         return {HashEnum::eSHA256, ErrorEnum::eNone};
@@ -668,7 +835,7 @@ RetWithError<Hash> CryptoHelper::DecodeHash(const String& hashName)
 }
 
 Error CryptoHelper::CreateIntermCertPool(
-    SignContext& signCtx, const CertificateChainInfo& chain, Array<x509::Certificate>& pool)
+    SignContext& signCtx, const CertificateChainInfo& chain, Array<x509::Certificate>& pool) const
 {
     pool.Clear();
 
@@ -906,8 +1073,8 @@ Error CryptoHelper::GetKeyForEnvelope(const TransRecipientInfo& info, Array<uint
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto err = mCertProvider->GetCert(cOfflineCert, info.mRID.mIssuer, info.mRID.mSerial, *certInfo);
-    if (!err.IsNone()) {
+    if (auto err = mCertProvider->GetCertKey(cOfflineCert, info.mRID.mIssuer, info.mRID.mSerial, *certInfo);
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -920,21 +1087,19 @@ Error CryptoHelper::GetKeyForEnvelope(const TransRecipientInfo& info, Array<uint
 }
 
 Error CryptoHelper::DecryptCMSKey(
-    const TransRecipientInfo& ktri, const PrivateKeyItf& privKey, Array<uint8_t>& symmetricKey)
+    const TransRecipientInfo& ktri, const PrivateKeyItf& privKey, Array<uint8_t>& symmetricKey) const
 {
     if (ktri.mKeyEncryptionAlgorithm.mOID != cRSAEncryptionOid) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "unknown public encryption OID"));
     }
 
-    static constexpr auto cASN1TagNull = 5;
-    if (ktri.mKeyEncryptionAlgorithm.mParams.mTagNumber != cASN1TagNull) {
+    if (static constexpr auto cASN1TagNull = 5; ktri.mKeyEncryptionAlgorithm.mParams.mTagNumber != cASN1TagNull) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "extra parameters for RSA algorithm found"));
     }
 
-    if (auto decryptErr
-        = privKey.Decrypt(ktri.mEncryptedKey, DecryptionOptions {PKCS1v15DecryptionOptions {}}, symmetricKey);
-        !decryptErr.IsNone()) {
-        return AOS_ERROR_WRAP(decryptErr);
+    if (auto err = privKey.Decrypt(ktri.mEncryptedKey, DecryptionOptions {PKCS1v15DecryptionOptions {}}, symmetricKey);
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
@@ -987,20 +1152,18 @@ Error CryptoHelper::DecodeMessage(AESCipherItf& decoder, const Array<uint8_t>& i
         auto blockSize = Min<size_t>(cFileChunkSize, input.Size() - i);
         auto inBlock   = Array<uint8_t>(input.Get() + i, blockSize);
 
-        auto err = decoder.DecryptBlock(inBlock, *outBlock);
-        if (!err.IsNone()) {
+        if (auto err = decoder.DecryptBlock(inBlock, *outBlock); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
-        message.Insert(message.end(), outBlock->begin(), outBlock->end());
+        (void)message.Insert(message.end(), outBlock->begin(), outBlock->end());
     }
 
-    auto err = decoder.Finalize(*outBlock);
-    if (!err.IsNone()) {
+    if (auto err = decoder.Finalize(*outBlock); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    message.Insert(message.end(), outBlock->begin(), outBlock->end());
+    (void)message.Insert(message.end(), outBlock->begin(), outBlock->end());
 
     return ErrorEnum::eNone;
 }

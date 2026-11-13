@@ -33,12 +33,7 @@ Error FileIdentifier::Init(const FileIdentifierConfig& config)
     mConfig = config;
     mSubjects.Clear();
 
-    auto err = ReadSystemId();
-    if (!err.IsNone()) {
-        return err;
-    }
-
-    err = ReadUnitModel();
+    auto err = ReadUnitModel();
     if (!err.IsNone()) {
         return err;
     }
@@ -53,12 +48,12 @@ Error FileIdentifier::Init(const FileIdentifierConfig& config)
     return ErrorEnum::eNone;
 }
 
-Error FileIdentifier::GetSystemInfo(SystemInfo& info)
+Error FileIdentifier::GetUnitModelInfo(UnitModelInfo& info)
 {
-    LOG_DBG() << "Get system info" << Log::Field("systemID", mSystemInfo.mSystemID)
-              << Log::Field("unitModel", mSystemInfo.mUnitModel) << Log::Field("version", mSystemInfo.mVersion);
+    LOG_DBG() << "Get unit model info" << Log::Field("unitModel", mUnitModelInfo.mUnitModel)
+              << Log::Field("version", mUnitModelInfo.mVersion);
 
-    info = mSystemInfo;
+    info = mUnitModelInfo;
 
     return ErrorEnum::eNone;
 }
@@ -71,7 +66,9 @@ Error FileIdentifier::GetSubjects(Array<StaticString<cIDLen>>& subjects)
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    subjects = mSubjects;
+    if (auto err = subjects.Assign(mSubjects); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -79,15 +76,6 @@ Error FileIdentifier::GetSubjects(Array<StaticString<cIDLen>>& subjects)
 /***********************************************************************************************************************
  * Private
  **********************************************************************************************************************/
-
-Error FileIdentifier::ReadSystemId()
-{
-    const auto err = fs::ReadFileToString(mConfig.mSystemIDPath, mSystemInfo.mSystemID);
-
-    mSystemInfo.mSystemID.Trim(cWhiteSpaces);
-
-    return AOS_ERROR_WRAP(err);
-}
 
 Error FileIdentifier::ReadUnitModel()
 {
@@ -106,16 +94,16 @@ Error FileIdentifier::ReadUnitModel()
         return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
     }
 
-    if (auto err = mSystemInfo.mUnitModel.Assign(parts[0]); !err.IsNone()) {
+    if (auto err = mUnitModelInfo.mUnitModel.Assign(parts[0]); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mSystemInfo.mVersion.Assign(parts[1]); !err.IsNone()) {
+    if (auto err = mUnitModelInfo.mVersion.Assign(parts[1]); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    mSystemInfo.mUnitModel.Trim(cWhiteSpaces);
-    mSystemInfo.mVersion.Trim(cWhiteSpaces);
+    (void)mUnitModelInfo.mUnitModel.Trim(cWhiteSpaces);
+    (void)mUnitModelInfo.mVersion.Trim(cWhiteSpaces);
 
     return ErrorEnum::eNone;
 }

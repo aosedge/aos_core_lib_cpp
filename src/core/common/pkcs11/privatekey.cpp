@@ -44,8 +44,8 @@ Error PKCS11RSAPrivateKey::Sign(
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    t->Append(GetPrefix(options.mHash));
-    t->Append(digest);
+    (void)t->Append(GetPrefix(options.mHash));
+    (void)t->Append(digest);
 
     CK_MECHANISM mechanism = {CKM_RSA_PKCS, nullptr, 0};
 
@@ -66,7 +66,7 @@ Error PKCS11RSAPrivateKey::Decrypt(
     return mSession->Decrypt(&mech, mPrivKeyHandle, cipher, result);
 }
 
-Array<uint8_t> PKCS11RSAPrivateKey::GetPrefix(crypto::Hash hash) const
+Array<uint8_t> PKCS11RSAPrivateKey::GetPrefix(const crypto::Hash& hash) const
 {
     switch (hash.GetValue()) {
     case crypto::HashEnum::eSHA1:
@@ -100,8 +100,8 @@ RetWithError<CK_MECHANISM> PCKS11RSAMechConverter::Visit(const crypto::PKCS1v15D
 
 RetWithError<CK_MECHANISM> PCKS11RSAMechConverter::Visit(const crypto::OAEPDecryptionOptions& options) const
 {
-    CK_MECHANISM_TYPE    hashAlg;
-    CK_RSA_PKCS_MGF_TYPE mgf;
+    CK_MECHANISM_TYPE    hashAlg = 0;
+    CK_RSA_PKCS_MGF_TYPE mgf     = 0;
 
     switch (options.mHash.GetValue()) {
     case crypto::HashEnum::eSHA1:
@@ -156,12 +156,13 @@ RetWithError<CK_MECHANISM> PCKS11RSAMechConverter::Visit(const crypto::OAEPDecry
  **********************************************************************************************************************/
 
 PKCS11ECDSAPrivateKey::PKCS11ECDSAPrivateKey(const SharedPtr<SessionContext>& session,
-    crypto::x509::ProviderItf& cryptoProvider, ObjectHandle privKeyHandle, const crypto::ECDSAPublicKey& pubKey)
+    const crypto::x509::ProviderItf& cryptoProvider, ObjectHandle privKeyHandle, const crypto::ECDSAPublicKey& pubKey)
     : mSession(session)
-    , mCryptoProvider(cryptoProvider)
     , mPrivKeyHandle(privKeyHandle)
     , mPublicKey(pubKey)
 {
+    (void)cryptoProvider;
+
     LOG_DBG() << "Create EC private key";
 }
 

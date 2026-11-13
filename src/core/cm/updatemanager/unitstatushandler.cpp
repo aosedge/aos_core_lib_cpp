@@ -16,7 +16,7 @@ namespace aos::cm::updatemanager {
 
 Error UnitStatusHandler::Init(AllocatorItf& allocator, const Config& config, iamclient::IdentProviderItf& identProvider,
     unitconfig::UnitConfigItf& unitConfig, nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider,
-    imagemanager::ItemStatusProviderItf& itemStatusProvider,
+    common::imagemanager::ItemStatusProviderItf& itemStatusProvider,
     instancestatusprovider::ProviderItf& instanceStatusProvider, cloudconnection::CloudConnectionItf& cloudConnection,
     SenderItf& sender)
 {
@@ -143,7 +143,9 @@ Error UnitStatusHandler::SendFullUnitStatus()
         ClearUnitStatus();
         ClearUpdateStatuses();
 
-        mTimer.Stop();
+        if (auto err = mTimer.Stop(); !err.IsNone()) {
+            LOG_ERR() << "Can't stop unit status timer" << Log::Field(AOS_ERROR_WRAP(err));
+        }
 
         LockGuard lock {mMutex};
 
@@ -223,9 +225,9 @@ void UnitStatusHandler::OnNodeInfoChanged(const UnitNodeInfo& info)
         mUnitStatus.mNodes.EmplaceValue();
     }
 
-    auto it = mUnitStatus.mNodes->FindIf(
-        [&info](const UnitNodeInfo& nodeInfo) { return nodeInfo.mNodeID == info.mNodeID; });
-    if (it != mUnitStatus.mNodes->end()) {
+    if (auto it = mUnitStatus.mNodes->FindIf(
+            [&info](const UnitNodeInfo& nodeInfo) { return nodeInfo.mNodeID == info.mNodeID; });
+        it != mUnitStatus.mNodes->end()) {
         *it = info;
     } else {
         if (auto err = mUnitStatus.mNodes->EmplaceBack(info); !err.IsNone()) {
@@ -237,44 +239,40 @@ void UnitStatusHandler::OnNodeInfoChanged(const UnitNodeInfo& info)
     StartTimer();
 }
 
-void UnitStatusHandler::OnItemsStatusesChanged(const Array<UpdateItemStatus>& statuses)
+void UnitStatusHandler::OnItemStatusChanged(const UpdateItemStatus& status)
 {
     LockGuard lock {mMutex};
 
-    for (const auto& status : statuses) {
-        LOG_DBG() << "Item status changed" << Log::Field("id", status.mItemID) << Log::Field("type", status.mType)
-                  << Log::Field("version", status.mVersion) << Log::Field("state", status.mState)
-                  << Log::Field(status.mError);
-    }
+    LOG_DBG() << "Item status changed" << Log::Field("id", status.mItemID) << Log::Field("type", status.mType)
+              << Log::Field("version", status.mVersion) << Log::Field("state", status.mState)
+              << Log::Field(status.mError);
 
     if (!mCloudConnected || mIsStatusProcessing) {
         return;
     }
 
-    if (!mUnitStatus.mUpdateItems.HasValue() && statuses.Size() > 0) {
+    if (!mUnitStatus.mUpdateItems.HasValue()) {
         mUnitStatus.mUpdateItems.EmplaceValue();
     }
 
-    for (const auto& status : statuses) {
-        auto it = mUnitStatus.mUpdateItems->FindIf([&status](const UpdateItemStatus& itemStatus) {
+    if (auto it = mUnitStatus.mUpdateItems->FindIf([&status](const UpdateItemStatus& itemStatus) {
             return itemStatus.mItemID == status.mItemID && itemStatus.mVersion == status.mVersion;
         });
-        if (it == mUnitStatus.mUpdateItems->end()) {
-            if (auto err = mUnitStatus.mUpdateItems->EmplaceBack(status); !err.IsNone()) {
-                LOG_ERR() << "Failed to emplace update item status" << Log::Field(err);
-                return;
-            }
-        }
-
+        it != mUnitStatus.mUpdateItems->end()) {
         *it = status;
+    } else if (auto err = mUnitStatus.mUpdateItems->EmplaceBack(status); !err.IsNone()) {
+        LOG_ERR() << "Failed to emplace update item status" << Log::Field(err);
+
+        return;
     }
 
     StartTimer();
 }
 
-void UnitStatusHandler::OnItemRemoved(const String& itemID)
+void UnitStatusHandler::OnItemRemovedFromCache(const String& id, const String& version)
 {
-    (void)itemID;
+    (void)id;
+    (void)version;
 }
 
 void UnitStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus>& statuses)
@@ -288,7 +286,7 @@ void UnitStatusHandler::OnInstancesStatusesChanged(const Array<InstanceStatus>& 
                   << Log::Field("state", status.mState) << Log::Field(status.mError);
     }
 
-    if (!mCloudConnected || mIsStatusProcessing || statuses.Size() == 0) {
+    if (!mCloudConnected || mIsStatusProcessing || statuses.IsEmpty()) {
         return;
     }
 
@@ -390,13 +388,19 @@ void UnitStatusHandler::OnDisconnect()
     LockGuard lock {mMutex};
 
     mCloudConnected = false;
-    mTimer.Stop();
+
+    if (auto err = mTimer.Stop(); !err.IsNone()) {
+        LOG_ERR() << "Can't stop unit status timer" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 }
 
 Error UnitStatusHandler::SetUnitConfigStatus()
 {
     mUnitStatus.mUnitConfig.EmplaceValue();
-    mUnitStatus.mUnitConfig->EmplaceBack();
+
+    if (auto err = mUnitStatus.mUnitConfig->EmplaceBack(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     auto& unitConfigStatus = mUnitStatus.mUnitConfig->Back();
 
@@ -422,7 +426,7 @@ Error UnitStatusHandler::SetNodesInfo()
     }
 
     mUnitStatus.mNodes.EmplaceValue();
-    mUnitStatus.mNodes->Resize(nodeIDs.Size());
+    (void)mUnitStatus.mNodes->Resize(nodeIDs.Size());
 
     for (size_t i = 0; i < nodeIDs.Size(); i++) {
         auto& nodeInfo = mUnitStatus.mNodes.GetValue()[i];
@@ -449,7 +453,9 @@ Error UnitStatusHandler::SetUpdateItemsStatus()
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    mItemStatusProvider->GetUpdateItemsStatuses(*itemsStatuses);
+    if (auto err = mItemStatusProvider->GetItemsStatuses(*itemsStatuses); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     mUnitStatus.mUpdateItems.EmplaceValue();
 
@@ -504,7 +510,7 @@ Error UnitStatusHandler::SetInstancesStatus()
         static_cast<InstanceStatusData&>(instanceStatus) = static_cast<const InstanceStatusData&>(status);
         instanceStatus.mInstance                         = status.mInstance;
 
-        it->mInstances.PushBack(&instanceStatus);
+        (void)it->mInstances.PushBack(&instanceStatus);
     }
 
     return ErrorEnum::eNone;
@@ -514,7 +520,9 @@ Error UnitStatusHandler::SetUnitSubjects()
 {
     mUnitStatus.mUnitSubjects.EmplaceValue();
 
-    mIdentProvider->GetSubjects(*mUnitStatus.mUnitSubjects);
+    if (auto err = mIdentProvider->GetSubjects(*mUnitStatus.mUnitSubjects); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
     return ErrorEnum::eNone;
 }
@@ -587,34 +595,41 @@ void UnitStatusHandler::ClearUpdateStatuses()
 void UnitStatusHandler::StartTimer()
 {
     if (mTimerStarted) {
-        mTimer.Restart();
+        if (auto err = mTimer.Restart(); !err.IsNone()) {
+            LOG_ERR() << "Can't restart unit status timer" << Log::Field(AOS_ERROR_WRAP(err));
+        }
 
         return;
     }
 
     mTimerStarted = true;
 
-    mTimer.Start(mUnitStatusSendTimeout, [this](void*) {
-        LockGuard lock {mMutex};
+    if (auto err = mTimer.Start(mUnitStatusSendTimeout,
+            [this](void*) {
+                LockGuard lock {mMutex};
 
-        mUnitStatus.mIsDeltaInfo = true;
+                mUnitStatus.mIsDeltaInfo = true;
 
-        LOG_INF() << "Send delta unit status";
+                LOG_INF() << "Send delta unit status";
 
-        if (auto err = SetItemsForPreinstalledInstances(); !err.IsNone()) {
-            LOG_ERR() << "Failed to set items for preinstalled instances" << Log::Field(err);
-        }
+                if (auto err = SetItemsForPreinstalledInstances(); !err.IsNone()) {
+                    LOG_ERR() << "Failed to set items for preinstalled instances" << Log::Field(err);
+                }
 
-        LogUnitStatus();
+                LogUnitStatus();
 
-        if (auto err = mSender->SendUnitStatus(mUnitStatus); !err.IsNone()) {
-            LOG_ERR() << "Failed to send unit status" << Log::Field(err);
-        }
+                if (auto err = mSender->SendUnitStatus(mUnitStatus); !err.IsNone()) {
+                    LOG_ERR() << "Failed to send unit status" << Log::Field(err);
+                }
 
-        ClearUnitStatus();
+                ClearUnitStatus();
 
+                mTimerStarted = false;
+            });
+        !err.IsNone()) {
         mTimerStarted = false;
-    });
+        LOG_ERR() << "Can't start unit status timer" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 }
 
 Error UnitStatusHandler::SetItemsForPreinstalledInstances()
@@ -623,7 +638,7 @@ Error UnitStatusHandler::SetItemsForPreinstalledInstances()
         return ErrorEnum::eNone;
     }
 
-    for (auto& instanceStatuses : *mUnitStatus.mInstances) {
+    for (const auto& instanceStatuses : *mUnitStatus.mInstances) {
         if (!instanceStatuses.mPreinstalled) {
             continue;
         }

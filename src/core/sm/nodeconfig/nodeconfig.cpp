@@ -63,6 +63,8 @@ Error NodeConfig::UpdateNodeConfig(const aos::NodeConfig& config)
         if (auto err = CheckVersion(config.mVersion); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
+    } else {
+        // version check not required, nothing to do
     }
 
     mNodeConfig = config;
@@ -156,7 +158,7 @@ Error NodeConfig::LoadConfig()
 
     auto err = fs::ReadFileToString(mNodeConfigFile, *nodeConfigJSON);
     if (!err.IsNone()) {
-        if (err == ENOENT) {
+        if (err.Is(ErrorEnum::eNotFound)) {
             mNodeConfigState = UnitConfigStateEnum::eAbsent;
 
             return ErrorEnum::eNone;
@@ -181,7 +183,7 @@ Error NodeConfig::LoadConfig()
     return ErrorEnum::eNone;
 }
 
-Error NodeConfig::CheckVersion(const String& version)
+Error NodeConfig::CheckVersion(const String& version) const
 {
     LOG_DBG() << "Check version" << Log::Field("version", mNodeConfig.mVersion) << Log::Field("newVersion", version);
 

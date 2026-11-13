@@ -11,9 +11,44 @@
 #include <core/common/crypto/cryptoutils.hpp>
 
 #include "fs.hpp"
+#include "logger.hpp"
 #include "memory.hpp"
 
 namespace aos::fs {
+
+/***********************************************************************************************************************
+ * Static
+ **********************************************************************************************************************/
+
+namespace {
+
+Error FileErrnoToError(int32_t code)
+{
+    // The errno is kept as the error code, so it is shown when the error is formatted.
+    switch (code) {
+    case EIO:
+    case EBADMSG:
+        return Error(ErrorEnum::eIntegrity, code);
+
+    case ENOENT:
+        return Error(ErrorEnum::eNotFound, code);
+
+    default:
+        return Error(code);
+    }
+}
+
+int StatNoFollow(const char* path, struct stat* st)
+{
+#if defined(__ZEPHYR__)
+    // Zephyr doesn't provide lstat, its file systems don't support symlinks.
+    return stat(path, st);
+#else
+    return lstat(path, st);
+#endif
+}
+
+} // namespace
 
 /***********************************************************************************************************************
  * DirIterator implementation
@@ -25,7 +60,7 @@ DirIterator::DirIterator(const String& path)
 {
 }
 
-DirIterator::DirIterator(DirIterator&& other)
+DirIterator::DirIterator(DirIterator&& other) noexcept
     : mDir(other.mDir)
     , mEntry(other.mEntry)
     , mRoot(other.mRoot)
@@ -33,7 +68,7 @@ DirIterator::DirIterator(DirIterator&& other)
     other.mDir = nullptr;
 }
 
-DirIterator& DirIterator::operator=(DirIterator&& other)
+DirIterator& DirIterator::operator=(DirIterator&& other) noexcept
 {
     if (this != &other) {
         mDir   = other.mDir;
@@ -49,7 +84,7 @@ DirIterator& DirIterator::operator=(DirIterator&& other)
 DirIterator::~DirIterator()
 {
     if (mDir) {
-        closedir(mDir);
+        (void)closedir(mDir);
     }
 }
 
@@ -59,7 +94,7 @@ bool DirIterator::Next()
         return false;
     }
 
-    struct dirent* entry = nullptr;
+    const struct dirent* entry = nullptr;
 
     while ((entry = readdir(mDir)) != nullptr) {
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
@@ -69,7 +104,7 @@ bool DirIterator::Next()
         auto        path = JoinPath(mRoot, entry->d_name);
         struct stat entryStat;
 
-        if (stat(path.CStr(), &entryStat) == -1) {
+        if (StatNoFollow(path.CStr(), &entryStat) == -1) {
             return false;
         }
 
@@ -94,7 +129,7 @@ Error FileInfoProvider::Init(AllocatorItf& allocator, crypto::HasherItf& hashPro
     return ErrorEnum::eNone;
 }
 
-Error FileInfoProvider::GetFileInfo(const String& path, FileInfo& info, crypto::Hash hashAlg)
+Error FileInfoProvider::GetFileInfo(const String& path, FileInfo& info, const crypto::Hash& hashAlg)
 {
     auto [size, err] = CalculateSize(*mAllocator, path);
     if (!err.IsNone()) {
@@ -124,7 +159,7 @@ StaticString<cFilePathLen> Dir(const String& path)
         }
     }
 
-    dir.Insert(dir.end(), path.begin(), it);
+    (void)dir.Insert(dir.end(), path.begin(), it);
 
     return dir;
 }
@@ -140,7 +175,7 @@ RetWithError<bool> DirExist(const String& path)
         return {false, errno};
     }
 
-    closedir(dir);
+    (void)closedir(dir);
 
     return true;
 }
@@ -149,8 +184,7 @@ RetWithError<bool> FileExist(const String& path)
 {
     struct stat s;
 
-    auto ret = stat(path.CStr(), &s);
-    if (ret != 0) {
+    if (auto ret = stat(path.CStr(), &s); ret != 0) {
         if (errno == ENOENT) {
             return false;
         }
@@ -167,8 +201,8 @@ RetWithError<bool> FileExist(const String& path)
 
 Error MakeDir(const String& path)
 {
-    auto ret = mkdir(path.CStr(), S_IRWXU | S_IRWXG | S_IRWXO);
-    if (ret != 0 && errno != EEXIST) {
+    if (auto ret = mkdir(path.CStr(), S_IRWXU | S_IRWXG | S_IRWXO); // NOSONAR cpp:S2612 - restricted by umask
+        ret != 0 && errno != EEXIST) {
         return errno;
     }
 
@@ -205,8 +239,7 @@ Error MakeDirAll(const String& path)
         }
     }
 
-    auto err = MakeDir(path);
-    if (!err.IsNone()) {
+    if (auto err = MakeDir(path); !err.IsNone()) {
         return err;
     }
 
@@ -224,7 +257,7 @@ Error ClearDir(const String& path)
         return errno;
     }
 
-    dirent* entry;
+    const dirent* entry = nullptr;
 
     while ((entry = readdir(dir)) != nullptr) {
         auto entryName = String(entry->d_name);
@@ -256,8 +289,7 @@ Error ClearDir(const String& path)
         }
 #else
         if (entry->d_type == DT_DIR) {
-            auto err = ClearDir(entryPath);
-            if (!err.IsNone()) {
+            if (auto err = ClearDir(entryPath); !err.IsNone()) {
                 return err;
             }
 
@@ -274,7 +306,7 @@ Error ClearDir(const String& path)
 #endif
     }
 
-    closedir(dir);
+    (void)closedir(dir);
 
     return ErrorEnum::eNone;
 }
@@ -348,8 +380,7 @@ Error RemoveAll(const String& path)
     }
 
     if (S_ISDIR(s.st_mode)) {
-        auto err = ClearDir(path);
-        if (!err.IsNone()) {
+        if (auto err = ClearDir(path); !err.IsNone()) {
             return err;
         }
 
@@ -374,67 +405,121 @@ Error Rename(const String& oldPath, const String& newPath)
     return ErrorEnum::eNone;
 }
 
-Error ReadFile(const String& fileName, Array<uint8_t>& buff)
+Error CopyFile(AllocatorItf& allocator, const String& srcPath, const String& dstPath)
 {
-    auto fd = open(fileName.CStr(), O_RDONLY);
-    if (fd < 0) {
-        return Error(errno);
+    auto buffer = MakeUnique<StaticArray<uint8_t, 16 * 1024>>(&allocator);
+    if (!buffer) {
+        return ErrorEnum::eNoMemory;
     }
 
-    auto closeFile = DeferRelease(&fd, [](const int* fd) { close(*fd); });
+    File source;
+    if (auto err = source.Open(srcPath, File::Mode::Read); !err.IsNone()) {
+        return err;
+    }
+
+    File destination;
+    if (auto err = destination.Open(dstPath, File::Mode::Write); !err.IsNone()) {
+        return err;
+    }
+
+    bool copied  = false;
+    auto cleanup = DeferRelease(&copied, [&destination, &dstPath](const bool* complete) {
+        if (!*complete) {
+            if (auto err = destination.Close(); !err.IsNone()) {
+                LOG_ERR() << "Failed to close incomplete copy: err=" << AOS_ERROR_WRAP(err);
+            }
+
+            if (auto err = Remove(dstPath); !err.IsNone()) {
+                LOG_ERR() << "Failed to remove incomplete copy: err=" << AOS_ERROR_WRAP(err);
+            }
+        }
+    });
+
+    while (true) {
+        auto err = source.ReadBlock(*buffer);
+        if (!err.IsNone() && err != ErrorEnum::eEOF) {
+            return err;
+        }
+
+        if (auto writeErr = destination.WriteBlock(*buffer); !writeErr.IsNone()) {
+            return writeErr;
+        }
+
+        if (err == ErrorEnum::eEOF) {
+            break;
+        }
+    }
+
+    if (auto err = destination.Close(); !err.IsNone()) {
+        return err;
+    }
+
+    copied = true;
+
+    return ErrorEnum::eNone;
+}
+
+Error ReadFile(const String& fileName, Array<uint8_t>& buff)
+{
+    auto fd = open(fileName.CStr(), O_RDONLY); // NOSONAR cppsecurity:S2083 - path is local device config, not
+                                               // attacker-controlled
+    if (fd < 0) {
+        return FileErrnoToError(errno);
+    }
+
+    auto closeFile = DeferRelease(&fd, [](const int32_t* fd) { (void)close(*fd); });
 
     auto size = lseek(fd, 0, SEEK_END);
     if (size < 0) {
-        return errno;
+        return FileErrnoToError(errno);
     }
 
     auto pos = lseek(fd, 0, SEEK_SET);
     if (pos < 0) {
-        return errno;
+        return FileErrnoToError(errno);
     }
 
-    auto err = buff.Resize(size);
-    if (!err.IsNone()) {
+    if (auto err = buff.Resize(size); !err.IsNone()) {
         return err;
     }
 
     while (pos < size) {
         auto count = read(fd, buff.Get() + pos, buff.Size() - pos);
         if (count < 0) {
-            return errno;
+            return FileErrnoToError(errno);
+        }
+
+        // The file was truncated after its size had been taken: return the content that is left.
+        if (count == 0) {
+            break;
         }
 
         pos += count;
     }
 
-    if (close(fd) != 0) {
-        return errno;
-    }
-
-    return ErrorEnum::eNone;
+    return buff.Resize(pos);
 }
 
 Error ReadFileToString(const String& fileName, String& text)
 {
-    text.Resize(text.MaxSize());
+    (void)text.Resize(text.MaxSize());
 
     auto buff = Array<uint8_t>(reinterpret_cast<uint8_t*>(text.Get()), text.Size());
 
-    auto err = ReadFile(fileName, buff);
-    if (!err.IsNone()) {
+    if (auto err = ReadFile(fileName, buff); !err.IsNone()) {
         return err;
     }
 
     return text.Resize(buff.Size());
 }
 
-Error ReadLine(int fd, size_t pos, String& line, const String& delimiter)
+Error ReadLine(int32_t fd, size_t pos, String& line, const String& delimiter)
 {
     if (lseek(fd, pos, SEEK_SET) < 0) {
         return Error(errno);
     }
 
-    line.Resize(line.MaxSize());
+    (void)line.Resize(line.MaxSize());
 
     ssize_t bytes = read(fd, line.Get(), line.MaxSize());
     if (bytes < 0) {
@@ -455,15 +540,27 @@ Error ReadLine(int fd, size_t pos, String& line, const String& delimiter)
 
 Error WriteFile(const String& fileName, const Array<uint8_t>& data, uint32_t perm)
 {
-    // zephyr doesn't support O_TRUNC flag. This is WA to trunc file if it exists.
-    auto err = Remove(fileName);
-    if (!err.IsNone()) {
-        return err;
-    }
+    Error err;
+    int   fd = -1;
 
-    auto fd = open(fileName.CStr(), O_CREAT | O_WRONLY, perm);
-    if (fd < 0) {
+#ifndef __ZEPHYR__
+    // Truncate existing file in place to keep its inode, owner and group.
+    fd = open(fileName.CStr(), O_CREAT | O_WRONLY | O_TRUNC, perm);
+    if (fd < 0 && errno != EACCES) {
         return Error(errno);
+    }
+#endif
+
+    if (fd < 0) {
+        // zephyr doesn't support O_TRUNC flag and existing file may be not writable. This is WA to trunc file.
+        if (err = Remove(fileName); !err.IsNone()) {
+            return err;
+        }
+
+        fd = open(fileName.CStr(), O_CREAT | O_WRONLY, perm);
+        if (fd < 0) {
+            return Error(errno);
+        }
     }
 
     size_t pos = 0;
@@ -472,7 +569,7 @@ Error WriteFile(const String& fileName, const Array<uint8_t>& data, uint32_t per
         if (chunkSize < 0) {
             err = errno;
 
-            close(fd);
+            (void)close(fd);
 
             return Error(err);
         }
@@ -505,11 +602,11 @@ RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path)
 {
     struct stat st;
 
-    if (auto ret = stat(path.CStr(), &st); ret != 0) {
-        return {0, AOS_ERROR_WRAP(Error(errno))};
+    if (auto ret = StatNoFollow(path.CStr(), &st); ret != 0) {
+        return {0, AOS_ERROR_WRAP(FileErrnoToError(errno))};
     }
 
-    if (S_ISREG(st.st_mode)) {
+    if (!S_ISDIR(st.st_mode)) {
         return {static_cast<size_t>(st.st_size)};
     }
 
@@ -531,7 +628,12 @@ RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path)
         while (dirIt.Next()) {
             const auto fullPath = JoinPath(dirIt.GetRootPath(), dirIt->mPath);
 
-            if (dirIt->mIsDir) {
+            // Symlinks are not followed: they may point outside the path or to the content counted elsewhere.
+            if (auto ret = StatNoFollow(fullPath.CStr(), &st); ret != 0) {
+                return {0, AOS_ERROR_WRAP(FileErrnoToError(errno))};
+            }
+
+            if (S_ISDIR(st.st_mode)) {
                 if (auto err = dirIterators->EmplaceBack(fullPath); !err.IsNone()) {
                     return {0, AOS_ERROR_WRAP(err)};
                 }
@@ -541,10 +643,6 @@ RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path)
                 break;
             }
 
-            if (auto ret = stat(fullPath.CStr(), &st); ret != 0) {
-                return {0, AOS_ERROR_WRAP(Error(ret))};
-            }
-
             size += st.st_size;
         }
 
@@ -552,10 +650,32 @@ RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path)
             continue;
         }
 
-        dirIterators->Erase(&dirIt);
+        (void)dirIterators->Erase(&dirIt);
     }
 
     return {size};
+}
+
+RetWithError<Time> GetFileMTime(const String& path)
+{
+    struct stat st;
+
+    if (auto ret = stat(path.CStr(), &st); ret != 0) {
+        return {Time(), AOS_ERROR_WRAP(Error(errno))};
+    }
+
+    return {Time::Unix(st.st_mtim.tv_sec, st.st_mtim.tv_nsec)};
+}
+
+Error SetFileMTime(const String& path, const Time& time)
+{
+    const timespec times[2] = {time.UnixTime(), time.UnixTime()};
+
+    if (auto ret = utimensat(AT_FDCWD, path.CStr(), times, 0); ret != 0) {
+        return AOS_ERROR_WRAP(Error(errno));
+    }
+
+    return ErrorEnum::eNone;
 }
 
 /***********************************************************************************************************************
@@ -564,20 +684,32 @@ RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path)
 
 File::~File()
 {
-    Close();
+    (void)Close();
 }
 
-Error File::Open(const String& path, Mode mode)
+Error File::Open(const String& path, Mode mode, uint32_t perm)
 {
     if (auto err = Close(); !err.IsNone()) {
         return err;
     }
 
-    int flags = (mode == Mode::Read) ? O_RDONLY : (O_WRONLY | O_CREAT | O_TRUNC);
+    int32_t flags = O_RDONLY;
 
-    mFd = open(path.CStr(), flags, 0644);
+    if (mode == Mode::Write) {
+        flags = O_WRONLY | O_CREAT | O_TRUNC;
+    } else if (mode == Mode::WriteNew) {
+        flags = O_WRONLY | O_CREAT | O_EXCL;
+// Zephyr has no symlinks and doesn't implement O_NOFOLLOW
+#ifndef __ZEPHYR__
+        flags |= O_NOFOLLOW;
+#endif
+    } else {
+        // Mode::Read: nothing to add
+    }
+
+    mFd = open(path.CStr(), flags, perm);
     if (mFd < 0) {
-        return Error(errno, "file open failed");
+        return FileErrnoToError(errno);
     }
 
     return ErrorEnum::eNone;
@@ -596,14 +728,14 @@ Error File::Close()
     return ErrorEnum::eNone;
 }
 
-Error File::ReadBlock(Array<uint8_t>& buffer)
+Error File::ReadBlock(Array<uint8_t>& buffer) const
 {
     if (mFd < 0) {
         return ErrorEnum::eWrongState;
     }
 
     auto blockSize = buffer.MaxSize();
-    buffer.Resize(blockSize);
+    (void)buffer.Resize(blockSize);
 
     bool   eof       = false;
     size_t totalRead = 0;
@@ -611,21 +743,23 @@ Error File::ReadBlock(Array<uint8_t>& buffer)
     while (totalRead < blockSize) {
         ssize_t result = read(mFd, buffer.Get() + totalRead, blockSize - totalRead);
         if (result < 0) {
-            return Error(errno, "file read failed");
+            return FileErrnoToError(errno);
         } else if (result == 0) {
             eof = true;
             break; // EOF
+        } else {
+            // normal read, handled below
         }
 
         totalRead += result;
     }
 
-    buffer.Resize(totalRead);
+    (void)buffer.Resize(totalRead);
 
     return eof ? ErrorEnum::eEOF : ErrorEnum::eNone;
 }
 
-Error File::WriteBlock(const Array<uint8_t>& buffer)
+Error File::WriteBlock(const Array<uint8_t>& buffer) const
 {
     if (mFd < 0) {
         return ErrorEnum::eWrongState;
@@ -635,7 +769,9 @@ Error File::WriteBlock(const Array<uint8_t>& buffer)
     size_t totalWritten = 0;
 
     while (totalWritten < blockSize) {
-        ssize_t result = write(mFd, buffer.Get() + totalWritten, blockSize - totalWritten);
+        ssize_t result = write(mFd, buffer.Get() + totalWritten, // NOSONAR cppsecurity:S2083 - mislabeled, "buffer" is
+                                                                 // data not a path
+            blockSize - totalWritten);
         if (result < 0) {
             return Error(errno, "file write failed");
         }
@@ -652,15 +788,15 @@ Error BaseName(const String& path, String& base)
         return err;
     }
 
-    if (base.Size() == 0) {
+    if (base.IsEmpty()) {
         base = ".";
 
         return ErrorEnum::eNone;
     }
 
-    base.RightTrim("/");
+    (void)base.RightTrim("/");
 
-    if (base.Size() == 0) {
+    if (base.IsEmpty()) {
         base = "/";
         return ErrorEnum::eNone;
     }
@@ -688,13 +824,13 @@ Error ParentPath(const String& path, String& parent)
         return err;
     }
 
-    if (parent.Size() == 0) {
+    if (parent.IsEmpty()) {
         return ErrorEnum::eNone;
     }
 
-    parent.RightTrim("/");
+    (void)parent.RightTrim("/");
 
-    if (parent.Size() == 0) {
+    if (parent.IsEmpty()) {
         parent = "/";
 
         return ErrorEnum::eNone;
@@ -724,9 +860,9 @@ Error ParentPath(const String& path, String& parent)
         return err;
     }
 
-    parent.RightTrim("/");
+    (void)parent.RightTrim("/");
 
-    if (parent.Size() == 0) {
+    if (parent.IsEmpty()) {
         parent = "/";
     }
 

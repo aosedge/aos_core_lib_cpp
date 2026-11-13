@@ -19,6 +19,17 @@ auto FilterActiveNodes(Array<Node>& array)
     return Filter(array, cmp);
 }
 
+auto FilterConnectedNodes(Array<Node>& array)
+{
+    auto cmp = [](const Node& node) {
+        return node.IsConnected()
+            && (node.GetInfo().mState == NodeStateEnum::eProvisioned
+                || node.GetInfo().mState == NodeStateEnum::ePaused);
+    };
+
+    return Filter(array, cmp);
+}
+
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
@@ -59,15 +70,13 @@ Error NodeManager::Start()
 
         LOG_DBG() << "Get node info" << Log::Field("nodeID", nodeID) << Log::Field("state", nodeInfo->mState);
 
-        if (nodeInfo->mState != NodeStateEnum::eProvisioned) {
-            continue;
+        // Add online provisioned node
+        if (auto err = mNodes.EmplaceBack(); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
         }
 
-        // Add online provisioned node
-        mNodes.EmplaceBack();
-
         mNodes.Back().Init(*mAllocator, nodeInfo->mNodeID, *mNodeConfigProvider, *mRunner);
-        mNodes.Back().UpdateInfo(*nodeInfo);
+        (void)mNodes.Back().UpdateInfo(*nodeInfo);
     }
 
     return ErrorEnum::eNone;
@@ -79,7 +88,10 @@ Error NodeManager::Stop()
 
     // Unlock waiting run requests.
     mNodesExpectedToSendStatus.Clear();
-    mStatusUpdateCondVar.NotifyAll();
+
+    if (auto err = mStatusUpdateCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify status update" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 
     return ErrorEnum::eNone;
 }
@@ -124,16 +136,16 @@ Error NodeManager::LoadSMDataForActiveInstances(
             continue;
         }
 
-        auto findDescErr = FindImageDescriptor(
-            instanceID.mItemID, instance->GetInfo().mVersion, manifestDigest, imageInfoProvider, *imageDescriptor);
-        if (!findDescErr.IsNone()) {
+        if (auto findDescErr = FindImageDescriptor(
+                instance->GetInfo().mIndexDigest, manifestDigest, imageInfoProvider, *imageDescriptor);
+            !findDescErr.IsNone()) {
             LOG_ERR() << "Can't find image descriptor" << Log::Field("instanceID", instanceID)
                       << Log::Field("manifestDigest", manifestDigest) << Log::Field(AOS_ERROR_WRAP(findDescErr));
 
             continue;
         }
 
-        auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { instance->ResetConfigs(); });
+        auto releaseConfigs = DeferRelease([&instance]() { instance->ResetConfigs(); });
         if (auto err = instance->LoadConfigs(*imageDescriptor); !err.IsNone()) {
             LOG_ERR() << "Can't load instance configs" << Log::Field("instanceID", instanceID)
                       << Log::Field(AOS_ERROR_WRAP(err));
@@ -172,9 +184,9 @@ Error NodeManager::NotifyNodeStatusReceived(const String& nodeID)
 
     node->NotifyInstanceStatusReceived();
 
-    if (node->IsConnected() && node->GetInfo().mState == NodeStateEnum::eProvisioned) {
-        if (mNodesExpectedToSendStatus.Remove(nodeID) != 0) {
-            mStatusUpdateCondVar.NotifyAll();
+    if (node->IsConnected() && mNodesExpectedToSendStatus.Remove(nodeID) != 0) {
+        if (auto err = mStatusUpdateCondVar.NotifyAll(); !err.IsNone()) {
+            LOG_ERR() << "Can't notify status update" << Log::Field(AOS_ERROR_WRAP(err));
         }
     }
 
@@ -216,9 +228,8 @@ Array<Node>& NodeManager::GetNodes()
 
 Error NodeManager::ApplyOverrideEnvVars(const Array<SharedPtr<Instance>>& instances)
 {
-    Error firstErr = ErrorEnum::eNone;
-
-    auto overrideEnvVars = mOverrideEnvVarsProcessor->GetOverrideEnvVars();
+    Error firstErr;
+    auto  overrideEnvVars = mOverrideEnvVarsProcessor->GetOverrideEnvVars();
 
     for (auto& instance : instances) {
         if (auto [changed, err] = instance->OverrideEnvVars(*overrideEnvVars); !err.IsNone()) {
@@ -237,13 +248,14 @@ Error NodeManager::ApplyOverrideEnvVars(const Array<SharedPtr<Instance>>& instan
 Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<SharedPtr<Instance>>& scheduledInstances,
     const Array<InstanceStatus>& runningInstances)
 {
-    Error firstErr = ErrorEnum::eNone;
-
+    Error firstErr;
     if (auto err = ApplyOverrideEnvVars(scheduledInstances); !err.IsNone()) {
         return err;
     }
 
-    for (auto& node : FilterActiveNodes(mNodes)) {
+    // Send to all connected nodes, including paused ones. Paused nodes are excluded from scheduling,
+    // so this results in stop requests for their currently running instances.
+    for (auto& node : FilterConnectedNodes(mNodes)) {
         auto err = node.SendScheduledInstances(scheduledInstances, runningInstances);
         if (!err.IsNone()) {
             LOG_ERR() << "Can't send instance update" << Log::Field("nodeID", node.GetInfo().mNodeID)
@@ -262,15 +274,15 @@ Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<S
     // Wait for node statuses
     mNodesExpectedToSendStatus.Clear();
 
-    for (auto& node : FilterActiveNodes(mNodes)) {
+    for (const auto& node : FilterConnectedNodes(mNodes)) {
         if (auto err = mNodesExpectedToSendStatus.PushBack(node.GetInfo().mNodeID); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
     }
 
-    auto err
+    if (auto err
         = mStatusUpdateCondVar.Wait(lock, cStatusUpdateTimeout, [&]() { return mNodesExpectedToSendStatus.IsEmpty(); });
-    if (!err.IsNone()) {
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -282,15 +294,15 @@ Error NodeManager::SendScheduledInstances(UniqueLock<Mutex>& lock, const Array<S
 Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticString<cIDLen>>& updatedNodes,
     const Array<SharedPtr<Instance>>& activeInstances, const Array<InstanceStatus>& runningInstances, bool forceRestart)
 {
-    Error firstErr = ErrorEnum::eNone;
-
+    Error firstErr;
     if (auto err = ApplyOverrideEnvVars(activeInstances); !err.IsNone()) {
         return err;
     }
 
     mNodesExpectedToSendStatus.Clear();
 
-    for (auto& node : FilterActiveNodes(mNodes)) {
+    // Include paused connected nodes so running instances can still be stopped on resend.
+    for (auto& node : FilterConnectedNodes(mNodes)) {
         if (!updatedNodes.Contains(node.GetInfo().mNodeID)) {
             continue;
         }
@@ -306,10 +318,9 @@ Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticSt
         }
 
         if (isRequestSent) {
-            if (auto err = mNodesExpectedToSendStatus.PushBack(node.GetInfo().mNodeID); !err.IsNone()) {
-                if (firstErr.IsNone()) {
-                    firstErr = AOS_ERROR_WRAP(err);
-                }
+            if (auto err = mNodesExpectedToSendStatus.PushBack(node.GetInfo().mNodeID);
+                !err.IsNone() && firstErr.IsNone()) {
+                firstErr = AOS_ERROR_WRAP(err);
             }
         }
     }
@@ -318,9 +329,9 @@ Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticSt
         return firstErr;
     }
 
-    auto err
+    if (auto err
         = mStatusUpdateCondVar.Wait(lock, cStatusUpdateTimeout, [&]() { return mNodesExpectedToSendStatus.IsEmpty(); });
-    if (!err.IsNone()) {
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -332,9 +343,10 @@ Error NodeManager::ResendInstances(UniqueLock<Mutex>& lock, const Array<StaticSt
 bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
 {
     // Don't wait for instanse status for unprovisioned nodes(offline/online doesnt matter)
-    if (info.mState != NodeStateEnum::eProvisioned) {
-        if (mNodesExpectedToSendStatus.Remove(info.mNodeID) != 0) {
-            mStatusUpdateCondVar.NotifyAll();
+    if (info.mState != NodeStateEnum::eProvisioned && info.mState != NodeStateEnum::ePaused
+        && mNodesExpectedToSendStatus.Remove(info.mNodeID) != 0) {
+        if (auto err = mStatusUpdateCondVar.NotifyAll(); !err.IsNone()) {
+            LOG_ERR() << "Can't notify status update" << Log::Field(AOS_ERROR_WRAP(err));
         }
     }
 
@@ -342,10 +354,6 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
     if (node != nullptr) {
         return node->UpdateInfo(info);
     } else {
-        if (info.mState != NodeStateEnum::eProvisioned) {
-            return false;
-        }
-
         if (auto err = mNodes.EmplaceBack(); !err.IsNone()) {
             LOG_ERR() << "Can't add new node" << Log::Field(AOS_ERROR_WRAP(err));
 
@@ -353,7 +361,7 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
         }
 
         mNodes.Back().Init(*mAllocator, info.mNodeID, *mNodeConfigProvider, *mRunner);
-        mNodes.Back().UpdateInfo(info);
+        (void)mNodes.Back().UpdateInfo(info);
 
         return true;
     }
@@ -363,7 +371,7 @@ bool NodeManager::UpdateNodeInfo(const UnitNodeInfo& info)
  * Private
  **********************************************************************************************************************/
 
-Error NodeManager::FindImageDescriptor(const String& itemID, const String& version, const String& manifestDigest,
+Error NodeManager::FindImageDescriptor(const String& indexDigest, const String& manifestDigest,
     ImageInfoProvider& imageInfoProvider, oci::IndexContentDescriptor& imageDescriptor)
 {
     auto imageIndex = MakeUnique<oci::ImageIndex>(mAllocator);
@@ -371,7 +379,7 @@ Error NodeManager::FindImageDescriptor(const String& itemID, const String& versi
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    if (auto err = imageInfoProvider.GetImageIndex(itemID, version, *imageIndex); !err.IsNone()) {
+    if (auto err = imageInfoProvider.GetImageIndex(indexDigest, *imageIndex); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

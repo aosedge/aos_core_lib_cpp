@@ -18,10 +18,10 @@ namespace aos::networkmanager {
 /**
  * Pending firewall update.
  *
- * Carries the connections that have just become resolvable, not the instance's
- * whole rule set: a resolved connection is handed over once and is not kept
- * afterwards. A receiver has to merge these rules into what it already holds,
- * otherwise rules resolved by earlier updates are lost.
+ * Carries the instance's whole current rule set, resolved from all of its allowed
+ * connections against the current target addresses. A receiver has to replace the
+ * rules it holds for the instance with these, so rules to released or re-addressed
+ * targets are removed.
  */
 struct PendingFirewallUpdate {
     InstanceIdent                                   mInstanceIdent;
@@ -33,10 +33,10 @@ struct PendingFirewallUpdate {
      * @param rhs pending firewall update to compare.
      * @return bool.
      */
-    bool operator==(const PendingFirewallUpdate& rhs) const
+    friend bool operator==(const PendingFirewallUpdate& lhs, const PendingFirewallUpdate& rhs)
     {
-        return mInstanceIdent == rhs.mInstanceIdent && mFirewallRules == rhs.mFirewallRules;
-    }
+        return lhs.mInstanceIdent == rhs.mInstanceIdent && lhs.mFirewallRules == rhs.mFirewallRules;
+    };
 
     /**
      * Compares pending firewall update.
@@ -44,7 +44,10 @@ struct PendingFirewallUpdate {
      * @param rhs pending firewall update to compare.
      * @return bool.
      */
-    bool operator!=(const PendingFirewallUpdate& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const PendingFirewallUpdate& lhs, const PendingFirewallUpdate& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 /**
@@ -60,7 +63,7 @@ public:
     virtual ~PendingUpdateHandlerItf() = default;
 
     /**
-     * Called when pending firewall rules are resolved for an instance.
+     * Called when the firewall rules of an instance change.
      *
      * @param nodeID node ID where the instance resides.
      * @param update pending firewall update.

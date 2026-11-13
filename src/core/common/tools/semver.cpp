@@ -97,8 +97,6 @@ Error GetIdentifiers(String& version, Array<String>& identifiers)
 
         pos = version.begin() + identPos;
     }
-
-    return ErrorEnum::eNone;
 }
 
 Error ValidateNumericIdentifier(const String& identifier)
@@ -107,7 +105,7 @@ Error ValidateNumericIdentifier(const String& identifier)
         return err;
     }
 
-    if (identifier.Size() == 0) {
+    if (identifier.IsEmpty()) {
         return ErrorEnum::eInvalidArgument;
     }
 
@@ -124,7 +122,7 @@ Error ValidateStrIdentifier(const String& identifier)
         return err;
     }
 
-    if (identifier.Size() == 0) {
+    if (identifier.IsEmpty()) {
         return ErrorEnum::eInvalidArgument;
     }
 
@@ -139,7 +137,7 @@ Error ValidateBasePart(String& version)
         return err;
     }
 
-    if (identifiers.Size() == 0 || identifiers.Size() > 3) {
+    if (identifiers.IsEmpty() || identifiers.Size() > 3) {
         return ErrorEnum::eInvalidArgument;
     }
 
@@ -194,8 +192,8 @@ Error ValidateMetadataPart(String& version)
 
 Error SplitVersion(String& version, String& basePart, String& prereleasePart, String& metadataPart)
 {
-    size_t prereleasePos;
-    size_t metadataPos;
+    size_t prereleasePos = 0;
+    size_t metadataPos   = 0;
     Error  err;
 
     Tie(prereleasePos, err) = version.FindSubstr(0, "-");
@@ -218,7 +216,7 @@ Error SplitVersion(String& version, String& basePart, String& prereleasePart, St
     return ErrorEnum::eNone;
 }
 
-RetWithError<int> CompareNumericIdentifiers(const String& identifier1, const String& identifier2)
+RetWithError<int32_t> CompareNumericIdentifiers(const String& identifier1, const String& identifier2)
 {
     auto result1 = identifier1.ToUint64();
     if (!result1.mError.IsNone()) {
@@ -241,7 +239,7 @@ RetWithError<int> CompareNumericIdentifiers(const String& identifier1, const Str
     return {0, ErrorEnum::eNone};
 }
 
-RetWithError<int> CompareStrIdentifiers(const String& identifier1, const String& identifier2)
+RetWithError<int32_t> CompareStrIdentifiers(const String& identifier1, const String& identifier2)
 {
     if (identifier1 < identifier2) {
         return {-1, ErrorEnum::eNone};
@@ -254,7 +252,7 @@ RetWithError<int> CompareStrIdentifiers(const String& identifier1, const String&
     return {0, ErrorEnum::eNone};
 }
 
-RetWithError<int> CompareBaseParts(String& version1, String& version2)
+RetWithError<int32_t> CompareBaseParts(String& version1, String& version2)
 {
     StaticArray<String, cMaxNumIdentifiers> identifiers1;
     StaticArray<String, cMaxNumIdentifiers> identifiers2;
@@ -263,7 +261,7 @@ RetWithError<int> CompareBaseParts(String& version1, String& version2)
         return {0, err};
     }
 
-    if (identifiers1.Size() == 0 || identifiers1.Size() > 3) {
+    if (identifiers1.IsEmpty() || identifiers1.Size() > 3) {
         return {0, ErrorEnum::eInvalidArgument};
     }
 
@@ -271,7 +269,7 @@ RetWithError<int> CompareBaseParts(String& version1, String& version2)
         return {0, err};
     }
 
-    if (identifiers2.Size() == 0 || identifiers2.Size() > 3) {
+    if (identifiers2.IsEmpty() || identifiers2.Size() > 3) {
         return {0, ErrorEnum::eInvalidArgument};
     }
 
@@ -293,7 +291,7 @@ RetWithError<int> CompareBaseParts(String& version1, String& version2)
     return {0, ErrorEnum::eNone};
 }
 
-RetWithError<int> ComparePrereleaseParts(String& version1, String& version2)
+RetWithError<int32_t> ComparePrereleaseParts(String& version1, String& version2)
 {
     StaticArray<String, cMaxNumIdentifiers> identifiers1;
     StaticArray<String, cMaxNumIdentifiers> identifiers2;
@@ -351,7 +349,9 @@ RetWithError<int> ComparePrereleaseParts(String& version1, String& version2)
 Error ValidateSemver(const String& version)
 {
     StaticString<cVersionLen> tmpVersion(version);
-    String                    basePart, prereleasePart, metadataPart;
+    String                    basePart;
+    String                    prereleasePart;
+    String                    metadataPart;
 
     if (auto err = SplitVersion(tmpVersion, basePart, prereleasePart, metadataPart); !err.IsNone()) {
         return err;
@@ -376,7 +376,7 @@ Error ValidateSemver(const String& version)
     return ErrorEnum::eNone;
 }
 
-RetWithError<int> CompareSemver(const String& version1, const String& version2)
+RetWithError<int32_t> CompareSemver(const String& version1, const String& version2)
 {
     if (auto err = ValidateSemver(version1); !err.IsNone()) {
         return {0, err};
@@ -388,8 +388,12 @@ RetWithError<int> CompareSemver(const String& version1, const String& version2)
 
     StaticString<cVersionLen> tmpVersion1(version1);
     StaticString<cVersionLen> tmpVersion2(version2);
-    String                    basePart1, prereleasePart1, metadataPart1;
-    String                    basePart2, prereleasePart2, metadataPart2;
+    String                    basePart1;
+    String                    prereleasePart1;
+    String                    metadataPart1;
+    String                    basePart2;
+    String                    prereleasePart2;
+    String                    metadataPart2;
 
     if (auto err = SplitVersion(tmpVersion1, basePart1, prereleasePart1, metadataPart1); !err.IsNone()) {
         return {0, err};

@@ -107,8 +107,7 @@ public:
      */
     Error Set(const Key& key, const Value& value)
     {
-        auto cur = Find(key);
-        if (cur != end()) {
+        if (auto cur = Find(key); cur != end()) {
             // cppcheck-suppress unreadVariable
             cur->mSecond = value;
 
@@ -128,9 +127,8 @@ public:
     template <typename... Args>
     Error Emplace(const Key& key, Args&&... args)
     {
-        ConstIterator it = Find(key);
-        if (it == end()) {
-            return mItems.EmplaceBack(key, args...);
+        if (ConstIterator it = Find(key); it == end()) {
+            return mItems.EmplaceBack(key, Forward<Args>(args)...); // NOSONAR cpp:M23_279
         }
 
         return ErrorEnum::eAlreadyExist;
@@ -147,7 +145,7 @@ public:
     Error TryEmplace(const Key& key, Args&&... args)
     {
         if (ConstIterator it = Find(key); it == end()) {
-            return mItems.EmplaceBack(key, args...);
+            return mItems.EmplaceBack(key, Forward<Args>(args)...); // NOSONAR cpp:M23_279
         }
 
         return ErrorEnum::eNone;
@@ -207,7 +205,7 @@ public:
      * @param other map to be compared with.
      * @return bool.
      */
-    bool operator==(const Map<Key, Value>& other) const
+    bool operator==(const Map<Key, Value>& other) const // NOSONAR cpp:S2807
     {
         if (Size() != other.Size()) {
             return false;
@@ -228,7 +226,7 @@ public:
      * @param other map to be compared with.
      * @return bool.
      */
-    bool operator!=(const Map<Key, Value>& other) const { return !(*this == other); }
+    bool operator!=(const Map<Key, Value>& other) const { return !(*this == other); } // NOSONAR cpp:S2807
 
     /**
      * Erases items range from map.
@@ -273,20 +271,22 @@ private:
  * @tparam cMaxSize max size.
  */
 template <typename Key, typename Value, size_t cMaxSize>
-class StaticMap : public Map<Key, Value> {
+class StaticMap : public Map<Key, Value> { // NOSONAR cpp:S3624 - StaticArray member handles its own cleanup
 public:
     StaticMap()
         : Map<Key, Value>(mArray)
     {
     }
 
-    StaticMap(const StaticMap& map)
+    StaticMap(const StaticMap& map) noexcept
         : Map<Key, Value>(mArray)
         , mArray(map.mArray)
     {
     }
 
-    StaticMap& operator=(const StaticMap& map)
+    ~StaticMap() = default;
+
+    StaticMap& operator=(const StaticMap& map) noexcept
     {
         mArray = map.mArray;
 

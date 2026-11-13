@@ -36,95 +36,120 @@ public:
     /**
      * Registers module.
      *
-     * @param module a reference to a module.
+     * @param certModule a reference to a module.
      * @returns Error.
      */
-    Error RegisterModule(CertModule& module);
+    Error RegisterModule(CertModule& certModule);
 
     /**
      * Returns IAM cert types.
      *
-     * @param[out] certTypes result certificate types.
+     * @param[out] storageIDs result certificate storage IDs.
      * @returns Error.
      */
-    Error GetCertTypes(Array<StaticString<cCertTypeLen>>& certTypes) const override;
+    Error GetStorageIDs(Array<StaticString<cStorageIDLen>>& storageIDs) const override;
 
     /**
      * Owns security storage.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param password owner password.
      * @returns Error.
      */
-    Error SetOwner(const String& certType, const String& password) override;
+    Error SetOwner(const String& storageID, const String& password) override;
 
     /**
      * Clears security storage.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @returns Error.
      */
-    Error Clear(const String& certType) override;
+    Error Clear(const String& storageID) override;
 
     /**
      * Creates key pair.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param subjectCommonName common name of the subject.
      * @param password owner password.
      * @param[out] pemCSR certificate signing request in PEM.
      * @returns Error.
      */
     Error CreateKey(
-        const String& certType, const String& subjectCommonName, const String& password, String& pemCSR) override;
+        const String& storageID, const String& subjectCommonName, const String& password, String& pemCSR) override;
 
     /**
      * Applies certificate.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param pemCert certificate in a pem format.
      * @param[out] info result certificate information.
      * @returns Error.
      */
-    Error ApplyCertificate(const String& certType, const String& pemCert, CertInfo& info) override;
+    Error ApplyCertificate(const String& storageID, const String& pemCert, CertInfo& info) override;
+
+    /**
+     * Updates root certificates (replaces the whole set).
+     *
+     * @param pemCerts certificates in PEM format.
+     * @param[out] infos result certificate information.
+     * @returns Error.
+     */
+    Error UpdateRootCerts(const Array<StaticString<crypto::cCertPEMLen>>& pemCerts, Array<CertInfo>& infos) override;
 
     /**
      * Creates a self signed certificate.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param password owner password.
      * @returns Error.
      */
-    Error CreateSelfSignedCert(const String& certType, const String& password) override;
+    Error CreateSelfSignedCert(const String& storageID, const String& password) override;
 
     /**
      * Returns module configuration.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @return RetWithError<ModuleConfig>
      */
-    RetWithError<ModuleConfig> GetModuleConfig(const String& certType) const override;
+    RetWithError<ModuleConfig> GetModuleConfig(const String& storageID) const override;
 
     /**
      * Returns certificate info.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param issuer issuer name.
      * @param serial serial number.
      * @param[out] resCert result certificate.
      * @returns Error.
      */
-    Error GetCert(const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
+    Error GetCertKey(const String& storageID, const Array<uint8_t>& issuer, const Array<uint8_t>& serial,
         CertInfo& resCert) const override;
+
+    /**
+     * Returns root certificates.
+     *
+     * @param[out] infos result certificates.
+     * @returns Error.
+     */
+    Error GetRootCerts(Array<CertInfo>& infos) const override;
 
     /**
      * Subscribes certificates listener.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param certListener certificate listener.
      * @returns Error.
      */
-    Error SubscribeListener(const String& certType, iamclient::CertListenerItf& certListener) override;
+    Error SubscribeCertKeyListener(const String& storageID, iamclient::CertKeyListenerItf& certListener) override;
+
+    /**
+     * Subscribes root certificates listener.
+     *
+     * @param certListener certificate listener.
+     * @returns Error.
+     */
+    Error SubscribeRootCertsListener(iamclient::CertKeyListenerItf& certListener) override;
 
     /**
      * Unsubscribes certificate listener.
@@ -132,7 +157,7 @@ public:
      * @param certListener certificate listener.
      * @returns Error.
      */
-    Error UnsubscribeListener(iamclient::CertListenerItf& certListener) override;
+    Error UnsubscribeListener(iamclient::CertKeyListenerItf& certListener) override;
 
     /**
      * Destroys certificate handler object instance.
@@ -142,23 +167,26 @@ public:
 private:
     static constexpr auto cIAMCertSubsMaxCount = AOS_CONFIG_CERTHANDLER_CERT_SUBS_MAX_COUNT;
 
-    CertModule* FindModule(const String& certType) const;
-    Error       UpdateCerts(CertModule& module);
+    CertModule* FindModule(const String& storageID) const;
+    CertModule* FindRootModule() const;
+    Error       Subscribe(CertModule& certModule, iamclient::CertKeyListenerItf& certListener);
+    Error       UpdateCerts(CertModule& certModule);
 
     mutable Mutex                                     mMutex;
     StaticArray<CertModule*, cIAMCertModulesMaxCount> mModules;
 
     struct CertListenerSubscription {
-        CertListenerSubscription(const String& certType, const CertInfo& certInfo, iamclient::CertListenerItf* listener)
-            : mCertType(certType)
+        CertListenerSubscription(
+            const String& storageID, const CertInfo& certInfo, iamclient::CertKeyListenerItf* listener)
+            : mStorageID(storageID)
             , mCertInfo(certInfo)
             , mCertListener(listener)
         {
         }
 
-        StaticString<cCertTypeLen>  mCertType;
-        CertInfo                    mCertInfo;
-        iamclient::CertListenerItf* mCertListener {};
+        StaticString<cStorageIDLen>    mStorageID;
+        CertInfo                       mCertInfo;
+        iamclient::CertKeyListenerItf* mCertListener {};
     };
 
     StaticArray<CertListenerSubscription, cIAMCertSubsMaxCount> mCertListenerSubscriptions;

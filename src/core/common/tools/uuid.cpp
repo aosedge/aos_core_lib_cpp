@@ -32,15 +32,15 @@ StaticString<cUUIDLen> UUIDToString(const UUID& src)
 
     for (size_t i = 0; i < src.Size(); i++) {
         if (cTemplate[result.Size()] == '-') {
-            result.PushBack('-');
+            (void)result.PushBack('-');
         }
 
         StaticString<2> chunk;
         const auto      curByte = Array<uint8_t>(src.Get() + i, 1);
 
-        chunk.ByteArrayToHex(curByte);
+        (void)chunk.ByteArrayToHex(curByte);
 
-        result.Insert(result.end(), chunk.begin(), chunk.end());
+        (void)result.Insert(result.end(), chunk.begin(), chunk.end());
     }
 
     return result;
@@ -51,7 +51,7 @@ RetWithError<UUID> StringToUUID(const String& src)
     UUID result;
 
     if (src.IsEmpty()) {
-        result.Resize(result.MaxSize(), 0);
+        (void)result.Resize(result.MaxSize(), 0);
 
         return {result, ErrorEnum::eNone};
     }
@@ -81,11 +81,11 @@ RetWithError<UUID> StringToUUID(const String& src)
         StaticString<2>         srcChunk;
         StaticArray<uint8_t, 1> resultChunk;
 
-        srcChunk.Insert(srcChunk.begin(), src.Get() + i, src.Get() + i + 2);
+        (void)srcChunk.Insert(srcChunk.begin(), src.Get() + i, src.Get() + i + 2);
 
-        srcChunk.HexToByteArray(resultChunk);
+        (void)srcChunk.HexToByteArray(resultChunk);
 
-        result.Append(resultChunk);
+        (void)result.Append(resultChunk);
 
         i += 2;
     }

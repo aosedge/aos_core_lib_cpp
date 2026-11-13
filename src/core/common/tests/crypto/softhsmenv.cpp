@@ -32,7 +32,7 @@ Error SoftHSMEnv::Init(AllocatorItf& allocator, const String& pin, const String&
 
 RetWithError<SharedPtr<pkcs11::SessionContext>> SoftHSMEnv::OpenUserSession(const String& pin, bool login)
 {
-    Error                             err = ErrorEnum::eNone;
+    Error                             err;
     SharedPtr<pkcs11::SessionContext> session;
 
     Tie(session, err) = mLibrary->OpenSession(mSlotID, CKF_RW_SESSION | CKF_SERIAL_SESSION);
@@ -56,7 +56,7 @@ Error SoftHSMEnv::InitTestToken(const String& pin, const String& label)
         return ErrorEnum::eNone;
     }
 
-    Error err         = ErrorEnum::eNone;
+    Error err;
     Tie(mSlotID, err) = FindTestToken(label);
 
     if (err.Is(ErrorEnum::eNotFound)) {

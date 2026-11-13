@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 EPAM Systems, Inc.
+ * Copyright (C) 2026 EPAM Systems, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -7,39 +7,15 @@
 #ifndef AOS_CORE_CM_IMAGEMANAGER_CONFIG_HPP_
 #define AOS_CORE_CM_IMAGEMANAGER_CONFIG_HPP_
 
-#include <core/common/consts.hpp>
-#include <core/common/tools/string.hpp>
+#include <core/common/imagemanager/config.hpp>
 
 namespace aos::cm::imagemanager {
 
 /**
- * Image manager configuration.
+ * CM image manager config.
  */
-struct Config {
-    StaticString<cFilePathLen> mInstallPath;
+struct Config : public common::imagemanager::Config {
     StaticString<cFilePathLen> mDownloadPath;
-    Duration                   mUpdateItemTTL;
-    Duration                   mRemoveOutdatedPeriod;
-
-    /**
-     * Compares config.
-     *
-     * @param other config to compare.
-     * @return bool.
-     */
-    bool operator==(const Config& other) const
-    {
-        return mInstallPath == other.mInstallPath && mDownloadPath == other.mDownloadPath
-            && mUpdateItemTTL == other.mUpdateItemTTL && mRemoveOutdatedPeriod == other.mRemoveOutdatedPeriod;
-    }
-
-    /**
-     * Compares config.
-     *
-     * @param other config to compare.
-     * @return bool.
-     */
-    bool operator!=(const Config& other) const { return !operator==(other); }
 };
 
 } // namespace aos::cm::imagemanager

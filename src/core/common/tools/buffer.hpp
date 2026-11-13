@@ -19,7 +19,7 @@ namespace aos {
 /**
  * Buffer instance.
  */
-class Buffer {
+class Buffer { // NOSONAR cpp:S3624 - non-owning view, nothing to release
 public:
     /**
      * Creates buffer from existing memory region.
@@ -28,7 +28,7 @@ public:
      * @param size region size.
      */
     Buffer(const void* buffer, size_t size)
-        : mBuffer(const_cast<RemoveConstType<void>*>(buffer))
+        : mBuffer(const_cast<void*>(buffer)) // NOSONAR cpp:M23_090
         , mSize(size)
     {
     }
@@ -38,7 +38,12 @@ public:
      *
      * @param buffer another buffer instance.
      */
-    Buffer(const Buffer& buffer) = default;
+    Buffer(const Buffer& buffer) noexcept = default;
+
+    /**
+     * Destructor.
+     */
+    ~Buffer() = default;
 
     // cppcheck-suppress duplInheritedMember
     /**
@@ -47,11 +52,11 @@ public:
      * @param buffer to copy from.
      * @return Buffer&.
      */
-    Buffer& operator=(const Buffer& buffer)
+    Buffer& operator=(const Buffer& buffer) noexcept
     {
         assert(mSize >= buffer.mSize);
 
-        memcpy(mBuffer, buffer.mBuffer, buffer.mSize);
+        (void)memcpy(mBuffer, buffer.mBuffer, buffer.mSize);
 
         return *this;
     }
@@ -62,13 +67,13 @@ public:
      * @param buffer buffer to compare with.
      * @return bool.
      */
-    bool operator==(const Buffer& buffer) const
+    friend bool operator==(const Buffer& lhs, const Buffer& buffer)
     {
-        if (mSize != buffer.Size()) {
+        if (lhs.mSize != buffer.Size()) {
             return false;
         }
 
-        return memcmp(mBuffer, buffer.Get(), mSize) == 0;
+        return memcmp(lhs.mBuffer, buffer.Get(), lhs.mSize) == 0;
     };
 
     /**
@@ -77,7 +82,7 @@ public:
      * @param buffer buffer to compare with.
      * @return bool.
      */
-    bool operator!=(const Buffer& buffer) const { return !operator==(buffer); };
+    friend bool operator!=(const Buffer& lhs, const Buffer& buffer) { return !(lhs == buffer); };
 
     /**
      * Returns pointer to the hold buffer.
@@ -128,7 +133,7 @@ public:
      *
      * @param buffer buffer to crate from.
      */
-    StaticBuffer(const Buffer& buffer)
+    StaticBuffer(const Buffer& buffer) // NOSONAR cpp:S1709
     {
         SetBuffer(mBuffer, cSize);
         Buffer::operator=(buffer);

@@ -22,7 +22,7 @@ namespace aos {
  * @tparam T
  */
 template <typename T>
-class Queue {
+class Queue { // NOSONAR cpp:S3624 - non-owning view, nothing to release
 public:
     /**
      * Creates queue.
@@ -57,7 +57,12 @@ public:
      *
      * @param queue queue to create from.
      */
-    Queue(const Queue& queue) = default;
+    Queue(const Queue& queue) noexcept = default;
+
+    /**
+     * Destructor.
+     */
+    ~Queue() = default;
 
     // cppcheck-suppress operatorEqVarError
     /**
@@ -67,7 +72,7 @@ public:
      *
      * @return Queue&.
      */
-    Queue& operator=(const Queue& queue)
+    Queue& operator=(const Queue& queue) noexcept
     {
         assert(mBegin && queue.mSize <= mMaxSize);
 
@@ -80,12 +85,13 @@ public:
         }
 
         mSize = 0;
-        mHead = mTail = mBegin;
+        mTail = mBegin;
+        mHead = mTail;
 
         auto it = queue.mHead;
 
         while (mSize < queue.mSize) {
-            new (mTail) T(*it);
+            new (mTail) T(*it); // NOSONAR cpp:M23_329
 
             it++;
             if (it == queue.mEnd) {
@@ -116,7 +122,7 @@ public:
             return ErrorEnum::eNoMemory;
         }
 
-        new (mTail) T(item);
+        new (mTail) T(item); // NOSONAR cpp:M23_329
         mSize++;
         mTail++;
 
@@ -228,12 +234,13 @@ public:
     void Clear()
     {
         while (mSize) {
-            Back().mValue.~T();
-            Pop();
+            Back().mValue.~T(); // NOSONAR cpp:M23_329
+            (void)Pop();
         }
 
-        mHead = mTail = mBegin;
-        mSize         = 0;
+        mTail = mBegin;
+        mHead = mTail;
+        mSize = 0;
     }
 
     /**
@@ -303,7 +310,7 @@ public:
      *
      * @param queue queue to create from.
      */
-    StaticQueue(const Queue<T>& queue)
+    StaticQueue(const Queue<T>& queue) // NOSONAR cpp:S1709
     {
         Queue<T>::SetBuffer(mBuffer);
         Queue<T>::operator=(queue);

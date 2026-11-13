@@ -8,6 +8,7 @@
 #define AOS_CORE_COMMON_CRYPTO_OPENSSL_CRYPTOPROVIDER_HPP_
 
 #include <core/common/config.hpp>
+#include <core/common/tools/noncopyable.hpp>
 
 #include "../itf/crypto.hpp"
 #include "opensslprovider.hpp"
@@ -17,7 +18,7 @@ namespace aos::crypto {
 /**
  * OpenSSLCryptoProvider provider.
  */
-class OpenSSLCryptoProvider : public CryptoProviderItf {
+class OpenSSLCryptoProvider : public CryptoProviderItf, private NonCopyable {
 public:
     /**
      * Destructor.
@@ -171,7 +172,7 @@ public:
      * @param algorithm hash algorithm.
      * @return RetWithError<UniquePtr<HashItf>>.
      */
-    RetWithError<UniquePtr<HashItf>> CreateHash(Hash algorithm) override;
+    RetWithError<UniquePtr<HashItf>> CreateHash(const Hash& algorithm) override;
 
     /**
      * Generates random integer value in range [0..maxValue].
@@ -209,9 +210,9 @@ public:
     /**
      * Creates a new AES encoder.
      *
-     * @param mode AES mode: "CBC" supported only.
+     * @param mode AES mode: "CBC" (PKCS7 padded) or "GCM" (no padding, authenticated).
      * @param key encryption key.
-     * @param iv initialization vector: must be 16 bytes for CBC mode.
+     * @param iv initialization vector: 16 bytes for CBC mode, 12 bytes for GCM mode.
      * @return RetWithError<UniquePtr<AESCipherItf>>.
      */
     RetWithError<UniquePtr<AESCipherItf>> CreateAESEncoder(
@@ -220,9 +221,9 @@ public:
     /**
      * Creates a new AES decoder.
      *
-     * @param mode AES mode: "CBC" supported only.
+     * @param mode AES mode: "CBC" (PKCS7 padded) or "GCM" (no padding, authenticated).
      * @param key decryption key.
-     * @param iv initialization vector: must be 16 bytes for CBC mode.
+     * @param iv initialization vector: 16 bytes for CBC mode, 12 bytes for GCM mode.
      * @return RetWithError<UniquePtr<AESCipherItf>>.
      */
     RetWithError<UniquePtr<AESCipherItf>> CreateAESDecoder(
@@ -238,8 +239,8 @@ public:
      * @param signature signature to verify against the digest.
      * @return Error.
      */
-    Error Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, Hash hashFunc, x509::Padding padding,
-        const Array<uint8_t>& digest, const Array<uint8_t>& signature) override;
+    Error Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, const Hash& hashFunc,
+        const x509::Padding& padding, const Array<uint8_t>& digest, const Array<uint8_t>& signature) override;
 
     /**
      * Verifies the certificate against a chain of intermediate and root certificates.
@@ -295,7 +296,7 @@ public:
      * @return ASN1ParseResult.
      */
     asn1::ASN1ParseResult ReadInteger(
-        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, int& value) override;
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, int32_t& value) override;
 
     /**
      * Reads a large ASN.1 INTEGER (BigInt) as a byte array.
@@ -365,22 +366,84 @@ private:
         struct evp_md_st*     mType  = nullptr;
     };
 
+    /**
+     * Common EVP based AES streaming. Everything that depends on the cipher mode (IV size, input restrictions, GCM
+     * tag) is provided by the derived classes.
+     */
     class OpenSSLAESCipher : public crypto::AESCipherItf, private NonCopyable {
     public:
-        Error Init(
-            struct ossl_lib_ctx_st* libCtx, const Array<uint8_t>& key, const Array<uint8_t>& iv, bool encrypt = true);
+        Error Init(struct ossl_lib_ctx_st* libCtx, const Array<uint8_t>& key, const Array<uint8_t>& iv, bool encrypt);
         Error EncryptBlock(const Array<uint8_t>& input, Array<uint8_t>& output) override;
         Error DecryptBlock(const Array<uint8_t>& input, Array<uint8_t>& output) override;
         Error Finalize(Array<uint8_t>& output) override;
-        ~OpenSSLAESCipher();
+        ~OpenSSLAESCipher() override;
+
+    protected:
+        virtual const char* GetModeName() const = 0;
+        virtual size_t      GetIVSize() const   = 0;
+
+        /**
+         * Checks data passed to DecryptBlock.
+         */
+        virtual Error CheckDecryptInput(const Array<uint8_t>& input) const;
+
+        /**
+         * Called by Finalize after an encryption is completed, while the EVP context is still alive.
+         */
+        virtual Error OnEncryptFinalized();
+
+        /**
+         * The underlying EVP cipher context, valid between Init and Finalize. Used by GCM's SetTag/GetTag, which
+         * call EVP_CIPHER_CTX_ctrl directly and so need it, unlike CheckDecryptInput/OnEncryptFinalized.
+         */
+        struct evp_cipher_ctx_st* GetContext() const { return mCipherCtx; }
+
+        /**
+         * Whether the cipher encrypts (true) or decrypts (false), as given to Init. Used by GCM's SetTag/GetTag,
+         * which are only valid on one side.
+         */
+        bool IsEncrypt() const { return mEncrypt; }
 
     private:
+        Error Update(const Array<uint8_t>& input, Array<uint8_t>& output);
+        void  Release();
+
         bool                      mEncrypt    = false;
         struct evp_cipher_ctx_st* mCipherCtx  = nullptr;
         struct evp_cipher_st*     mCipherType = nullptr;
     };
 
-    class OpenSSLRSAPrivKey : public crypto::PrivateKeyItf {
+    /**
+     * AES CBC with PKCS7 padding.
+     */
+    class OpenSSLAESCBCCipher : public OpenSSLAESCipher {
+    protected:
+        const char* GetModeName() const override { return "CBC"; }
+        size_t      GetIVSize() const override { return AESCipherItf::cBlockSize; }
+
+        Error CheckDecryptInput(const Array<uint8_t>& input) const override;
+    };
+
+    /**
+     * AES GCM: authenticated stream mode without padding.
+     */
+    class OpenSSLAESGCMCipher : public OpenSSLAESCipher {
+    public:
+        Error SetTag(const Array<uint8_t>& tag) override;
+        Error GetTag(Array<uint8_t>& tag) override;
+
+    protected:
+        const char* GetModeName() const override { return "GCM"; }
+        size_t      GetIVSize() const override { return AESCipherItf::cGCMIVSize; }
+
+        Error OnEncryptFinalized() override;
+
+    private:
+        bool                                            mTagReady = false;
+        StaticArray<uint8_t, AESCipherItf::cGCMTagSize> mTag;
+    };
+
+    class OpenSSLRSAPrivKey : public crypto::PrivateKeyItf, private NonCopyable {
     public:
         Error               Init(struct evp_pkey_st* pkey);
         const PublicKeyItf& GetPublic() const override;
@@ -392,6 +455,9 @@ private:
     private:
         struct evp_pkey_st* mPrivKey = nullptr;
     };
+
+    RetWithError<UniquePtr<AESCipherItf>> CreateAESCipher(
+        const String& mode, const Array<uint8_t>& key, const Array<uint8_t>& iv, bool encrypt);
 
     ossl_lib_ctx_st*         mLibCtx = nullptr;
     openssl::OpenSSLProvider mOpenSSLProvider;

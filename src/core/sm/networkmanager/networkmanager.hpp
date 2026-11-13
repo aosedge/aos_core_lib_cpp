@@ -11,6 +11,7 @@
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/map.hpp>
 #include <core/common/tools/memory.hpp>
+#include <core/common/tools/noncopyable.hpp>
 #include <core/common/tools/thread.hpp>
 
 #include <core/common/networkmanager/itf/networkprovider.hpp>
@@ -31,7 +32,7 @@ namespace aos::sm::networkmanager {
 /**
  * Network manager.
  */
-class NetworkManager : public NetworkManagerItf {
+class NetworkManager : public NetworkManagerItf, private NonCopyable {
 public:
     /**
      * Creates network manager instance.
@@ -109,7 +110,7 @@ public:
      * @param period traffic period.
      * @return Error
      */
-    Error SetTrafficPeriod(TrafficPeriod period) override;
+    Error SetTrafficPeriod(const TrafficPeriod& period) override;
 
     /**
      * Creates instance network.
@@ -263,6 +264,17 @@ private:
     void               DeferFirewallUpdate(const aos::networkmanager::PendingFirewallUpdate& update);
     void               TakeDeferredFirewallRules(const InstanceIdent& instanceIdent, InstanceNetworkAllocation* params);
 
+    void  SetFirewallApplied(const String& instanceID, bool applied);
+    bool  SetPendingFirewallRules(const aos::networkmanager::PendingFirewallUpdate& update, InstanceNetworkInfo& info);
+    Error StoreFirewallRules(InstanceNetworkInfo& cachedInfo, const Array<FirewallRule>& rules);
+    void  ApplyPendingFirewallRules(const InstanceNetworkInfo& info);
+    bool  IsInstanceRunning(const String& instanceID, const String& networkID) const;
+
+    static void MergeDeferredFirewallRules(
+        const aos::networkmanager::PendingFirewallUpdate& deferred, InstanceNetworkAllocation& params);
+    static bool IsOutdatedFirewallUpdate(const aos::networkmanager::PendingFirewallUpdate& update, const String& ip);
+    static bool IsSameFirewallRules(const Array<FirewallRule>& current, const Array<FirewallRule>& rules);
+
     template <typename P>
     Error GenerateUniqueIfName(String& ifName, const String& ifPrefix, P&& isUnique)
     {
@@ -271,7 +283,7 @@ private:
                 return err;
             }
 
-            if (isUnique(ifName)) {
+            if (Forward<P>(isUnique)(ifName)) { // NOSONAR cpp:M23_279
                 return ErrorEnum::eNone;
             }
         }
@@ -301,6 +313,7 @@ private:
     StaticArray<BatchEntry, cMaxNumInstances>                              mBatchEntries;
 
     StaticArray<aos::networkmanager::PendingFirewallUpdate, cMaxNumConcurrentItems> mDeferredFirewallUpdates;
+    StaticArray<StaticString<cIDLen>, cMaxNumInstances>                             mUnappliedFirewalls;
 
     mutable Mutex mMutex;
     AllocatorItf* mAllocator {};

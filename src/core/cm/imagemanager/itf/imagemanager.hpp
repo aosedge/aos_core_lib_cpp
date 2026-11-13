@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 EPAM Systems, Inc.
+ * Copyright (C) 2026 EPAM Systems, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -10,9 +10,6 @@
 #include <core/common/crypto/itf/cryptohelper.hpp>
 #include <core/common/types/desiredstatus.hpp>
 
-#include "iteminfoprovider.hpp"
-#include "itemstatusprovider.hpp"
-
 namespace aos::cm::imagemanager {
 
 /** @addtogroup cm Communication Manager
@@ -22,7 +19,7 @@ namespace aos::cm::imagemanager {
 /**
  * Interface that manages update items images.
  */
-class ImageManagerItf : public ItemStatusProviderItf {
+class ImageManagerItf {
 public:
     /**
      * Destructor.
@@ -30,30 +27,35 @@ public:
     virtual ~ImageManagerItf() = default;
 
     /**
-     * Downloads update items.
+     * Sets certificates and certificate chains used to verify blob signatures.
      *
-     * @param itemsInfo update items info.
      * @param certificates list of certificates.
      * @param certificateChains list of certificate chains.
-     * @param[out] statuses update items statuses.
      * @return Error.
      */
-    virtual Error DownloadUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
-        const Array<crypto::CertificateInfo>&                      certificates,
-        const Array<crypto::CertificateChainInfo>& certificateChains, Array<UpdateItemStatus>& statuses)
+    virtual Error SetCerts(const Array<crypto::CertificateInfo>& certificates,
+        const Array<crypto::CertificateChainInfo>&               certificateChains)
         = 0;
 
     /**
-     * Activate update items.
+     * Installs update item.
      *
-     * @param ids update items IDs.
-     * @param[out] statuses update items statuses.
+     * @param itemInfo update item info.
      * @return Error.
      */
-    virtual Error InstallUpdateItems(const Array<UpdateItemInfo>& itemsInfo, Array<UpdateItemStatus>& statuses) = 0;
+    virtual Error InstallItem(const UpdateItemInfo& itemInfo) = 0;
 
     /**
-     * Cancels ongoing operations: download or install.
+     * Removes update item.
+     *
+     * @param itemID item ID.
+     * @param version item version.
+     * @return Error.
+     */
+    virtual Error RemoveItem(const String& itemID, const String& version) = 0;
+
+    /**
+     * Cancels all items being installed. Waits until all InstallItem and RemoveItem calls in progress return.
      *
      * @return Error.
      */

@@ -38,7 +38,7 @@ struct AosPrivKey {
     PrivateKeyItf* mPrivKey;
 };
 
-static void* KeyMgmtNew(void* provctx)
+void* KeyMgmtNew(void* provctx)
 {
     (void)provctx;
 
@@ -57,11 +57,10 @@ void KeyMgmtFree(void* keydata)
     OPENSSL_free(keydata);
 }
 
-int KeyMgmtHas(const void* key, int selection)
+int32_t KeyMgmtHas(const void* key, int32_t selection)
 {
-    const auto aosKey = static_cast<const AosPrivKey*>(key);
-
-    if (!(selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY || selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY)
+    if (const auto aosKey = static_cast<const AosPrivKey*>(key);
+        !(selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY || selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY)
         && (aosKey == nullptr || aosKey->mPrivKey == nullptr)) {
         return 1;
     }
@@ -78,14 +77,14 @@ int KeyMgmtHas(const void* key, int selection)
     return 0;
 }
 
-const char* KeyMgmtQuery(int id)
+const char* KeyMgmtQuery(int32_t id)
 {
     (void)id;
 
     return cAosAlgorithm;
 }
 
-int KeyMgmtImport(void* keydata, int selection, const OSSL_PARAM* p)
+int32_t KeyMgmtImport(void* keydata, int32_t selection, const OSSL_PARAM* p)
 {
     if (selection != EVP_PKEY_KEYPAIR) {
         LOG_ERR() << "Not supported selection for AOS key: err=" << AOS_ERROR_WRAP(Error(ErrorEnum::eFailed));
@@ -95,8 +94,7 @@ int KeyMgmtImport(void* keydata, int selection, const OSSL_PARAM* p)
 
     auto aosKey = static_cast<AosPrivKey*>(keydata);
 
-    const OSSL_PARAM* pKeyParam = OSSL_PARAM_locate_const(p, cPKeyParamAosKeyPair);
-    if (pKeyParam != nullptr) {
+    if (const OSSL_PARAM* pKeyParam = OSSL_PARAM_locate_const(p, cPKeyParamAosKeyPair); pKeyParam != nullptr) {
         if (pKeyParam->data_type != OSSL_PARAM_OCTET_STRING) {
             LOG_ERR() << "Wrong data type for AOS key: err=" << AOS_ERROR_WRAP(Error(ErrorEnum::eFailed));
 
@@ -115,7 +113,7 @@ int KeyMgmtImport(void* keydata, int selection, const OSSL_PARAM* p)
     return 1;
 }
 
-const OSSL_PARAM* KeyMgmtImportTypes(int selection)
+const OSSL_PARAM* KeyMgmtImportTypes(int32_t selection)
 {
     (void)selection;
 
@@ -134,7 +132,7 @@ struct AosSignCtx {
     Hash          mHash;
 };
 
-RetWithError<int> GetNidFromOID(const Array<uint8_t>& oid)
+RetWithError<int32_t> GetNidFromOID(const Array<uint8_t>& oid)
 {
     auto [fullOID, err] = GetFullOID(oid);
     if (!err.IsNone()) {
@@ -148,7 +146,7 @@ RetWithError<int> GetNidFromOID(const Array<uint8_t>& oid)
         return {-1, OPENSSL_ERROR()};
     }
 
-    int nid = OBJ_obj2nid(asn1obj.Get());
+    int32_t nid = OBJ_obj2nid(asn1obj.Get());
     if (nid == NID_undef) {
         return {-1, OPENSSL_ERROR()};
     }
@@ -156,7 +154,7 @@ RetWithError<int> GetNidFromOID(const Array<uint8_t>& oid)
     return {nid, ErrorEnum::eNone};
 }
 
-RetWithError<int> GetECCurveBitLen(int nid)
+RetWithError<int32_t> GetECCurveBitLen(int32_t nid)
 {
     switch (nid) {
     case NID_X9_62_prime192v1:
@@ -205,7 +203,8 @@ RetWithError<int> GetECCurveBitLen(int nid)
 
 RetWithError<HashEnum> GetHashAlg(const RSAPublicKey& pubKey)
 {
-    auto bn = DeferRelease(BN_bin2bn(pubKey.GetN().Get(), pubKey.GetN().Size(), NULL), BN_free);
+    auto keySize = static_cast<int>(pubKey.GetN().Size()); // NOSONAR cpp:M23_058
+    auto bn      = DeferRelease(BN_bin2bn(pubKey.GetN().Get(), keySize, nullptr), BN_free);
     if (!bn) {
         return {HashEnum::eNone, OPENSSL_ERROR()};
     }
@@ -234,7 +233,7 @@ RetWithError<HashEnum> GetHashAlg(const ECDSAPublicKey& pubKey)
         return {HashEnum::eNone, err};
     }
 
-    int curveBitlen = 0;
+    int32_t curveBitlen = 0;
 
     Tie(curveBitlen, err) = GetECCurveBitLen(nid);
     if (!err.IsNone()) {
@@ -274,7 +273,7 @@ RetWithError<HashEnum> GetHashAlg(const PublicKeyItf& pubKey)
     }
 }
 
-RetWithError<int> GetSignAlgNID(const RSAPublicKey& pubKey)
+RetWithError<int32_t> GetSignAlgNID(const RSAPublicKey& pubKey)
 {
     auto [hashAlg, err] = GetHashAlg(pubKey);
     if (!err.IsNone()) {
@@ -305,7 +304,7 @@ RetWithError<int> GetSignAlgNID(const RSAPublicKey& pubKey)
     }
 }
 
-RetWithError<int> GetSignAlgNID(const ECDSAPublicKey& pubKey)
+RetWithError<int32_t> GetSignAlgNID(const ECDSAPublicKey& pubKey)
 {
     auto [hashAlg, err] = GetHashAlg(pubKey);
     if (!err.IsNone()) {
@@ -344,12 +343,12 @@ Error FormatSignature(const PrivateKeyItf& privKey, Array<uint8_t>& signature)
         const uint8_t* sData    = signature.Get() + halfSize;
 
         // Create BIGNUMs from r and s
-        auto r = DeferRelease(BN_bin2bn(rData, halfSize, nullptr), BN_free);
+        auto r = DeferRelease(BN_bin2bn(rData, static_cast<int>(halfSize), nullptr), BN_free); // NOSONAR cpp:M23_058
         if (!r) {
             return OPENSSL_ERROR();
         }
 
-        auto s = DeferRelease(BN_bin2bn(sData, halfSize, nullptr), BN_free);
+        auto s = DeferRelease(BN_bin2bn(sData, static_cast<int>(halfSize), nullptr), BN_free); // NOSONAR cpp:M23_058
         if (!s) {
             return OPENSSL_ERROR();
         }
@@ -364,12 +363,12 @@ Error FormatSignature(const PrivateKeyItf& privKey, Array<uint8_t>& signature)
         }
 
         // Ownership transferred to ECDSA_SIG object
-        r.Release();
-        s.Release();
+        (void)r.Release();
+        (void)s.Release();
 
         // Convert ECDSA_SIG to DER
         uint8_t* derSig = nullptr;
-        int      derLen = i2d_ECDSA_SIG(sig.Get(), &derSig);
+        int32_t  derLen = i2d_ECDSA_SIG(sig.Get(), &derSig);
         if (derLen <= 0) {
             return OPENSSL_ERROR();
         }
@@ -378,8 +377,7 @@ Error FormatSignature(const PrivateKeyItf& privKey, Array<uint8_t>& signature)
 
         signature.Clear();
 
-        auto err = signature.Insert(signature.begin(), derSig, derSig + derLen);
-        if (!err.IsNone()) {
+        if (auto err = signature.Insert(signature.begin(), derSig, derSig + derLen); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
@@ -416,7 +414,11 @@ X509_ALGOR* GetSignAlg(const PublicKeyItf& pubKey)
 
         // According to ossl_DER_w_algorithmIdentifier_MDWithRSAEncryption
         // implementation: PARAMETERS, always NULL in current standards
-        X509_ALGOR_set0(alg.Get(), algOID, V_ASN1_NULL, NULL);
+        if (X509_ALGOR_set0(alg.Get(), algOID, V_ASN1_NULL, nullptr) != 1) {
+            LOG_ERR() << "Set algorithm failed, err=" << OPENSSL_ERROR();
+
+            return nullptr;
+        }
 
         return alg.Release();
     }
@@ -438,7 +440,11 @@ X509_ALGOR* GetSignAlg(const PublicKeyItf& pubKey)
 
         // According to ossl_DER_w_algorithmIdentifier_ECDSA_with_MD implementation:
         // there is no PARAMETERS for ECDSA
-        X509_ALGOR_set0(alg.Get(), algOID, V_ASN1_UNDEF, NULL);
+        if (X509_ALGOR_set0(alg.Get(), algOID, V_ASN1_UNDEF, nullptr) != 1) {
+            LOG_ERR() << "Set algorithm failed, err=" << OPENSSL_ERROR();
+
+            return nullptr;
+        }
 
         return alg.Release();
     }
@@ -467,7 +473,7 @@ void SignFreeCtx(void* sigctx)
     OPENSSL_free(sigctx);
 }
 
-int DgstSignInit(void* ctx, const char* mdname, void* provkey, const OSSL_PARAM params[])
+int32_t DgstSignInit(void* ctx, const char* mdname, void* provkey, const OSSL_PARAM params[])
 {
     (void)params;
     (void)mdname;
@@ -510,7 +516,8 @@ int DgstSignInit(void* ctx, const char* mdname, void* provkey, const OSSL_PARAM 
     return 1;
 }
 
-int DgstSign(void* ctx, unsigned char* sig, size_t* siglen, size_t sigsize, const unsigned char* tbs, size_t tbslen)
+int32_t DgstSign(void* ctx, uint8_t* sig, // NOSONAR cpp:S995 - fixed external API signature
+    size_t* siglen, size_t sigsize, const uint8_t* tbs, size_t tbslen)
 {
     if (!ctx || !siglen || !tbs) {
         LOG_ERR() << "Invalid arguments: err=" << AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument));
@@ -537,20 +544,20 @@ int DgstSign(void* ctx, unsigned char* sig, size_t* siglen, size_t sigsize, cons
     // Compute the hash.
     const EVP_MD*                         evpMd = aosCtx->mEvpMd;
     StaticArray<uint8_t, EVP_MAX_MD_SIZE> digest;
-    unsigned int                          digestLen = 0;
+    uint32_t                              digestLen = 0;
 
-    digest.Resize(digest.MaxSize());
+    (void)digest.Resize(digest.MaxSize());
 
-    if (EVP_Digest(tbs, tbslen, digest.Get(), &digestLen, evpMd, NULL) != 1) {
+    if (EVP_Digest(tbs, tbslen, digest.Get(), &digestLen, evpMd, nullptr) != 1) {
         LOG_ERR() << "Digest calculation failed: err=" << OPENSSL_ERROR();
 
         return 0;
     }
 
-    digest.Resize(digestLen);
+    (void)digest.Resize(digestLen);
 
     // Sign
-    Array<uint8_t> signature {sig, static_cast<size_t>(sigsize)};
+    Array<uint8_t> signature {sig, sigsize};
 
     auto err = privKey->Sign(digest, {aosCtx->mHash}, signature);
     if (!err.IsNone()) {
@@ -571,9 +578,9 @@ int DgstSign(void* ctx, unsigned char* sig, size_t* siglen, size_t sigsize, cons
     return 1;
 }
 
-int SignatureGetCtxParams(void* ctx, OSSL_PARAM params[])
+int32_t SignatureGetCtxParams(void* ctx, OSSL_PARAM params[])
 {
-    AosSignCtx* aosCtx = static_cast<AosSignCtx*>(ctx);
+    const auto* aosCtx = static_cast<const AosSignCtx*>(ctx);
     if (!aosCtx || !aosCtx->mAosKey || !aosCtx->mAosKey->mPrivKey) {
         LOG_ERR() << "Aos context is not initalized: err=" << AOS_ERROR_WRAP(ErrorEnum::eWrongState);
 
@@ -586,8 +593,7 @@ int SignatureGetCtxParams(void* ctx, OSSL_PARAM params[])
         return 0;
     }
 
-    OSSL_PARAM* p = OSSL_PARAM_locate(params, OSSL_SIGNATURE_PARAM_ALGORITHM_ID);
-    if (p != nullptr) {
+    if (OSSL_PARAM* p = OSSL_PARAM_locate(params, OSSL_SIGNATURE_PARAM_ALGORITHM_ID); p != nullptr) {
         auto alg = DeferRelease(GetSignAlg(aosCtx->mAosKey->mPrivKey->GetPublic()), X509_ALGOR_free);
         if (!alg) {
             return 0;
@@ -596,7 +602,7 @@ int SignatureGetCtxParams(void* ctx, OSSL_PARAM params[])
         // Convert alg to DER
         uint8_t* outDer = nullptr;
 
-        int outLen = i2d_X509_ALGOR(alg.Get(), &outDer);
+        int32_t outLen = i2d_X509_ALGOR(alg.Get(), &outDer);
         if (outLen <= 0) {
             LOG_ERR() << "Alg to DER conversion failed: err=" << OPENSSL_ERROR();
 
@@ -625,38 +631,34 @@ const OSSL_PARAM* SignatureGettableCtxParams(void*)
  * Provider functions
  **********************************************************************************************************************/
 
-const OSSL_ALGORITHM* ProviderQuery(void* provctx, int operationID, int* noCache)
+const OSSL_ALGORITHM* ProviderQuery(void* provctx, int32_t operationID, int32_t* noCache)
 {
     (void)provctx;
 
     *noCache = 0;
 
     static const OSSL_DISPATCH cSignFunctions[]
-        = {{OSSL_FUNC_SIGNATURE_NEWCTX, reinterpret_cast<void (*)(void)>(SignNewCtx)},
-            {OSSL_FUNC_SIGNATURE_FREECTX, reinterpret_cast<void (*)(void)>(SignFreeCtx)},
-
-            {OSSL_FUNC_SIGNATURE_DIGEST_SIGN_INIT, reinterpret_cast<void (*)(void)>(DgstSignInit)},
-            {OSSL_FUNC_SIGNATURE_DIGEST_SIGN, reinterpret_cast<void (*)(void)>(DgstSign)},
-
-            {OSSL_FUNC_SIGNATURE_GET_CTX_PARAMS, reinterpret_cast<void (*)(void)>(SignatureGetCtxParams)},
-            {OSSL_FUNC_SIGNATURE_GETTABLE_CTX_PARAMS, reinterpret_cast<void (*)(void)>(SignatureGettableCtxParams)},
-
+        = {{OSSL_FUNC_SIGNATURE_NEWCTX, reinterpret_cast<void (*)(void)>(SignNewCtx)}, // NOSONAR cpp:S3630
+            {OSSL_FUNC_SIGNATURE_FREECTX, reinterpret_cast<void (*)(void)>(SignFreeCtx)}, // NOSONAR cpp:S3630
+            {OSSL_FUNC_SIGNATURE_DIGEST_SIGN_INIT, reinterpret_cast<void (*)(void)>(DgstSignInit)}, // NOSONAR cpp:S3630
+            {OSSL_FUNC_SIGNATURE_DIGEST_SIGN, reinterpret_cast<void (*)(void)>(DgstSign)}, // NOSONAR cpp:S3630
+            {OSSL_FUNC_SIGNATURE_GET_CTX_PARAMS,
+                reinterpret_cast<void (*)(void)>(SignatureGetCtxParams)}, // NOSONAR cpp:S3630
+            {OSSL_FUNC_SIGNATURE_GETTABLE_CTX_PARAMS,
+                reinterpret_cast<void (*)(void)>(SignatureGettableCtxParams)}, // NOSONAR cpp:S3630
             OSSL_DISPATCH_END};
 
     static const OSSL_ALGORITHM cSignAlgorithms[]
         = {{cAosEncryption, cAosSignerProvider, cSignFunctions, "AOS Signature"}, OSSL_ALGORITHM_END};
 
-    static const OSSL_DISPATCH cKeyMgmFunctions[]
-        = {{OSSL_FUNC_KEYMGMT_NEW, reinterpret_cast<void (*)(void)>(KeyMgmtNew)},
-            {OSSL_FUNC_KEYMGMT_FREE, reinterpret_cast<void (*)(void)>(KeyMgmtFree)},
-
-            {OSSL_FUNC_KEYMGMT_HAS, reinterpret_cast<void (*)(void)>(KeyMgmtHas)},
-            {OSSL_FUNC_KEYMGMT_QUERY_OPERATION_NAME, reinterpret_cast<void (*)(void)>(KeyMgmtQuery)},
-
-            {OSSL_FUNC_KEYMGMT_IMPORT, reinterpret_cast<void (*)(void)>(KeyMgmtImport)},
-            {OSSL_FUNC_KEYMGMT_IMPORT_TYPES, reinterpret_cast<void (*)(void)>(KeyMgmtImportTypes)},
-
-            OSSL_DISPATCH_END};
+    static const OSSL_DISPATCH cKeyMgmFunctions[] = {
+        {OSSL_FUNC_KEYMGMT_NEW, reinterpret_cast<void (*)(void)>(KeyMgmtNew)}, // NOSONAR cpp:S3630
+        {OSSL_FUNC_KEYMGMT_FREE, reinterpret_cast<void (*)(void)>(KeyMgmtFree)}, // NOSONAR cpp:S3630
+        {OSSL_FUNC_KEYMGMT_HAS, reinterpret_cast<void (*)(void)>(KeyMgmtHas)}, // NOSONAR cpp:S3630
+        {OSSL_FUNC_KEYMGMT_QUERY_OPERATION_NAME, reinterpret_cast<void (*)(void)>(KeyMgmtQuery)}, // NOSONAR cpp:S3630
+        {OSSL_FUNC_KEYMGMT_IMPORT, reinterpret_cast<void (*)(void)>(KeyMgmtImport)}, // NOSONAR cpp:S3630
+        {OSSL_FUNC_KEYMGMT_IMPORT_TYPES, reinterpret_cast<void (*)(void)>(KeyMgmtImportTypes)}, // NOSONAR cpp:S3630
+        OSSL_DISPATCH_END};
 
     static const OSSL_ALGORITHM cKeyMgmAlgorithms[]
         = {{cAosEncryption, cAosSignerProvider, cKeyMgmFunctions, "AOS Key Management"}, OSSL_ALGORITHM_END};
@@ -669,13 +671,16 @@ const OSSL_ALGORITHM* ProviderQuery(void* provctx, int operationID, int* noCache
         return cKeyMgmAlgorithms;
 
     case OSSL_OP_STORE:
-        return NULL;
+        return nullptr;
+
+    default:
+        break;
     }
 
-    return NULL;
+    return nullptr;
 }
 
-int ProviderInit(const OSSL_CORE_HANDLE* handle, const OSSL_DISPATCH* in, const OSSL_DISPATCH** out, void** provctx)
+int32_t ProviderInit(const OSSL_CORE_HANDLE* handle, const OSSL_DISPATCH* in, const OSSL_DISPATCH** out, void** provctx)
 {
     (void)handle;
     (void)in;
@@ -689,8 +694,9 @@ int ProviderInit(const OSSL_CORE_HANDLE* handle, const OSSL_DISPATCH* in, const 
     *provctx = OSSL_LIB_CTX_new();
 
     static const OSSL_DISPATCH provfns[]
-        = {{OSSL_FUNC_PROVIDER_QUERY_OPERATION, reinterpret_cast<void (*)(void)>(ProviderQuery)},
-            {OSSL_FUNC_PROVIDER_TEARDOWN, reinterpret_cast<void (*)(void)>(OSSL_LIB_CTX_free)}, OSSL_DISPATCH_END};
+        = {{OSSL_FUNC_PROVIDER_QUERY_OPERATION, reinterpret_cast<void (*)(void)>(ProviderQuery)}, // NOSONAR cpp:S3630
+            {OSSL_FUNC_PROVIDER_TEARDOWN, reinterpret_cast<void (*)(void)>(OSSL_LIB_CTX_free)}, // NOSONAR cpp:S3630
+            OSSL_DISPATCH_END};
 
     *out = provfns;
 
@@ -753,19 +759,18 @@ RetWithError<StaticArray<uint8_t, cECDSAParamsOIDSize>> GetFullOID(const Array<u
 {
     StaticArray<uint8_t, cECDSAParamsOIDSize> fullOID;
 
-    auto size = ASN1_object_size(0, rawOID.Size(), V_ASN1_OBJECT);
+    auto size = ASN1_object_size(0, static_cast<int>(rawOID.Size()), V_ASN1_OBJECT); // NOSONAR cpp:M23_058
     if (size <= 0) {
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eFailed)};
     }
 
-    auto err = fullOID.Resize(size);
-    if (!err.IsNone()) {
+    if (auto err = fullOID.Resize(size); !err.IsNone()) {
         return {{}, AOS_ERROR_WRAP(err)};
     }
 
     auto p = fullOID.Get();
-    ASN1_put_object(&p, 0, rawOID.Size(), V_ASN1_OBJECT, V_ASN1_UNIVERSAL);
-    memcpy(p, rawOID.Get(), rawOID.Size());
+    ASN1_put_object(&p, 0, static_cast<int>(rawOID.Size()), V_ASN1_OBJECT, V_ASN1_UNIVERSAL); // NOSONAR cpp:M23_058
+    (void)memcpy(p, rawOID.Get(), rawOID.Size());
 
     return {fullOID, ErrorEnum::eNone};
 }
@@ -775,7 +780,7 @@ void AOS_OPENSSL_free(void* ptr)
     OPENSSL_free(ptr);
 }
 
-int ConvertHashAlgToNID(HashEnum hashAlg)
+int32_t ConvertHashAlgToNID(HashEnum hashAlg)
 {
     switch (hashAlg) {
     case HashEnum::eSHA1:

@@ -640,6 +640,33 @@ protected:
  * Tests
  **********************************************************************************************************************/
 
+TEST_F(MonitoringTest, InvalidConfig)
+{
+    const Config cConfigs[] = {
+        {},
+        {Duration {}, cPollPeriod},
+        {cPollPeriod, Duration {}},
+        {cPollPeriod, cPollPeriod / 2},
+    };
+
+    for (const auto& config : cConfigs) {
+        auto err = mMonitoring.Init(mAllocator, config, mNodeConfigProvider, mCurrentNodeInfoProvider, mSender,
+            mAlertSender, mNodeMonitoringProvider, &mInstanceInfoProvider);
+
+        EXPECT_TRUE(err.Is(ErrorEnum::eInvalidArgument)) << tests::utils::ErrorToStr(err);
+    }
+}
+
+TEST_F(MonitoringTest, AverageWindowEqualsPollPeriod)
+{
+    mConfig.mAverageWindow = mConfig.mPollPeriod;
+
+    auto err = mMonitoring.Init(mAllocator, mConfig, mNodeConfigProvider, mCurrentNodeInfoProvider, mSender,
+        mAlertSender, mNodeMonitoringProvider, &mInstanceInfoProvider);
+
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
 TEST_F(MonitoringTest, SystemMonitoringAlerts)
 {
     const auto& cRules = mNodeConfig.mAlertRules.GetValue();
@@ -965,9 +992,6 @@ TEST_F(MonitoringTest, SystemMonitoringAccumulatesInstancesMonitoring)
 
 TEST_F(MonitoringTest, GetAverageMonitoringData)
 {
-    mConfig.mPollPeriod    = cPollPeriod;
-    mConfig.mAverageWindow = cPollPeriod * 3;
-
     mNodeConfig.mAlertRules.Reset();
     mNodeConfigProvider.SetNodeConfig(mNodeConfig);
 
@@ -1066,9 +1090,6 @@ TEST_F(MonitoringTest, InstanceMonitoringNotSupported)
     const auto cIdent = InstanceIdent {"item", "subject", 1, UpdateItemTypeEnum::eService};
 
     InstanceInfoProviderMonitoringNotSupportedStub instanceInfoProviderNotSupported;
-
-    mConfig.mPollPeriod    = cPollPeriod;
-    mConfig.mAverageWindow = cPollPeriod * 3;
 
     mNodeConfig.mAlertRules.Reset();
     mNodeConfigProvider.SetNodeConfig(mNodeConfig);

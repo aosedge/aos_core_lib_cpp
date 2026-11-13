@@ -90,6 +90,8 @@ void NormalizeMonitoringData(NodeMonitoringData& monitoringData)
             } else if (auto err = nodeMonitoringData.mPartitions.EmplaceBack(partition); !err.IsNone()) {
                 LOG_ERR() << "Failed to normalize monitoring data: cannot add partition usage"
                           << Log::Field("partition", partition.mName) << Log::Field("error", err);
+            } else {
+                // partition usage added successfully, nothing to do
             }
         }
     }
@@ -112,6 +114,10 @@ Error Monitoring::Init(AllocatorItf& allocator, const Config& config,
     NodeMonitoringProviderItf& nodeMonitoringProvider, InstanceInfoProviderItf* instanceInfoProvider)
 {
     LOG_DBG() << "Init monitoring";
+
+    if (!config.mPollPeriod || config.mAverageWindow < config.mPollPeriod) {
+        return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
+    }
 
     mAllocator               = &allocator;
     mConfig                  = config;
@@ -301,17 +307,16 @@ void Monitoring::StartWatchingInstance(const InstanceStatus& instanceStatus)
 
     mWatchedInstances.Back().mIdent = ident;
 
-    Error err = ErrorEnum::eNone;
-
-    auto stopWatchOnError = DeferRelease(&err, [&](const Error* err) {
-        if (!err->IsNone()) {
-            if (err->Is(ErrorEnum::eNotSupported)) {
+    Error err;
+    auto  stopWatchOnError = DeferRelease(&err, [this, &ident](const Error* releaseErr) {
+        if (!releaseErr->IsNone()) {
+            if (releaseErr->Is(ErrorEnum::eNotSupported)) {
                 LOG_DBG() << "Instance monitoring is not supported" << Log::Field("ident", ident);
             } else {
-                LOG_ERR() << "Stopping watching instance" << Log::Field("ident", ident) << Log::Field(*err);
+                LOG_ERR() << "Stopping watching instance" << Log::Field("ident", ident) << Log::Field(*releaseErr);
             }
 
-            mWatchedInstances.PopBack();
+            (void)mWatchedInstances.PopBack();
         }
     });
 
@@ -339,11 +344,11 @@ void Monitoring::StartWatchingInstance(const InstanceStatus& instanceStatus)
 
 void Monitoring::StopWatchingInstance(const InstanceStatus& instanceStatus)
 {
-    mWatchedInstances.RemoveIf([&instanceStatus](const auto& instance) {
+    (void)mWatchedInstances.RemoveIf([&instanceStatus](const auto& instance) {
         return instance.mIdent == static_cast<const InstanceIdent&>(instanceStatus);
     });
 
-    mAverage.StopInstanceMonitoring(instanceStatus);
+    (void)mAverage.StopInstanceMonitoring(instanceStatus);
 }
 
 void Monitoring::GetInstanceMonitoringData(Array<InstanceMonitoringData>& instanceMonitoringData)
@@ -352,7 +357,7 @@ void Monitoring::GetInstanceMonitoringData(Array<InstanceMonitoringData>& instan
         return;
     }
 
-    for (auto& instance : mWatchedInstances) {
+    for (const auto& instance : mWatchedInstances) {
         LOG_DBG() << "Get monitoring data for instance" << Log::Field("ident", instance.mIdent);
 
         if (auto err = instanceMonitoringData.EmplaceBack(); !err.IsNone()) {
@@ -367,17 +372,17 @@ void Monitoring::GetInstanceMonitoringData(Array<InstanceMonitoringData>& instan
             LOG_ERR() << "Failed to get instance monitoring data" << Log::Field("ident", instance.mIdent)
                       << Log::Field(err);
 
-            instanceMonitoringData.PopBack();
+            (void)instanceMonitoringData.PopBack();
             continue;
         }
     }
 }
 
-void Monitoring::ProcessAlerts(NodeMonitoringData& monitoringData)
+void Monitoring::ProcessAlerts(const NodeMonitoringData& monitoringData)
 {
     ProcessAlerts(monitoringData.mMonitoringData, mNodeAlertProcessors);
 
-    for (auto& instanceData : monitoringData.mInstances) {
+    for (const auto& instanceData : monitoringData.mInstances) {
         auto it = mWatchedInstances.FindIf(
             [&instanceData](const auto& instance) { return instance.mIdent == instanceData.mInstanceIdent; });
         if (it == mWatchedInstances.end()) {
@@ -388,7 +393,7 @@ void Monitoring::ProcessAlerts(NodeMonitoringData& monitoringData)
     }
 }
 
-void Monitoring::ProcessAlerts(MonitoringData& monitoringData, AlertProcessorArray& alertProcessors)
+void Monitoring::ProcessAlerts(const MonitoringData& monitoringData, AlertProcessorArray& alertProcessors) const
 {
     for (auto& alertProcessor : alertProcessors) {
         auto [currentValue, err] = GetCurrentUsage(alertProcessor.GetID(), monitoringData);

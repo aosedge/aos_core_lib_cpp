@@ -191,8 +191,8 @@ Error NodeManager::UnsubscribeListener(iamclient::NodeInfoListenerItf& listener)
 
 NodeInfo* NodeManager::GetNodeFromCache(const String& nodeID)
 {
-    auto it = mNodeInfoCache.FindIf([&nodeID](const NodeInfo& nodeInfo) { return nodeInfo.mNodeID == nodeID; });
-    if (it != mNodeInfoCache.end()) {
+    if (auto it = mNodeInfoCache.FindIf([&nodeID](const NodeInfo& nodeInfo) { return nodeInfo.mNodeID == nodeID; });
+        it != mNodeInfoCache.end()) {
         return it;
     }
 
@@ -201,7 +201,12 @@ NodeInfo* NodeManager::GetNodeFromCache(const String& nodeID)
 
 const NodeInfo* NodeManager::GetNodeFromCache(const String& nodeID) const
 {
-    return const_cast<NodeManager*>(this)->GetNodeFromCache(nodeID);
+    if (auto it = mNodeInfoCache.FindIf([&nodeID](const NodeInfo& nodeInfo) { return nodeInfo.mNodeID == nodeID; });
+        it != mNodeInfoCache.end()) {
+        return it;
+    }
+
+    return nullptr;
 }
 
 Error NodeManager::UpdateCache(const NodeInfo& nodeInfo)
@@ -212,8 +217,7 @@ Error NodeManager::UpdateCache(const NodeInfo& nodeInfo)
     }
 
     if (cachedInfo == nullptr) {
-        Error err = ErrorEnum::eNone;
-
+        Error err;
         Tie(cachedInfo, err) = AddNodeInfoToCache(nodeInfo);
         if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
@@ -274,7 +278,7 @@ RetWithError<NodeInfo*> NodeManager::AddNodeInfoToCache(const NodeInfo& info)
     return &mNodeInfoCache.Back();
 }
 
-void NodeManager::NotifyNodeInfoChange(const NodeInfo& nodeInfo)
+void NodeManager::NotifyNodeInfoChange(const NodeInfo& nodeInfo) const
 {
     LOG_INF() << "Node info changed" << Log::Field("nodeID", nodeInfo.mNodeID) << Log::Field("state", nodeInfo.mState)
               << Log::Field("connected", nodeInfo.mIsConnected) << Log::Field(nodeInfo.mError);

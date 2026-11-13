@@ -39,7 +39,8 @@ Error StorageState::PrepareForBalancing()
     mAvailableStorage.Reset();
 
     if (mStorageStateManager->IsSamePartition()) {
-        mAvailableState = mAvailableStorage = MakeShared<size_t>(mAllocator, 0);
+        mAvailableStorage = MakeShared<size_t>(mAllocator, 0);
+        mAvailableState   = mAvailableStorage;
     } else {
         mAvailableState   = MakeShared<size_t>(mAllocator, 0);
         mAvailableStorage = MakeShared<size_t>(mAllocator, 0);
@@ -84,10 +85,9 @@ Error StorageState::SetupStateStorage(const InstanceIdent& instanceIdent, const 
         return AOS_ERROR_WRAP(Error(ErrorEnum::eNoMemory, "not enough storage space"));
     }
 
-    auto availableStorage = *mAvailableStorage;
-    *mAvailableStorage    = *mAvailableStorage - requestedStorageSize;
-    auto restoreStorageSize
-        = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { *mAvailableStorage = availableStorage; });
+    auto availableStorage   = *mAvailableStorage;
+    *mAvailableStorage      = *mAvailableStorage - requestedStorageSize;
+    auto restoreStorageSize = DeferRelease([this, &availableStorage]() { *mAvailableStorage = availableStorage; });
 
     // Check available state size
     if (requestedStateSize > *mAvailableState) {
@@ -96,15 +96,15 @@ Error StorageState::SetupStateStorage(const InstanceIdent& instanceIdent, const 
 
     auto availableState   = *mAvailableState;
     *mAvailableState      = *mAvailableState - requestedStateSize;
-    auto restoreStateSize = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { *mAvailableState = availableState; });
+    auto restoreStateSize = DeferRelease([this, &availableState]() { *mAvailableState = availableState; });
 
     // Setup storage and state
     if (auto err = mStorageStateManager->Setup(instanceIdent, setupParams, storagePath, statePath); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    restoreStorageSize.Release();
-    restoreStateSize.Release();
+    (void)restoreStorageSize.Release();
+    (void)restoreStateSize.Release();
 
     LOG_DBG() << "Available storage and state" << Log::Field("state", *mAvailableState)
               << Log::Field("storage", *mAvailableStorage);

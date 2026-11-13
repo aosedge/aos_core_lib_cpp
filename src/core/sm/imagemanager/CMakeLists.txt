@@ -20,13 +20,13 @@ set(SOURCES imagemanager.cpp)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS itf/blobinfoprovider.hpp itf/imagemanager.hpp itf/iteminfoprovider.hpp config.hpp imagemanager.hpp)
+set(HEADERS itf/imagehandler.hpp itf/imagemanager.hpp itf/storage.hpp imagemanager.hpp)
 
 # ######################################################################################################################
 # Libraries
 # ######################################################################################################################
 
-set(LIBRARIES aos::core::common::tools)
+set(LIBRARIES aos::core::common::imagemanager aos::core::common::tools)
 
 # ######################################################################################################################
 # Target

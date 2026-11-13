@@ -25,6 +25,11 @@ namespace aos {
 constexpr auto cIDLen = AOS_CONFIG_TYPES_ID_LEN;
 
 /**
+ * UUID namespace used to derive Node ID from Hardware ID (UUIDv5).
+ */
+constexpr auto cNodeIDNamespaceUUID = "b3f1c8a2-4e7d-4f9a-9c1b-2d5e6f7a8b9c";
+
+/**
  * Version max len.
  */
 constexpr auto cVersionLen = AOS_CONFIG_TYPES_VERSION_LEN;
@@ -237,7 +242,7 @@ constexpr auto cJSONMaxLen = AOS_CONFIG_TYPES_JSON_MAX_LEN;
 /**
  * Certificate type name length.
  */
-constexpr auto cCertTypeLen = AOS_CONFIG_TYPES_CERT_TYPE_NAME_LEN;
+constexpr auto cStorageIDLen = AOS_CONFIG_TYPES_CERT_TYPE_NAME_LEN;
 
 /**
  * Bearer token len.
@@ -255,12 +260,54 @@ static constexpr auto cAttrMainNode = "MainNode";
 static constexpr auto cAttrAosComponents = "AosComponents";
 
 /**
- * System info.
+ * Unit model info.
  */
-struct SystemInfo {
-    StaticString<cIDLen>        mSystemID;
+struct UnitModelInfo {
     StaticString<cUnitModelLen> mUnitModel;
     StaticString<cVersionLen>   mVersion;
+
+    /**
+     * Compares unit model info.
+     *
+     * @param rhs unit model info to compare with.
+     * @return bool.
+     */
+    bool operator==(const UnitModelInfo& rhs) const { return mUnitModel == rhs.mUnitModel && mVersion == rhs.mVersion; }
+
+    /**
+     * Compares unit model info.
+     *
+     * @param rhs unit model info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const UnitModelInfo& rhs) const { return !operator==(rhs); }
+};
+
+/**
+ * System info.
+ */
+struct SystemInfo : UnitModelInfo {
+    StaticString<cIDLen> mSystemID;
+
+    /**
+     * Compares system info.
+     *
+     * @param rhs system info to compare with.
+     * @return bool.
+     */
+    bool operator==(const SystemInfo& rhs) const
+    {
+        return mSystemID == rhs.mSystemID
+            && static_cast<const UnitModelInfo&>(*this) == static_cast<const UnitModelInfo&>(rhs);
+    }
+
+    /**
+     * Compares system info.
+     *
+     * @param rhs system info to compare with.
+     * @return bool.
+     */
+    bool operator!=(const SystemInfo& rhs) const { return !operator==(rhs); }
 };
 
 /**
@@ -276,7 +323,7 @@ public:
         eNumComponents,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sTargetTypeStrings[] = {
             "CM",
@@ -311,7 +358,7 @@ public:
         eRuntime,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
             "service",
@@ -347,7 +394,7 @@ public:
         eNumCertificates,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
             "offline",
@@ -381,7 +428,7 @@ public:
         eFailed,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
             "unknown",
@@ -408,7 +455,7 @@ class InstanceStateType {
 public:
     enum class Enum { eActivating, eActive, eInactive, eFailed };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {"activating", "active", "inactive", "failed"};
 
@@ -431,7 +478,7 @@ public:
         eError,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
             "unprovisioned",
@@ -457,7 +504,7 @@ public:
         eAosComponents,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
             "MainNode",
@@ -481,7 +528,7 @@ public:
         eUser,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
             "group",
@@ -511,22 +558,22 @@ struct InstanceIdent {
      * @param rhs ident to compare.
      * @return bool.
      */
-    bool operator<(const InstanceIdent& rhs) const
+    friend bool operator<(const InstanceIdent& lhs, const InstanceIdent& rhs)
     {
-        if (mItemID != rhs.mItemID) {
-            return mItemID < rhs.mItemID;
+        if (lhs.mItemID != rhs.mItemID) {
+            return lhs.mItemID < rhs.mItemID;
         }
 
-        if (mSubjectID != rhs.mSubjectID) {
-            return mSubjectID < rhs.mSubjectID;
+        if (lhs.mSubjectID != rhs.mSubjectID) {
+            return lhs.mSubjectID < rhs.mSubjectID;
         }
 
-        if (mInstance != rhs.mInstance) {
-            return mInstance < rhs.mInstance;
+        if (lhs.mInstance != rhs.mInstance) {
+            return lhs.mInstance < rhs.mInstance;
         }
 
-        return mType.GetValue() < rhs.mType.GetValue();
-    }
+        return lhs.mType.GetValue() < rhs.mType.GetValue();
+    };
 
     /**
      * Compares instance ident.
@@ -534,11 +581,11 @@ struct InstanceIdent {
      * @param rhs ident to compare.
      * @return bool.
      */
-    bool operator==(const InstanceIdent& rhs) const
+    friend bool operator==(const InstanceIdent& lhs, const InstanceIdent& rhs)
     {
-        return mItemID == rhs.mItemID && mSubjectID == rhs.mSubjectID && mInstance == rhs.mInstance
-            && mType == rhs.mType && mPreinstalled == rhs.mPreinstalled;
-    }
+        return lhs.mItemID == rhs.mItemID && lhs.mSubjectID == rhs.mSubjectID && lhs.mInstance == rhs.mInstance
+            && lhs.mType == rhs.mType && lhs.mPreinstalled == rhs.mPreinstalled;
+    };
 
     /**
      * Compares instance ident.
@@ -546,7 +593,7 @@ struct InstanceIdent {
      * @param rhs ident to compare.
      * @return bool.
      */
-    bool operator!=(const InstanceIdent& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const InstanceIdent& lhs, const InstanceIdent& rhs) { return !(lhs == rhs); };
 
     /**
      * Outputs instance ident to log.
@@ -559,7 +606,7 @@ struct InstanceIdent {
     friend Log& operator<<(Log& log, const InstanceIdent& instanceIdent)
     {
         return log << "{" << instanceIdent.mType << ":" << instanceIdent.mPreinstalled << ":" << instanceIdent.mItemID
-                   << ":" << instanceIdent.mSubjectID << ":" << instanceIdent.mInstance << "}";
+                   << ":" << instanceIdent.mSubjectID << ":" << static_cast<int32_t>(instanceIdent.mInstance) << "}";
     }
 };
 
@@ -590,10 +637,10 @@ struct InstanceFilter {
      * @param rhs instance filter to compare with.
      * @return bool.
      */
-    bool operator==(const InstanceFilter& rhs) const
+    friend bool operator==(const InstanceFilter& lhs, const InstanceFilter& rhs)
     {
-        return mItemID == rhs.mItemID && mSubjectID == rhs.mSubjectID && mInstance == rhs.mInstance;
-    }
+        return lhs.mItemID == rhs.mItemID && lhs.mSubjectID == rhs.mSubjectID && lhs.mInstance == rhs.mInstance;
+    };
 
     /**
      * Compares instance filter.
@@ -601,7 +648,7 @@ struct InstanceFilter {
      * @param rhs instance filter to compare with.
      * @return bool.
      */
-    bool operator!=(const InstanceFilter& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const InstanceFilter& lhs, const InstanceFilter& rhs) { return !(lhs == rhs); };
 
     /**
      * Outputs instance filter to log.
@@ -616,7 +663,7 @@ struct InstanceFilter {
         StaticString<32> instanceStr = "*";
 
         if (instanceFilter.mInstance.HasValue()) {
-            instanceStr.Convert(*instanceFilter.mInstance);
+            (void)instanceStr.Convert(*instanceFilter.mInstance);
         }
 
         return log << "{" << (instanceFilter.mItemID.HasValue() ? *instanceFilter.mItemID : "*") << ":"
@@ -639,10 +686,11 @@ struct SubjectInfo {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator==(const SubjectInfo& rhs) const
+    friend bool operator==(const SubjectInfo& lhs, const SubjectInfo& rhs)
     {
-        return mSubjectID == rhs.mSubjectID && mSubjectType == rhs.mSubjectType && mIsUnitSubject == rhs.mIsUnitSubject;
-    }
+        return lhs.mSubjectID == rhs.mSubjectID && lhs.mSubjectType == rhs.mSubjectType
+            && lhs.mIsUnitSubject == rhs.mIsUnitSubject;
+    };
 
     /**
      * Compares subject info.
@@ -650,7 +698,7 @@ struct SubjectInfo {
      * @param rhs object to compare with.
      * @return bool.
      */
-    bool operator!=(const SubjectInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const SubjectInfo& lhs, const SubjectInfo& rhs) { return !(lhs == rhs); };
 };
 
 using SubjectInfoArray = StaticArray<SubjectInfo, cMaxNumSubjects>;
@@ -669,11 +717,11 @@ struct AlertRulePercents {
      * @param rhs alert rule percents to compare.
      * @return bool.
      */
-    bool operator==(const AlertRulePercents& rhs) const
+    friend bool operator==(const AlertRulePercents& lhs, const AlertRulePercents& rhs)
     {
-        return mMinTimeout == rhs.mMinTimeout && mMinThreshold == rhs.mMinThreshold
-            && mMaxThreshold == rhs.mMaxThreshold;
-    }
+        return lhs.mMinTimeout == rhs.mMinTimeout && lhs.mMinThreshold == rhs.mMinThreshold
+            && lhs.mMaxThreshold == rhs.mMaxThreshold;
+    };
 
     /**
      * Compares alert rule percents.
@@ -681,7 +729,7 @@ struct AlertRulePercents {
      * @param rhs alert rule percents to compare.
      * @return bool.
      */
-    bool operator!=(const AlertRulePercents& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const AlertRulePercents& lhs, const AlertRulePercents& rhs) { return !(lhs == rhs); };
 };
 
 struct AlertRulePoints {
@@ -695,11 +743,11 @@ struct AlertRulePoints {
      * @param rhs alert rule points to compare.
      * @return bool.
      */
-    bool operator==(const AlertRulePoints& rhs) const
+    friend bool operator==(const AlertRulePoints& lhs, const AlertRulePoints& rhs)
     {
-        return mMinTimeout == rhs.mMinTimeout && mMinThreshold == rhs.mMinThreshold
-            && mMaxThreshold == rhs.mMaxThreshold;
-    }
+        return lhs.mMinTimeout == rhs.mMinTimeout && lhs.mMinThreshold == rhs.mMinThreshold
+            && lhs.mMaxThreshold == rhs.mMaxThreshold;
+    };
 
     /**
      * Compares alert rule points.
@@ -707,7 +755,7 @@ struct AlertRulePoints {
      * @param rhs alert rule points to compare.
      * @return bool.
      */
-    bool operator!=(const AlertRulePoints& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const AlertRulePoints& lhs, const AlertRulePoints& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -722,10 +770,10 @@ struct PartitionAlertRule : public AlertRulePercents {
      * @param rhs partition alert rule to compare.
      * @return bool.
      */
-    bool operator==(const PartitionAlertRule& rhs) const
+    friend bool operator==(const PartitionAlertRule& lhs, const PartitionAlertRule& rhs)
     {
-        return mName == rhs.mName && static_cast<const AlertRulePercents&>(*this) == rhs;
-    }
+        return lhs.mName == rhs.mName && static_cast<const AlertRulePercents&>(lhs) == rhs;
+    };
 
     /**
      * Compares partition alert rule.
@@ -733,7 +781,7 @@ struct PartitionAlertRule : public AlertRulePercents {
      * @param rhs partition alert rule to compare.
      * @return bool.
      */
-    bool operator!=(const PartitionAlertRule& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const PartitionAlertRule& lhs, const PartitionAlertRule& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -752,11 +800,11 @@ struct AlertRules {
      * @param rhs alert rules to compare.
      * @return bool.
      */
-    bool operator==(const AlertRules& rhs) const
+    friend bool operator==(const AlertRules& lhs, const AlertRules& rhs)
     {
-        return mRAM == rhs.mRAM && mCPU == rhs.mCPU && mPartitions == rhs.mPartitions && mDownload == rhs.mDownload
-            && mUpload == rhs.mUpload;
-    }
+        return lhs.mRAM == rhs.mRAM && lhs.mCPU == rhs.mCPU && lhs.mPartitions == rhs.mPartitions
+            && lhs.mDownload == rhs.mDownload && lhs.mUpload == rhs.mUpload;
+    };
 
     /**
      * Compares alert rules.
@@ -764,7 +812,7 @@ struct AlertRules {
      * @param rhs alert rules to compare.
      * @return bool.
      */
-    bool operator!=(const AlertRules& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const AlertRules& lhs, const AlertRules& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -782,10 +830,10 @@ struct ResourceRatios {
      * @param rhs resource ratios to compare.
      * @return bool.
      */
-    bool operator==(const ResourceRatios& rhs) const
+    friend bool operator==(const ResourceRatios& lhs, const ResourceRatios& rhs)
     {
-        return mCPU == rhs.mCPU && mRAM == rhs.mRAM && mStorage == rhs.mStorage && mState == rhs.mState;
-    }
+        return lhs.mCPU == rhs.mCPU && lhs.mRAM == rhs.mRAM && lhs.mStorage == rhs.mStorage && lhs.mState == rhs.mState;
+    };
 
     /**
      * Compares resource ratios.
@@ -793,7 +841,7 @@ struct ResourceRatios {
      * @param rhs resource ratios to compare.
      * @return bool.
      */
-    bool operator!=(const ResourceRatios& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const ResourceRatios& lhs, const ResourceRatios& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -809,10 +857,10 @@ struct ArchInfo {
      * @param rhs architecture info to compare with.
      * @return bool.
      */
-    bool operator==(const ArchInfo& rhs) const
+    friend bool operator==(const ArchInfo& lhs, const ArchInfo& rhs)
     {
-        return mArchitecture == rhs.mArchitecture && mVariant == rhs.mVariant;
-    }
+        return lhs.mArchitecture == rhs.mArchitecture && lhs.mVariant == rhs.mVariant;
+    };
 
     /**
      * Compares architecture info.
@@ -820,7 +868,7 @@ struct ArchInfo {
      * @param rhs architecture info to compare with.
      * @return bool.
      */
-    bool operator!=(const ArchInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const ArchInfo& lhs, const ArchInfo& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -837,10 +885,10 @@ struct OSInfo {
      * @param rhs OS info to compare with.
      * @return bool.
      */
-    bool operator==(const OSInfo& rhs) const
+    friend bool operator==(const OSInfo& lhs, const OSInfo& rhs)
     {
-        return mOS == rhs.mOS && mVersion == rhs.mVersion && mFeatures == rhs.mFeatures;
-    }
+        return lhs.mOS == rhs.mOS && lhs.mVersion == rhs.mVersion && lhs.mFeatures == rhs.mFeatures;
+    };
 
     /**
      * Compares OS info.
@@ -848,7 +896,7 @@ struct OSInfo {
      * @param rhs OS info to compare with.
      * @return bool.
      */
-    bool operator!=(const OSInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const OSInfo& lhs, const OSInfo& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -864,7 +912,10 @@ struct PlatformInfo {
      * @param rhs platform info to compare with.
      * @return bool.
      */
-    bool operator==(const PlatformInfo& rhs) const { return mArchInfo == rhs.mArchInfo && mOSInfo == rhs.mOSInfo; }
+    friend bool operator==(const PlatformInfo& lhs, const PlatformInfo& rhs)
+    {
+        return lhs.mArchInfo == rhs.mArchInfo && lhs.mOSInfo == rhs.mOSInfo;
+    };
 
     /**
      * Compares platform info.
@@ -872,7 +923,7 @@ struct PlatformInfo {
      * @param rhs platform info to compare with.
      * @return bool.
      */
-    bool operator!=(const PlatformInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const PlatformInfo& lhs, const PlatformInfo& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -891,11 +942,11 @@ struct CPUInfo {
      * @param rhs cpu info to compare with.
      * @return bool.
      */
-    bool operator==(const CPUInfo& rhs) const
+    friend bool operator==(const CPUInfo& lhs, const CPUInfo& rhs)
     {
-        return mModelName == rhs.mModelName && mNumCores == rhs.mNumCores && mNumThreads == rhs.mNumThreads
-            && mArchInfo == rhs.mArchInfo && mMaxDMIPS == rhs.mMaxDMIPS;
-    }
+        return lhs.mModelName == rhs.mModelName && lhs.mNumCores == rhs.mNumCores && lhs.mNumThreads == rhs.mNumThreads
+            && lhs.mArchInfo == rhs.mArchInfo && lhs.mMaxDMIPS == rhs.mMaxDMIPS;
+    };
 
     /**
      * Compares CPU info.
@@ -903,7 +954,7 @@ struct CPUInfo {
      * @param rhs cpu info to compare with.
      * @return bool.
      */
-    bool operator!=(const CPUInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const CPUInfo& lhs, const CPUInfo& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -926,10 +977,11 @@ struct PartitionInfo {
      * @param rhs partition info to compare with.
      * @return bool.
      */
-    bool operator==(const PartitionInfo& rhs) const
+    friend bool operator==(const PartitionInfo& lhs, const PartitionInfo& rhs)
     {
-        return mName == rhs.mName && mPath == rhs.mPath && mTypes == rhs.mTypes && mTotalSize == rhs.mTotalSize;
-    }
+        return lhs.mName == rhs.mName && lhs.mPath == rhs.mPath && lhs.mTypes == rhs.mTypes
+            && lhs.mTotalSize == rhs.mTotalSize;
+    };
 
     /**
      * Compares partition info.
@@ -937,7 +989,7 @@ struct PartitionInfo {
      * @param rhs partition info to compare with.
      * @return bool.
      */
-    bool operator!=(const PartitionInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const PartitionInfo& lhs, const PartitionInfo& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -958,14 +1010,17 @@ struct ResourceInfo {
      * @param rhs resource info to compare with.
      * @return bool.
      */
-    bool operator==(const ResourceInfo& rhs) const { return mName == rhs.mName && mSharedCount == rhs.mSharedCount; }
+    friend bool operator==(const ResourceInfo& lhs, const ResourceInfo& rhs)
+    {
+        return lhs.mName == rhs.mName && lhs.mSharedCount == rhs.mSharedCount;
+    };
     /**
      * Compares resource info.
      *
      * @param rhs resource info to compare with.
      * @return bool.
      */
-    bool operator!=(const ResourceInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const ResourceInfo& lhs, const ResourceInfo& rhs) { return !(lhs == rhs); };
 };
 
 using ResourceInfoArray = StaticArray<ResourceInfo, cMaxNumNodeResources>;
@@ -988,12 +1043,13 @@ struct RuntimeInfo : public PlatformInfo {
      * @param rhs runtime info to compare with.
      * @return bool.
      */
-    bool operator==(const RuntimeInfo& rhs) const
+    friend bool operator==(const RuntimeInfo& lhs, const RuntimeInfo& rhs)
     {
-        return PlatformInfo::operator==(rhs) && mRuntimeID == rhs.mRuntimeID && mRuntimeType == rhs.mRuntimeType
-            && mMaxDMIPS == rhs.mMaxDMIPS && mAllowedDMIPS == rhs.mAllowedDMIPS && mTotalRAM == rhs.mTotalRAM
-            && mAllowedRAM == rhs.mAllowedRAM && mMaxInstances == rhs.mMaxInstances;
-    }
+        return (static_cast<const PlatformInfo&>(lhs) == rhs) && lhs.mRuntimeID == rhs.mRuntimeID
+            && lhs.mRuntimeType == rhs.mRuntimeType && lhs.mMaxDMIPS == rhs.mMaxDMIPS
+            && lhs.mAllowedDMIPS == rhs.mAllowedDMIPS && lhs.mTotalRAM == rhs.mTotalRAM
+            && lhs.mAllowedRAM == rhs.mAllowedRAM && lhs.mMaxInstances == rhs.mMaxInstances;
+    };
 
     /**
      * Compares runtime info.
@@ -1001,7 +1057,7 @@ struct RuntimeInfo : public PlatformInfo {
      * @param rhs runtime info to compare with.
      * @return bool.
      */
-    bool operator!=(const RuntimeInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const RuntimeInfo& lhs, const RuntimeInfo& rhs) { return !(lhs == rhs); };
 };
 
 using RuntimeInfoArray = StaticArray<RuntimeInfo, cMaxNumNodeRuntimes>;
@@ -1019,7 +1075,10 @@ struct NodeAttribute {
      * @param rhs node attributes info to compare with.
      * @return bool.
      */
-    bool operator==(const NodeAttribute& rhs) const { return mName == rhs.mName && mValue == rhs.mValue; }
+    friend bool operator==(const NodeAttribute& lhs, const NodeAttribute& rhs)
+    {
+        return lhs.mName == rhs.mName && lhs.mValue == rhs.mValue;
+    };
 
     /**
      * Compares node attributes.
@@ -1027,7 +1086,7 @@ struct NodeAttribute {
      * @param rhs node attributes info to compare with.
      * @return bool.
      */
-    bool operator!=(const NodeAttribute& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const NodeAttribute& lhs, const NodeAttribute& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -1059,13 +1118,14 @@ struct NodeInfo {
      * @param rhs node info to compare with.
      * @return bool.
      */
-    bool operator==(const NodeInfo& rhs) const
+    friend bool operator==(const NodeInfo& lhs, const NodeInfo& rhs)
     {
-        return mNodeID == rhs.mNodeID && mNodeType == rhs.mNodeType && mTitle == rhs.mTitle
-            && mMaxDMIPS == rhs.mMaxDMIPS && mTotalRAM == rhs.mTotalRAM && mPhysicalRAM == rhs.mPhysicalRAM
-            && mOSInfo == rhs.mOSInfo && mCPUs == rhs.mCPUs && mPartitions == rhs.mPartitions && mAttrs == rhs.mAttrs
-            && mState == rhs.mState && mIsConnected == rhs.mIsConnected && mError == rhs.mError;
-    }
+        return lhs.mNodeID == rhs.mNodeID && lhs.mNodeType == rhs.mNodeType && lhs.mTitle == rhs.mTitle
+            && lhs.mMaxDMIPS == rhs.mMaxDMIPS && lhs.mTotalRAM == rhs.mTotalRAM && lhs.mPhysicalRAM == rhs.mPhysicalRAM
+            && lhs.mOSInfo == rhs.mOSInfo && lhs.mCPUs == rhs.mCPUs && lhs.mPartitions == rhs.mPartitions
+            && lhs.mAttrs == rhs.mAttrs && lhs.mState == rhs.mState && lhs.mIsConnected == rhs.mIsConnected
+            && lhs.mError == rhs.mError;
+    };
 
     /**
      * Compares node info.
@@ -1073,7 +1133,7 @@ struct NodeInfo {
      * @param rhs node info to compare with.
      * @return bool.
      */
-    bool operator!=(const NodeInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const NodeInfo& lhs, const NodeInfo& rhs) { return !(lhs == rhs); };
 
     /**
      * Checks whether node is main node.
@@ -1129,7 +1189,7 @@ using SubjectArray = StaticArray<StaticString<cIDLen>, cMaxNumSubjects>;
 struct RunParameters {
     Optional<Duration> mStartInterval;
     Optional<Duration> mRestartInterval;
-    Optional<long>     mStartBurst;
+    Optional<int64_t>  mStartBurst;
 
     /**
      * Compares run parameters.
@@ -1137,11 +1197,11 @@ struct RunParameters {
      * @param rhs run parameters to compare.
      * @return bool.
      */
-    bool operator==(const RunParameters& rhs) const
+    friend bool operator==(const RunParameters& lhs, const RunParameters& rhs)
     {
-        return mStartInterval == rhs.mStartInterval && mRestartInterval == rhs.mRestartInterval
-            && mStartBurst == rhs.mStartBurst;
-    }
+        return lhs.mStartInterval == rhs.mStartInterval && lhs.mRestartInterval == rhs.mRestartInterval
+            && lhs.mStartBurst == rhs.mStartBurst;
+    };
 
     /**
      * Compares run parameters.
@@ -1149,7 +1209,7 @@ struct RunParameters {
      * @param rhs run parameters to compare.
      * @return bool.
      */
-    bool operator!=(const RunParameters& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const RunParameters& lhs, const RunParameters& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -1184,11 +1244,11 @@ struct Mount {
      * @param mount file system mount to compare.
      * @return bool.
      */
-    bool operator==(const Mount& mount) const
+    friend bool operator==(const Mount& lhs, const Mount& mount)
     {
-        return mDestination == mount.mDestination && mType == mount.mType && mSource == mount.mSource
-            && mOptions == mount.mOptions;
-    }
+        return lhs.mDestination == mount.mDestination && lhs.mType == mount.mType && lhs.mSource == mount.mSource
+            && lhs.mOptions == mount.mOptions;
+    };
 
     /**
      * Compares file system mount.
@@ -1196,7 +1256,7 @@ struct Mount {
      * @param mount file system mount to compare.
      * @return bool.
      */
-    bool operator!=(const Mount& mount) const { return !operator==(mount); }
+    friend bool operator!=(const Mount& lhs, const Mount& mount) { return !(lhs == mount); };
 
     StaticString<cFilePathLen>                                          mDestination;
     StaticString<cFSMountTypeLen>                                       mType;
@@ -1208,7 +1268,7 @@ struct Mount {
  * General certificate information.
  */
 struct CertInfo {
-    StaticString<cCertTypeLen>                    mCertType;
+    StaticString<cStorageIDLen>                   mStorageID;
     StaticArray<uint8_t, crypto::cCertIssuerSize> mIssuer;
     StaticArray<uint8_t, crypto::cSerialNumSize>  mSerial;
     StaticString<cURLLen>                         mCertURL;
@@ -1221,18 +1281,18 @@ struct CertInfo {
      * @param certInfo info to compare.
      * @return bool.
      */
-    bool operator==(const CertInfo& certInfo) const
+    friend bool operator==(const CertInfo& lhs, const CertInfo& certInfo)
     {
-        return certInfo.mCertURL == mCertURL && certInfo.mIssuer == mIssuer && certInfo.mKeyURL == mKeyURL
-            && certInfo.mNotAfter == mNotAfter && certInfo.mSerial == mSerial;
-    }
+        return certInfo.mCertURL == lhs.mCertURL && certInfo.mIssuer == lhs.mIssuer && certInfo.mKeyURL == lhs.mKeyURL
+            && certInfo.mNotAfter == lhs.mNotAfter && certInfo.mSerial == lhs.mSerial;
+    };
     /**
      * Checks whether certificate info is equal the the current one.
      *
      * @param certInfo info to compare.
      * @return bool.
      */
-    bool operator!=(const CertInfo& certInfo) const { return !operator==(certInfo); }
+    friend bool operator!=(const CertInfo& lhs, const CertInfo& certInfo) { return !(lhs == certInfo); };
 
     /**
      * Prints object to log.
@@ -1260,7 +1320,10 @@ struct Protocol {
      * @param rhs protocol to compare with.
      * @return bool.
      */
-    bool operator==(const Protocol& rhs) const { return mCorrelationID == rhs.mCorrelationID; }
+    friend bool operator==(const Protocol& lhs, const Protocol& rhs)
+    {
+        return lhs.mCorrelationID == rhs.mCorrelationID;
+    };
 
     /**
      * Compares protocols.
@@ -1268,7 +1331,7 @@ struct Protocol {
      * @param rhs protocol to compare with.
      * @return bool.
      */
-    bool operator!=(const Protocol& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const Protocol& lhs, const Protocol& rhs) { return !(lhs == rhs); };
 };
 
 } // namespace aos

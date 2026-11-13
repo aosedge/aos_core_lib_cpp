@@ -34,6 +34,11 @@ constexpr auto cSHA1InputDataSize = AOS_CONFIG_CRYPTO_SHA1_INPUT_SIZE;
 constexpr auto cSHA256Size = 32;
 
 /**
+ * SHA256 hex string length.
+ */
+constexpr auto cSHA256HexLen = cSHA256Size * 2;
+
+/**
  * SHA384 size.
  */
 constexpr auto cSHA384Size = 48;
@@ -66,7 +71,7 @@ public:
         eNone,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sContentTypeStrings[] = {
             "SHA1",
@@ -125,7 +130,7 @@ public:
      * @param algorithm hash algorithm.
      * @return RetWithError<UniquePtr<HashItf>>.
      */
-    virtual RetWithError<UniquePtr<HashItf>> CreateHash(Hash algorithm) = 0;
+    virtual RetWithError<UniquePtr<HashItf>> CreateHash(const Hash& algorithm) = 0;
 
     /**
      * Destructor.

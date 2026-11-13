@@ -24,7 +24,7 @@ class InstanceStateType {
 public:
     enum class Enum { eActive, eDisabled, eCached };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sInstanceStateStrings[] = {
             "active",
@@ -53,6 +53,7 @@ struct InstanceInfo {
     InstanceState                 mState {};
     bool                          mIsUnitSubject {};
     StaticString<cVersionLen>     mVersion;
+    StaticString<oci::cDigestLen> mIndexDigest;
     StaticString<cIDLen>          mOwnerID;
     SubjectType                   mSubjectType;
     LabelsArray                   mLabels;
@@ -65,14 +66,16 @@ struct InstanceInfo {
      * @param other instance info to compare with.
      * @return bool.
      */
-    bool operator==(const InstanceInfo& rhs) const
+    friend bool operator==(const InstanceInfo& lhs, const InstanceInfo& rhs)
     {
-        return mInstanceIdent == rhs.mInstanceIdent && mManifestDigest == rhs.mManifestDigest && mNodeID == rhs.mNodeID
-            && mPrevNodeID == rhs.mPrevNodeID && mRuntimeID == rhs.mRuntimeID && mUID == rhs.mUID && mGID == rhs.mGID
-            && mTimestamp == rhs.mTimestamp && mState == rhs.mState && mIsUnitSubject == rhs.mIsUnitSubject
-            && mVersion == rhs.mVersion && mOwnerID == rhs.mOwnerID && mSubjectType == rhs.mSubjectType
-            && mLabels == rhs.mLabels && mPriority == rhs.mPriority && mDisableRebalancing == rhs.mDisableRebalancing;
-    }
+        return lhs.mInstanceIdent == rhs.mInstanceIdent && lhs.mManifestDigest == rhs.mManifestDigest
+            && lhs.mNodeID == rhs.mNodeID && lhs.mPrevNodeID == rhs.mPrevNodeID && lhs.mRuntimeID == rhs.mRuntimeID
+            && lhs.mUID == rhs.mUID && lhs.mGID == rhs.mGID && lhs.mTimestamp == rhs.mTimestamp
+            && lhs.mState == rhs.mState && lhs.mIsUnitSubject == rhs.mIsUnitSubject && lhs.mVersion == rhs.mVersion
+            && lhs.mIndexDigest == rhs.mIndexDigest && lhs.mOwnerID == rhs.mOwnerID
+            && lhs.mSubjectType == rhs.mSubjectType && lhs.mLabels == rhs.mLabels && lhs.mPriority == rhs.mPriority
+            && lhs.mDisableRebalancing == rhs.mDisableRebalancing;
+    };
 
     /**
      * Compares instance info.
@@ -80,21 +83,22 @@ struct InstanceInfo {
      * @param rhs instance info to compare with.
      * @return bool.
      */
-    bool operator!=(const InstanceInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const InstanceInfo& lhs, const InstanceInfo& rhs) { return !(lhs == rhs); };
 };
 
 /*
  * Run instance request.
  */
 struct RunInstanceRequest {
-    StaticString<cIDLen>      mItemID;
-    UpdateItemType            mUpdateItemType;
-    StaticString<cVersionLen> mVersion;
-    StaticString<cIDLen>      mOwnerID;
-    SubjectInfo               mSubjectInfo;
-    size_t                    mPriority {};
-    size_t                    mNumInstances {};
-    LabelsArray               mLabels;
+    StaticString<cIDLen>          mItemID;
+    UpdateItemType                mUpdateItemType;
+    StaticString<cVersionLen>     mVersion;
+    StaticString<oci::cDigestLen> mIndexDigest;
+    StaticString<cIDLen>          mOwnerID;
+    SubjectInfo                   mSubjectInfo;
+    size_t                        mPriority {};
+    size_t                        mNumInstances {};
+    LabelsArray                   mLabels;
 
     /**
      * Compares run instance request.
@@ -102,12 +106,14 @@ struct RunInstanceRequest {
      * @param other run instance request to compare.
      * @return bool.
      */
-    bool operator==(const RunInstanceRequest& other) const
+    friend bool operator==(const RunInstanceRequest& lhs, const RunInstanceRequest& other)
     {
-        return mItemID == other.mItemID && mUpdateItemType == other.mUpdateItemType && mVersion == other.mVersion
-            && mOwnerID == other.mOwnerID && mSubjectInfo == other.mSubjectInfo && mPriority == other.mPriority
-            && mNumInstances == other.mNumInstances && mLabels == other.mLabels;
-    }
+        return lhs.mItemID == other.mItemID && lhs.mUpdateItemType == other.mUpdateItemType
+            && lhs.mVersion == other.mVersion && lhs.mIndexDigest == other.mIndexDigest
+            && lhs.mOwnerID == other.mOwnerID && lhs.mSubjectInfo == other.mSubjectInfo
+            && lhs.mPriority == other.mPriority && lhs.mNumInstances == other.mNumInstances
+            && lhs.mLabels == other.mLabels;
+    };
 
     /**
      * Compares run instance request.
@@ -115,7 +121,7 @@ struct RunInstanceRequest {
      * @param other run instance request to compare.
      * @return bool.
      */
-    bool operator!=(const RunInstanceRequest& other) const { return !operator==(other); }
+    friend bool operator!=(const RunInstanceRequest& lhs, const RunInstanceRequest& other) { return !(lhs == other); };
 };
 
 /** @}*/

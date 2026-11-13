@@ -56,19 +56,21 @@ void Node::PrepareForBalancing(bool rebalancing)
         const auto& alertRules = mConfig.mAlertRules.GetValue();
         if (alertRules.mCPU.HasValue() || alertRules.mRAM.HasValue()) {
             if (alertRules.mCPU.HasValue()) {
-                const auto usedCPU     = mTotalCPUUsage;
-                const auto maxTreshold = mInfo.mMaxDMIPS * alertRules.mCPU.GetValue().mMaxThreshold / 100.0;
+                const auto usedCPU = mTotalCPUUsage;
+                const auto maxTreshold
+                    = static_cast<double>(mInfo.mMaxDMIPS) * alertRules.mCPU.GetValue().mMaxThreshold / 100.0;
 
-                if (usedCPU > maxTreshold) {
+                if (static_cast<double>(usedCPU) > maxTreshold) {
                     mNeedBalancing = true;
                 }
             }
 
             if (alertRules.mRAM.HasValue()) {
-                const auto usedRAM     = mTotalRAMUsage;
-                const auto maxTreshold = mInfo.mTotalRAM * alertRules.mRAM.GetValue().mMaxThreshold / 100.0;
+                const auto usedRAM = mTotalRAMUsage;
+                const auto maxTreshold
+                    = static_cast<double>(mInfo.mTotalRAM) * alertRules.mRAM.GetValue().mMaxThreshold / 100.0;
 
-                if (usedRAM > maxTreshold) {
+                if (static_cast<double>(usedRAM) > maxTreshold) {
                     mNeedBalancing = true;
                 }
             }
@@ -79,16 +81,16 @@ void Node::PrepareForBalancing(bool rebalancing)
     auto totalRAM = mInfo.mTotalRAM;
 
     // For nodes requiring rebalancing, we need to decrease resource consumption below the low threshold.
-    if (mNeedBalancing) {
-        if (mConfig.mAlertRules.HasValue()) {
-            const auto& alertRules = mConfig.mAlertRules.GetValue();
-            if (alertRules.mCPU.HasValue()) {
-                totalCPU = static_cast<size_t>(mInfo.mMaxDMIPS * alertRules.mCPU.GetValue().mMinThreshold / 100.0);
-            }
+    if (mNeedBalancing && mConfig.mAlertRules.HasValue()) {
+        const auto& alertRules = mConfig.mAlertRules.GetValue();
+        if (alertRules.mCPU.HasValue()) {
+            totalCPU = static_cast<size_t>(
+                static_cast<double>(mInfo.mMaxDMIPS) * alertRules.mCPU.GetValue().mMinThreshold / 100.0);
+        }
 
-            if (alertRules.mRAM.HasValue()) {
-                totalRAM = static_cast<size_t>(mInfo.mTotalRAM * alertRules.mRAM.GetValue().mMinThreshold / 100.0);
-            }
+        if (alertRules.mRAM.HasValue()) {
+            totalRAM = static_cast<size_t>(
+                static_cast<double>(mInfo.mTotalRAM) * alertRules.mRAM.GetValue().mMinThreshold / 100.0);
         }
     }
 
@@ -110,7 +112,7 @@ void Node::PrepareForBalancing(bool rebalancing)
 
 void Node::UpdateMonitoringData(const monitoring::NodeMonitoringData& monitoringData)
 {
-    mTotalCPUUsage = monitoringData.mMonitoringData.mCPU;
+    mTotalCPUUsage = static_cast<size_t>(monitoringData.mMonitoringData.mCPU);
     mTotalRAMUsage = monitoringData.mMonitoringData.mRAM;
 
     mSystemCPUUsage = GetSystemCPUUsage(monitoringData);
@@ -141,12 +143,12 @@ bool Node::UpdateInfo(const UnitNodeInfo& info)
     return nodeChanged;
 }
 
-size_t Node::GetAvailableCPU()
+size_t Node::GetAvailableCPU() const
 {
     return mAvailableCPU;
 }
 
-size_t Node::GetAvailableRAM()
+size_t Node::GetAvailableRAM() const
 {
     return mAvailableRAM;
 }
@@ -206,7 +208,7 @@ Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& r
     }
 
     *availableRAM -= reqRAM;
-    auto restoreRAM = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { *availableRAM += reqRAM; });
+    auto restoreRAM = DeferRelease([&availableRAM, &reqRAM]() { *availableRAM += reqRAM; });
 
     // Adjust available CPU
     auto availableCPU = GetPtrToAvailableCPU(runtimeID);
@@ -219,7 +221,7 @@ Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& r
     }
 
     *availableCPU -= reqCPU;
-    auto restoreCPU = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { *availableCPU += reqCPU; });
+    auto restoreCPU = DeferRelease([&availableCPU, &reqCPU]() { *availableCPU += reqCPU; });
 
     // Adjust max number of instances
     auto maxNumInstances = GetPtrToMaxNumInstances(runtimeID);
@@ -232,11 +234,11 @@ Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& r
     }
 
     (*maxNumInstances)--;
-    auto restoreMaxNumInstances = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { (*maxNumInstances)++; });
+    auto restoreMaxNumInstances = DeferRelease([&maxNumInstances]() { (*maxNumInstances)++; });
 
     // Adjust shared resources
     auto curIt            = reqResources.begin();
-    auto restoreResources = DeferRelease(reinterpret_cast<int*>(1), [&](int*) {
+    auto restoreResources = DeferRelease([this, &reqResources, &curIt]() {
         for (auto restoreIt = reqResources.begin(); restoreIt != curIt; ++restoreIt) {
             auto availableResource = mAvailableResources.FindIf(
                 [restoreIt](const ResourceInfo& info) { return info.mName == restoreIt->mName; });
@@ -257,10 +259,10 @@ Error Node::ReserveResources(const InstanceIdent& instanceIdent, const String& r
         availableResource->mSharedCount--;
     }
 
-    restoreResources.Release();
-    restoreMaxNumInstances.Release();
-    restoreCPU.Release();
-    restoreRAM.Release();
+    (void)restoreResources.Release();
+    (void)restoreMaxNumInstances.Release();
+    (void)restoreCPU.Release();
+    (void)restoreRAM.Release();
 
     return ErrorEnum::eNone;
 }
@@ -396,14 +398,14 @@ size_t Node::GetSystemCPUUsage(const monitoring::NodeMonitoringData& monitoringD
     size_t instanceUsage = 0;
 
     for (const auto& instance : monitoringData.mInstances) {
-        instanceUsage += instance.mMonitoringData.mCPU;
+        instanceUsage += static_cast<size_t>(instance.mMonitoringData.mCPU);
     }
 
-    if (instanceUsage > monitoringData.mMonitoringData.mCPU) {
+    if (static_cast<double>(instanceUsage) > monitoringData.mMonitoringData.mCPU) {
         return 0;
     }
 
-    return monitoringData.mMonitoringData.mCPU - instanceUsage;
+    return static_cast<size_t>(monitoringData.mMonitoringData.mCPU - static_cast<double>(instanceUsage));
 }
 
 size_t Node::GetSystemRAMUsage(const monitoring::NodeMonitoringData& monitoringData) const
@@ -478,7 +480,7 @@ size_t* Node::GetPtrToMaxNumInstances(const String& runtimeID)
     return &mMaxInstances.Find(runtimeID)->mSecond;
 }
 
-void Node::Convert(const InstanceStatus& status, aos::InstanceInfo& info)
+void Node::Convert(const InstanceStatus& status, aos::InstanceInfo& info) const
 {
     static_cast<InstanceIdent&>(info) = static_cast<const InstanceIdent&>(status);
     info.mRuntimeID                   = status.mRuntimeID;

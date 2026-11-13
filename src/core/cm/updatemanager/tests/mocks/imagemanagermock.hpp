@@ -18,15 +18,11 @@ namespace aos::cm::imagemanager {
  */
 class ImageManagerMock : public ImageManagerItf {
 public:
-    MOCK_METHOD(Error, DownloadUpdateItems,
-        (const Array<UpdateItemInfo>& itemsInfo, const Array<crypto::CertificateInfo>&,
-            const Array<crypto::CertificateChainInfo>&, Array<UpdateItemStatus>&),
+    MOCK_METHOD(Error, SetCerts, (const Array<crypto::CertificateInfo>&, const Array<crypto::CertificateChainInfo>&),
         (override));
-    MOCK_METHOD(Error, InstallUpdateItems, (const Array<UpdateItemInfo>&, Array<UpdateItemStatus>&), (override));
+    MOCK_METHOD(Error, InstallItem, (const UpdateItemInfo&), (override));
+    MOCK_METHOD(Error, RemoveItem, (const String&, const String&), (override));
     MOCK_METHOD(Error, Cancel, (), (override));
-    MOCK_METHOD(Error, GetUpdateItemsStatuses, (Array<UpdateItemStatus>&), (override));
-    MOCK_METHOD(Error, SubscribeListener, (ItemStatusListenerItf&), (override));
-    MOCK_METHOD(Error, UnsubscribeListener, (ItemStatusListenerItf&), (override));
 };
 
 } // namespace aos::cm::imagemanager

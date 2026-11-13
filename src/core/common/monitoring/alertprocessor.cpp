@@ -103,8 +103,7 @@ Error AlertProcessor::CheckAlertDetection(const uint64_t currentValue, const Tim
 
 Error AlertProcessor::HandleMaxThreshold(uint64_t currentValue, const Time& currentTime)
 {
-    Error err = ErrorEnum::eNone;
-
+    Error err;
     if (currentValue >= mMaxThreshold && mMaxThresholdTime.IsZero()) {
         LOG_INF() << "Max threshold crossed" << Log::Field("id", mID) << Log::Field("maxThreshold", mMaxThreshold)
                   << Log::Field("value", currentValue) << Log::Field("time", currentTime);

@@ -33,7 +33,7 @@ Error ToRelativePath(const String& base, const String& full, String& result)
         return AOS_ERROR_WRAP(err);
     }
 
-    result.LeftTrim("/");
+    (void)result.LeftTrim("/");
 
     return ErrorEnum::eNone;
 }
@@ -172,7 +172,7 @@ Error StorageState::AcceptState(const StateAcceptance& state)
     LOG_DBG() << "State acceptance" << Log::Field("instanceIdent", static_cast<const InstanceIdent&>(state))
               << Log::Field("reason", state.mReason);
 
-    auto it = mStates.FindIf(([&state](const auto& item) { return item.mInstanceIdent == state; }));
+    auto it = mStates.FindIf([&state](const auto& item) { return item.mInstanceIdent == state; });
     if (it == mStates.end()) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
@@ -239,6 +239,8 @@ Error StorageState::Setup(
         }
     } else if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
+    } else {
+        // storage state info already exists, nothing to do
     }
 
     err = PrepareStorage(instanceIdent, setupParams, storagePath);
@@ -559,12 +561,12 @@ Error StorageState::StopStateWatching(const InstanceIdent& instanceIdent)
 
     auto err = mFSWatcher->Unsubscribe(it->mFilePath.CStr(), *this);
 
-    mStates.Erase(it);
+    (void)mStates.Erase(it);
 
     return err;
 }
 
-Error StorageState::SetQuotas(const SetupParams& setupParams)
+Error StorageState::SetQuotas(const SetupParams& setupParams) const
 {
     LOG_DBG() << "Set quotas" << setupParams;
 
@@ -670,7 +672,7 @@ StaticString<cFilePathLen> StorageState::GetStateDir(const InstanceIdent& instan
 {
     StaticString<cInstanceStringLen> instanceStr;
 
-    instanceStr.Convert(instanceIdent.mInstance);
+    (void)instanceStr.Convert(instanceIdent.mInstance);
 
     auto path = fs::JoinPath(mConfig.mStateDir, instanceIdent.mItemID, instanceIdent.mSubjectID, instanceStr);
 
@@ -688,7 +690,7 @@ StaticString<cFilePathLen> StorageState::GetStoragePath(const InstanceIdent& ins
 {
     StaticString<cInstanceStringLen> instanceStr;
 
-    instanceStr.Convert(instanceIdent.mInstance);
+    (void)instanceStr.Convert(instanceIdent.mInstance);
 
     return fs::JoinPath(mConfig.mStorageDir, instanceIdent.mItemID, instanceIdent.mSubjectID, instanceStr);
 }

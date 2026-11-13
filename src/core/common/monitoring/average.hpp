@@ -70,7 +70,7 @@ private:
         PartitionInfoArray   mMonitoredPartitions;
     };
 
-    Error UpdateMonitoringData(MonitoringData& data, const MonitoringData& newData, bool& isInitialized);
+    Error UpdateMonitoringData(MonitoringData& data, const MonitoringData& newData, bool& isInitialized) const;
     Error GetMonitoringData(MonitoringData& data, const MonitoringData& averageData) const;
 
     size_t                                                  mWindowCount {};

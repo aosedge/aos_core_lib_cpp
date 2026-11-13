@@ -53,11 +53,15 @@ void NodeInfoCache::GetUnitNodeInfo(UnitNodeInfo& info) const
 
 void NodeInfoCache::OnSMConnected()
 {
-    mSMInfo.Reset();
-    mLastUpdate = Time::Now();
+    ResetSMInfo();
 }
 
 void NodeInfoCache::OnSMDisconnected()
+{
+    ResetSMInfo();
+}
+
+void NodeInfoCache::ResetSMInfo()
 {
     mSMInfo.Reset();
     mLastUpdate = Time::Now();

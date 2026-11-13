@@ -23,20 +23,21 @@ constexpr T Round(double value)
 template <typename T>
 T GetValue(const T& value, size_t window)
 {
-    return Round<T>(static_cast<double>(value) / window);
+    return Round<T>(static_cast<double>(value) / static_cast<double>(window));
 }
 
 template <>
 double GetValue(const double& value, size_t window)
 {
-    return value / window;
+    return value / static_cast<double>(window);
 }
 
 template <typename T>
 void UpdateValue(T& value, T newValue, size_t window, bool isInitialized)
 {
     if (!isInitialized) {
-        value = newValue * window;
+        value = newValue * static_cast<double>(window); // NOSONAR cpp:S5276 - intentional float round-trip for
+                                                        // integral counters too
     } else {
         value -= GetValue(value, window);
         value += newValue;
@@ -121,8 +122,8 @@ Error Average::StartInstanceMonitoring(const InstanceIdent& instanceIdent)
 {
     LOG_DBG() << "Start average instance monitoring" << Log::Field("ident", instanceIdent);
 
-    auto averageInstance = mAverageInstancesData.Find(instanceIdent);
-    if (averageInstance != mAverageInstancesData.end()) {
+    if (auto averageInstance = mAverageInstancesData.Find(instanceIdent);
+        averageInstance != mAverageInstancesData.end()) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eAlreadyExist, "instance monitoring already started"));
     }
 
@@ -142,8 +143,7 @@ Error Average::StopInstanceMonitoring(const InstanceIdent& instanceIdent)
 {
     LOG_DBG() << "Stop average instance monitoring" << Log::Field("ident", instanceIdent);
 
-    auto err = mAverageInstancesData.Remove(instanceIdent);
-    if (!err.IsNone()) {
+    if (auto err = mAverageInstancesData.Remove(instanceIdent); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -154,7 +154,7 @@ Error Average::StopInstanceMonitoring(const InstanceIdent& instanceIdent)
  * Private
  **********************************************************************************************************************/
 
-Error Average::UpdateMonitoringData(MonitoringData& data, const MonitoringData& newData, bool& isInitialized)
+Error Average::UpdateMonitoringData(MonitoringData& data, const MonitoringData& newData, bool& isInitialized) const
 {
     UpdateValue(data.mCPU, newData.mCPU, mWindowCount, isInitialized);
     UpdateValue(data.mRAM, newData.mRAM, mWindowCount, isInitialized);

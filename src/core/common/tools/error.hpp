@@ -37,7 +37,7 @@ constexpr static auto cMaxErrorStrLen = AOS_CONFIG_TOOLS_ERROR_STR_LEN;
 /**
  * Aos errors.
  */
-class Error {
+class Error { // NOSONAR cpp:S3624 - non-owning members, nothing to release
 public:
     // NOTE: new error type should be added also to private GetStrings() method below and covered
     // with unit test: TEST(CommonTest, ErrorMessages).
@@ -60,6 +60,7 @@ public:
         eNotSupported,
         eEOF,
         eCanceled,
+        eIntegrity,
         eNumErrors
     };
 
@@ -68,7 +69,6 @@ public:
      */
     Error()
         : mErr(Enum::eNone)
-        , mErrno(0)
         , mFileName(nullptr)
         , mLineNumber(0)
     {
@@ -78,10 +78,15 @@ public:
     // cppcheck-suppress noExplicitConstructor
     /**
      * Constructs error instance from ErrorType::Enum.
+     *
+     * @param err error enum.
+     * @param msg error message.
+     * @param fileName error file name.
+     * @param lineNumber error line number.
      */
-    Error(Enum err, const char* msg = nullptr, const char* fileName = nullptr, int lineNumber = 0)
+    Error(Enum err, const char* msg = nullptr, const char* fileName = nullptr, // NOSONAR cpp:S1709
+        int32_t lineNumber = 0)
         : mErr(err)
-        , mErrno(0)
         , mFileName(fileName)
         , mLineNumber(lineNumber)
     {
@@ -90,10 +95,15 @@ public:
 
     /**
      * Constructs error instance from another error.
+     *
+     * @param err error.
+     * @param msg error message.
+     * @param fileName error file name.
+     * @param lineNumber error line number.
      */
-    Error(const Error& err, const char* msg = nullptr, const char* fileName = nullptr, int lineNumber = 0)
+    Error(const Error& err, const char* msg = nullptr, const char* fileName = nullptr, int32_t lineNumber = 0) noexcept
         : mErr(err.mErr)
-        , mErrno(err.mErrno)
+        , mCode(err.mCode)
         , mFileName(fileName)
         , mLineNumber(lineNumber)
     {
@@ -110,14 +120,20 @@ public:
     }
 
     /**
+     * Destructor.
+     */
+    ~Error() = default;
+
+    /**
      * Assigns error from another error.
      *
      * @param err error to copy from.
+     * @return Error&.
      */
-    Error& operator=(const Error& err)
+    Error& operator=(const Error& err) noexcept
     {
-        mErr   = err.mErr;
-        mErrno = err.mErrno;
+        mErr  = err.mErr;
+        mCode = err.mCode;
 
         mFileName   = err.mFileName;
         mLineNumber = err.mLineNumber;
@@ -127,40 +143,54 @@ public:
         return *this;
     }
 
-    // cppcheck-suppress noExplicitConstructor
     /**
-     * Constructs error instance from system errno value.
+     * Constructs error instance from both enum error and error code.
      *
-     * @param e errno.
+     * @param err error enum.
+     * @param code error code (system errno, gRPC status code, process exit code etc.).
+     * @param msg error message.
+     * @param fileName error file name.
+     * @param lineNumber error line number.
      */
-    Error(int errNo, const char* msg = nullptr, const char* fileName = nullptr, int lineNumber = 0)
-        : mErr(errNo == 0 ? Enum::eNone : Enum::eRuntime)
-        , mErrno(errNo < 0 ? -errNo : errNo)
+    Error(Enum err, int32_t code, const char* msg = nullptr, const char* fileName = nullptr, int32_t lineNumber = 0)
+        : mErr(err)
+        , mCode(code < 0 ? -code : code)
         , mFileName(fileName)
         , mLineNumber(lineNumber)
     {
         CopyMessage(msg);
     }
 
+    // cppcheck-suppress noExplicitConstructor
+    /**
+     * Constructs error instance from error code.
+     *
+     * @param code error code (system errno, gRPC status code, process exit code etc.).
+     * @param msg error message.
+     * @param fileName error file name.
+     * @param lineNumber error line number.
+     */
+    Error(int32_t code, const char* msg = nullptr, const char* fileName = nullptr, // NOSONAR cpp:S1709
+        int32_t lineNumber = 0)
+        : Error(code == 0 ? Enum::eNone : Enum::eRuntime, code, msg, fileName, lineNumber)
+    {
+    }
+
     /**
      * Checks if error is none.
+     *
+     * @return bool result.
      */
     bool IsNone() const { return mErr == Enum::eNone; }
 
     /**
-     * Checks if error has specified type.
+     * Checks if error has specified type. Only the error values are compared, the codes are not: use Code() to check
+     * the code.
      *
      * @param e error to check.
      * @return bool result.
      */
-    bool Is(const Error& err) const
-    {
-        if (mErrno != 0) {
-            return mErrno == err.mErrno;
-        }
-
-        return mErr == err.mErr;
-    }
+    bool Is(const Error& err) const { return mErr == err.mErr; }
 
     /**
      * Returns error enum.
@@ -177,10 +207,11 @@ public:
     const char* Message() const { return mMessage; }
 
     /**
-     * Returns errno
-     * @return int
+     * Returns error code.
+     *
+     * @return int32_t error code, 0 if not set.
      */
-    int Errno() const { return mErrno; }
+    int32_t Code() const { return mCode; }
 
     /**
      * Returns error file name.
@@ -194,21 +225,7 @@ public:
      *
      * @return int line number.
      */
-    int LineNumber() const { return mLineNumber; }
-
-    /**
-     * Returns errno string.
-     *
-     * @return const char* errno string.
-     */
-    const char* StrErrno() const
-    {
-        if (mErrno != 0) {
-            return strerror(mErrno);
-        }
-
-        return nullptr;
-    }
+    int32_t LineNumber() const { return mLineNumber; }
 
     /**
      * Returns error string.
@@ -236,7 +253,7 @@ public:
      * @param err error to compare with.
      * @return bool result.
      */
-    bool operator==(const Error& err) const { return mErr == err.mErr; };
+    friend bool operator==(const Error& lhs, const Error& err) { return lhs.mErr == err.mErr; };
 
     /**
      * Compares if error doesn't equal to another error value.
@@ -244,7 +261,7 @@ public:
      * @param err error to compare with.
      * @return bool result.
      */
-    bool operator!=(const Error& err) const { return mErr != err.mErr; };
+    friend bool operator!=(const Error& lhs, const Error& err) { return lhs.mErr != err.mErr; };
 
     /**
      * Compares if specified error value equals to error.
@@ -275,7 +292,7 @@ private:
     void CopyMessage(const char* msg)
     {
         if (msg != nullptr) {
-            snprintf(mMessage, sizeof(mMessage), "%s", msg);
+            (void)snprintf(mMessage, sizeof(mMessage), "%s", msg);
 
             return;
         }
@@ -306,15 +323,16 @@ private:
             "not supported",
             "EOF",
             "canceled",
+            "integrity error",
         };
 
         return Pair<const char* const*, size_t>(sErrorTypeStrings, ArraySize(sErrorTypeStrings));
     };
 
     Enum        mErr;
-    int         mErrno;
+    int32_t     mCode = 0;
     const char* mFileName;
-    int         mLineNumber;
+    int32_t     mLineNumber;
     char        mMessage[cMaxMessageLen];
 };
 
@@ -337,7 +355,7 @@ struct RetWithError {
      * @param value return value.
      * @param error return error.
      */
-    RetWithError(const T& value, const Error& error = ErrorEnum::eNone)
+    RetWithError(const T& value, const Error& error = ErrorEnum::eNone) // NOSONAR cpp:S1709
         : mValue(value)
         , mError(error)
     {
@@ -350,7 +368,7 @@ struct RetWithError {
      * @param value return value.
      * @param error return error.
      */
-    RetWithError(T&& value, const Error& error = ErrorEnum::eNone)
+    RetWithError(T&& value, const Error& error = ErrorEnum::eNone) // NOSONAR cpp:S1709
         : mValue(Move(value))
         , mError(error)
     {
@@ -359,8 +377,11 @@ struct RetWithError {
     /**
      * Comparison operators.
      */
-    bool operator==(const RetWithError<T>& other) const { return mValue == other.mValue && mError == other.mError; }
-    bool operator!=(const RetWithError<T>& other) const { return !(*this == other); }
+    friend bool operator==(const RetWithError& lhs, const RetWithError<T>& other)
+    {
+        return lhs.mValue == other.mValue && lhs.mError == other.mError;
+    };
+    friend bool operator!=(const RetWithError& lhs, const RetWithError<T>& other) { return !(lhs == other); };
 
     /**
      * Holds returned value.
@@ -387,7 +408,7 @@ struct RetWithError<T&> {
      * @param value return value.
      * @param error return error.
      */
-    RetWithError(T& value, const Error& error = ErrorEnum::eNone)
+    RetWithError(T& value, const Error& error = ErrorEnum::eNone) // NOSONAR cpp:S1709
         : mValue(value)
         , mError(error)
     {
@@ -445,9 +466,9 @@ struct TieWrapper {
      * @return TieWrapper<T>&
      */
     template <typename U>
-    TieWrapper<T>& operator=(RetWithError<U>&& src)
+    TieWrapper<T>& operator=(RetWithError<U>&& src) // NOSONAR cpp:S5500
     {
-        mValue = Move(src.mValue);
+        mValue = static_cast<T>(Move(src.mValue));
         mError = src.mError;
 
         return *this;

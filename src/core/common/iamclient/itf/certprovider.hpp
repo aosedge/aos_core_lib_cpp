@@ -14,19 +14,19 @@ namespace aos::iamclient {
 /**
  * Certificate listener interface.
  */
-class CertListenerItf {
+class CertKeyListenerItf {
 public:
     /**
      * Destructor.
      */
-    virtual ~CertListenerItf() = default;
+    virtual ~CertKeyListenerItf() = default;
 
     /**
      * Processes certificate updates.
      *
      * @param info certificate info.
      */
-    virtual void OnCertChanged(const CertInfo& info) = 0;
+    virtual void OnCertKeyChanged(const CertInfo& info) = 0;
 };
 
 /**
@@ -42,24 +42,40 @@ public:
     /**
      * Returns certificate info.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param issuer issuer name.
      * @param serial serial number.
      * @param[out] resCert result certificate.
      * @returns Error.
      */
-    virtual Error GetCert(
-        const String& certType, const Array<uint8_t>& issuer, const Array<uint8_t>& serial, CertInfo& resCert) const
+    virtual Error GetCertKey(
+        const String& storageID, const Array<uint8_t>& issuer, const Array<uint8_t>& serial, CertInfo& resCert) const
         = 0;
+
+    /**
+     * Returns root certificates.
+     *
+     * @param[out] infos result certificates.
+     * @returns Error.
+     */
+    virtual Error GetRootCerts(Array<CertInfo>& infos) const = 0;
 
     /**
      * Subscribes certificates listener.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param certListener certificate listener.
      * @returns Error.
      */
-    virtual Error SubscribeListener(const String& certType, CertListenerItf& certListener) = 0;
+    virtual Error SubscribeCertKeyListener(const String& storageID, CertKeyListenerItf& certListener) = 0;
+
+    /**
+     * Subscribes root certificates listener.
+     *
+     * @param certListener certificate listener.
+     * @returns Error.
+     */
+    virtual Error SubscribeRootCertsListener(CertKeyListenerItf& certListener) = 0;
 
     /**
      * Unsubscribes certificate listener.
@@ -67,7 +83,7 @@ public:
      * @param certListener certificate listener.
      * @returns Error.
      */
-    virtual Error UnsubscribeListener(CertListenerItf& certListener) = 0;
+    virtual Error UnsubscribeListener(CertKeyListenerItf& certListener) = 0;
 };
 
 } // namespace aos::iamclient

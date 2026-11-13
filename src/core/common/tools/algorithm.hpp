@@ -76,7 +76,7 @@ public:
      *
      * @return bool.
      */
-    bool IsEmpty() const { return Size() == 0; }
+    bool IsEmpty() const { return Size() == 0; } // NOSONAR cpp:S1155 - IsEmpty implementation
 
     /**
      * Checks if container is full.
@@ -91,7 +91,7 @@ public:
      *
      * @return bool.
      */
-    explicit operator bool() const { return Size() > 0; }
+    explicit operator bool() const { return !IsEmpty(); }
 
     /**
      * Checks if container equals to another container.
@@ -100,7 +100,7 @@ public:
      * @return bool.
      */
     template <typename C>
-    bool operator==(const C& container) const
+    bool operator==(const C& container) const // NOSONAR cpp:S2807
     {
         if (container.Size() != Size()) {
             return false;
@@ -122,7 +122,7 @@ public:
      * @return bool.
      */
     template <typename C>
-    bool operator!=(const C& container) const
+    bool operator!=(const C& container) const // NOSONAR cpp:S2807
     {
         return !operator==(container);
     }
@@ -304,7 +304,7 @@ public:
     {
         auto res = static_cast<const AlgorithmItf&>(*this).Min(cmp);
 
-        return const_cast<I>(res);
+        return const_cast<I>(res); // NOSONAR cpp:M23_090
     }
 
     /**

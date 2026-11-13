@@ -31,11 +31,11 @@ struct UpdateItemInfo {
      * @param rhs info to compare.
      * @return bool.
      */
-    bool operator==(const UpdateItemInfo& rhs) const
+    friend bool operator==(const UpdateItemInfo& lhs, const UpdateItemInfo& rhs)
     {
-        return mID == rhs.mID && mType == rhs.mType && mVersion == rhs.mVersion
-            && mManifestDigest == rhs.mManifestDigest;
-    }
+        return lhs.mID == rhs.mID && lhs.mType == rhs.mType && lhs.mVersion == rhs.mVersion
+            && lhs.mManifestDigest == rhs.mManifestDigest;
+    };
 
     /**
      * Compares update item info.
@@ -43,36 +43,7 @@ struct UpdateItemInfo {
      * @param rhs info to compare.
      * @return bool.
      */
-    bool operator!=(const UpdateItemInfo& rhs) const { return !operator==(rhs); };
-};
-
-/**
- * Update item status.
- */
-struct UpdateItemStatus {
-    StaticString<cIDLen>      mID;
-    UpdateItemType            mType;
-    StaticString<cVersionLen> mVersion;
-    ItemState                 mState;
-
-    /**
-     * Compares update item status.
-     *
-     * @param rhs status to compare.
-     * @return bool.
-     */
-    bool operator==(const UpdateItemStatus& rhs) const
-    {
-        return mID == rhs.mID && mType == rhs.mType && mVersion == rhs.mVersion && mState == rhs.mState;
-    }
-
-    /**
-     * Compares update item status.
-     *
-     * @param rhs status to compare.
-     * @return bool.
-     */
-    bool operator!=(const UpdateItemStatus& rhs) const { return !operator==(rhs); };
+    friend bool operator!=(const UpdateItemInfo& lhs, const UpdateItemInfo& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -86,20 +57,12 @@ public:
     virtual ~ImageManagerItf() = default;
 
     /**
-     * Returns all installed update items statuses.
-     *
-     * @param statuses list of installed update item statuses.
-     * @return Error.
-     */
-    virtual Error GetAllInstalledItems(Array<UpdateItemStatus>& statuses) const = 0;
-
-    /**
      * Installs update item.
      *
      * @param itemInfo update item info.
      * @return Error.
      */
-    virtual Error InstallUpdateItem(const UpdateItemInfo& itemInfo) = 0;
+    virtual Error InstallItem(const UpdateItemInfo& itemInfo) = 0;
 
     /**
      * Removes update item.
@@ -108,7 +71,14 @@ public:
      * @param version update item version.
      * @return Error.
      */
-    virtual Error RemoveUpdateItem(const String& itemID, const String& version) = 0;
+    virtual Error RemoveItem(const String& itemID, const String& version) = 0;
+
+    /**
+     * Cancels all items being installed. Waits until all InstallItem and RemoveItem calls in progress return.
+     *
+     * @return Error.
+     */
+    virtual Error Cancel() = 0;
 };
 
 /** @}*/

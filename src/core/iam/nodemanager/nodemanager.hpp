@@ -102,7 +102,7 @@ private:
     Error                   UpdateStorage(const NodeInfo& info);
     Error                   UpdateCache(const NodeInfo& nodeInfo);
     RetWithError<NodeInfo*> AddNodeInfoToCache(const NodeInfo& info);
-    void                    NotifyNodeInfoChange(const NodeInfo& nodeInfo);
+    void                    NotifyNodeInfoChange(const NodeInfo& nodeInfo) const;
 
     StorageItf*                                                    mStorage {};
     StaticArray<iamclient::NodeInfoListenerItf*, cMaxNumListeners> mListeners;

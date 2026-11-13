@@ -17,36 +17,36 @@
  * Helper macro to display debug log.
  */
 #if AOS_CONFIG_LOG_LEVEL >= AOS_CONFIG_LOG_LEVEL_DEBUG
-#define LOG_MODULE_DBG(module) aos::Log(module, aos::LogLevelEnum::eDebug)
+#define LOG_MODULE_DBG(moduleName) aos::Log(moduleName, aos::LogLevelEnum::eDebug)
 #else
-#define LOG_MODULE_DBG(module) true ? (void)0 : aos::LogVoid() & aos::Log(module, aos::LogLevelEnum::eDebug)
+#define LOG_MODULE_DBG(moduleName) true ? (void)0 : aos::LogVoid() & aos::Log(moduleName, aos::LogLevelEnum::eDebug)
 #endif
 
 /**
  * Helper macro to display info log.
  */
 #if AOS_CONFIG_LOG_LEVEL >= AOS_CONFIG_LOG_LEVEL_INFO
-#define LOG_MODULE_INF(module) aos::Log(module, aos::LogLevelEnum::eInfo)
+#define LOG_MODULE_INF(moduleName) aos::Log(moduleName, aos::LogLevelEnum::eInfo)
 #else
-#define LOG_MODULE_INF(module) true ? (void)0 : aos::LogVoid() & Log(module, aos::LogLevelEnum::eInfo)
+#define LOG_MODULE_INF(moduleName) true ? (void)0 : aos::LogVoid() & Log(moduleName, aos::LogLevelEnum::eInfo)
 #endif
 
 /**
  * Helper macro to display warning log.
  */
 #if AOS_CONFIG_LOG_LEVEL >= AOS_CONFIG_LOG_LEVEL_WARNING
-#define LOG_MODULE_WRN(module) aos::Log(module, aos::LogLevelEnum::eWarning)
+#define LOG_MODULE_WRN(moduleName) aos::Log(moduleName, aos::LogLevelEnum::eWarning)
 #else
-#define LOG_MODULE_WRN(module) true ? (void)0 : aos::LogVoid() & Log(module, aos::LogLevelEnum::eWarning)
+#define LOG_MODULE_WRN(moduleName) true ? (void)0 : aos::LogVoid() & Log(moduleName, aos::LogLevelEnum::eWarning)
 #endif
 
 /**
  * Helper macro to display error log.
  */
 #if AOS_CONFIG_LOG_LEVEL >= AOS_CONFIG_LOG_LEVEL_ERROR
-#define LOG_MODULE_ERR(module) aos::Log(module, aos::LogLevelEnum::eError)
+#define LOG_MODULE_ERR(moduleName) aos::Log(moduleName, aos::LogLevelEnum::eError)
 #else
-#define LOG_MODULE_ERR(module) true ? (void)0 : aos::LogVoid() & Log(module, aos::LogLevelEnum::eError)
+#define LOG_MODULE_ERR(moduleName) true ? (void)0 : aos::LogVoid() & Log(moduleName, aos::LogLevelEnum::eError)
 #endif
 
 namespace aos {
@@ -58,7 +58,7 @@ class LogLevelType {
 public:
     enum class Enum { eDebug, eInfo, eWarning, eError, eNumLevels };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sLogLevelStrings[] = {"debug", "info", "warning", "error"};
 
@@ -72,7 +72,7 @@ using LogLevel     = EnumStringer<LogLevelType>;
 /**
  * Log line callback. Should be set in application to display log using application logging mechanism.
  */
-using LogCallback = void (*)(const String& module, LogLevel level, const String& message);
+using LogCallback = void (*)(const String& moduleName, LogLevel level, const String& message);
 
 /**
  * Implements log functionality.
@@ -109,11 +109,11 @@ public:
     /**
      * Constructs a new Log object.
      *
-     * @param module log module type.
+     * @param moduleName log module name.
      * @param level log level type.
      */
-    Log(const String& module, LogLevel level)
-        : mModule(module)
+    Log(const String& moduleName, const LogLevel& level)
+        : mModule(moduleName)
         , mLevel(level) {};
 
     /**
@@ -164,9 +164,7 @@ public:
      */
     Log& operator<<(const String& str)
     {
-        auto freeSize = mLogLine.MaxSize() - mLogLine.Size();
-
-        if (str.Size() > freeSize) {
+        if (auto freeSize = mLogLine.MaxSize() - mLogLine.Size(); str.Size() > freeSize) {
             [[maybe_unused]] auto err = mLogLine.Insert(mLogLine.end(), str.begin(), str.begin() + freeSize);
             assert(err.IsNone());
 
@@ -197,6 +195,15 @@ public:
         return *this;
     }
 
+    Log& operator<<(const FieldEntry<unsigned long>& field) // NOSONAR cpp:M23_058
+    {
+        *this << (mFieldsCount > 0 ? ", " : ": ") << field.mKey << "=" << static_cast<int32_t>(field.mValue);
+
+        mFieldsCount++;
+
+        return *this;
+    }
+
     /**
      * Logs object that implements Stringer interface.
      *
@@ -211,20 +218,18 @@ public:
      * @param i integer to log.
      * @return Log&
      */
-    Log& operator<<(int i)
+    Log& operator<<(int32_t i)
     {
         StaticString<12> tmpStr;
 
-        tmpStr.Convert(i);
+        (void)tmpStr.Convert(i);
 
         return *this << tmpStr;
     };
 
     Log& operator<<(const Error& err)
     {
-        StaticString<cMaxErrorStrLen> tmpStr;
-
-        if (tmpStr.Convert(err).IsNone()) {
+        if (StaticString<cMaxErrorStrLen> tmpStr; tmpStr.Convert(err).IsNone()) {
             return *this << tmpStr;
         }
 
@@ -234,7 +239,7 @@ public:
 private:
     static LogCallback& GetCallback()
     {
-        static LogCallback sLogCallback = nullptr;
+        static LogCallback sLogCallback = nullptr; // NOSONAR cpp:M23_233 - mutable log callback
 
         return sLogCallback;
     }
@@ -242,13 +247,13 @@ private:
     void AddPeriods()
     {
         if (mLogLine.Size() > 3) {
-            mLogLine.Resize(mLogLine.Size() - 3);
+            (void)mLogLine.Resize(mLogLine.Size() - 3);
             mLogLine += "...";
         }
     }
 
     StaticString<cMaxLineLen> mLogLine;
-    int                       mFieldsCount = 0;
+    int32_t                   mFieldsCount = 0;
     String                    mModule;
     LogLevel                  mLevel;
 };
@@ -258,7 +263,10 @@ private:
  */
 class LogVoid {
 public:
-    void operator&(const Log&) { }
+    friend void operator&(const LogVoid&, const Log&)
+    {
+        /* intentional no-op: enables conditional logging via void*& idiom */
+    }
 };
 
 } // namespace aos

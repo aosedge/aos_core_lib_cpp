@@ -9,6 +9,7 @@
 
 #include <core/common/consts.hpp>
 #include <core/common/tools/memory.hpp>
+#include <core/common/tools/optional.hpp>
 #include <core/common/tools/string.hpp>
 #include <core/common/tools/variant.hpp>
 
@@ -97,6 +98,11 @@ constexpr auto cSubjectCommonNameLen = AOS_CONFIG_CRYPTO_SUBJECT_COMMON_NAME_LEN
 constexpr auto cCertChainSize = AOS_CONFIG_CRYPTO_CERTS_CHAIN_SIZE;
 
 /**
+ * Max number of trusted root certificates.
+ */
+constexpr auto cMaxNumRootCerts = AOS_CONFIG_CRYPTO_MAX_NUM_ROOT_CERTS;
+
+/**
  * Number of certificate chains to be stored in crypto::CertLoader.
  */
 constexpr auto cCertChainsCount = AOS_CONFIG_CRYPTO_CERTIFICATE_CHAINS_COUNT;
@@ -119,13 +125,33 @@ constexpr auto cMaxNumCertificates = AOS_CONFIG_CRYPTO_MAX_NUM_CERTIFICATES;
 namespace x509 {
 
 /**
+ * X.509 v3 version number (Certificate.mVersion).
+ */
+constexpr int32_t cX509Version3 = 3;
+
+/**
+ * X.509 KeyUsage bits (RFC 5280 / OpenSSL / mbedTLS layout).
+ */
+namespace keyusage {
+constexpr uint32_t cDigitalSignature = 0x0080;
+constexpr uint32_t cNonRepudiation   = 0x0040;
+constexpr uint32_t cKeyEncipherment  = 0x0020;
+constexpr uint32_t cDataEncipherment = 0x0010;
+constexpr uint32_t cKeyAgreement     = 0x0008;
+constexpr uint32_t cKeyCertSign      = 0x0004;
+constexpr uint32_t cCRLSign          = 0x0002;
+constexpr uint32_t cEncipherOnly     = 0x0001;
+constexpr uint32_t cDecipherOnly     = 0x8000;
+} // namespace keyusage
+
+/**
  * Padding type.
  */
 class PaddingType {
 public:
     enum class Enum { ePKCS1v1_5, ePSS, eNone };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sContentTypeStrings[] = {"PKCS1v1_5", "PSS", "Node"};
         return Array<const char* const>(sContentTypeStrings, ArraySize(sContentTypeStrings));
@@ -171,13 +197,30 @@ struct Certificate {
      */
     StaticArray<StaticString<cURLLen>, cMaxNumURLs> mIssuerURLs;
     /**
+     * Subject alternative name URIs.
+     */
+    StaticArray<StaticString<cURLLen>, cMaxNumURLs> mSubjectURLs;
+    /**
      * Certificate validity period.
      */
-    Time mNotBefore, mNotAfter;
+    Time mNotBefore;
+    Time mNotAfter;
     /**
      * Public key.
      */
     Variant<ECDSAPublicKey, RSAPublicKey> mPublicKey;
+    /**
+     * X.509 version (1 = v1, 2 = v2, 3 = v3).
+     */
+    int32_t mVersion {};
+    /**
+     * Basic Constraints CA flag (CA:TRUE).
+     */
+    bool mIsCA {};
+    /**
+     * KeyUsage bits. Set when the KeyUsage extension is present.
+     */
+    Optional<uint32_t> mKeyUsage;
     /**
      * Complete ASN.1 DER content (certificate, signature algorithm and signature).
      */
@@ -352,8 +395,8 @@ public:
      * @param signature signature to verify against the digest.
      * @return Error.
      */
-    virtual Error Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, Hash hashFunc, Padding padding,
-        const Array<uint8_t>& digest, const Array<uint8_t>& signature)
+    virtual Error Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, const Hash& hashFunc,
+        const Padding& padding, const Array<uint8_t>& digest, const Array<uint8_t>& signature)
         = 0;
 
     /**

@@ -16,7 +16,7 @@ namespace aos {
  * Template used to convert enum to strings.
  */
 template <class T>
-class EnumStringer : public Stringer {
+class EnumStringer : public Stringer { // NOSONAR cpp:S1235 - virtual dtor would break constexpr array usage
 public:
     using EnumType = typename T::Enum;
 
@@ -35,7 +35,7 @@ public:
      *
      * @param value curent enum value.
      */
-    constexpr EnumStringer(EnumType value)
+    constexpr EnumStringer(EnumType value) // NOSONAR cpp:S1709
         : mValue(value) {};
 
     /**
@@ -50,14 +50,20 @@ public:
      *
      * @return EnumType.
      */
-    operator EnumType() const { return mValue; }
+    operator EnumType() const // NOSONAR cpp:S1709
+    {
+        return mValue;
+    }
 
     /**
      * Casts to int.
      *
      * @return int.
      */
-    operator int() const { return static_cast<int>(mValue); }
+    operator int32_t() const // NOSONAR cpp:S1709
+    {
+        return static_cast<int32_t>(mValue);
+    }
 
     /**
      * Compares if EnumStringer equals to another EnumStringer.
@@ -65,7 +71,10 @@ public:
      * @param stringer EnumStringer to compare with.
      * @return bool result.
      */
-    bool operator==(const EnumStringer<T>& stringer) const { return GetValue() == stringer.GetValue(); };
+    friend bool operator==(const EnumStringer& lhs, const EnumStringer<T>& stringer)
+    {
+        return lhs.GetValue() == stringer.GetValue();
+    };
 
     /**
      * Compares if EnumStringer doesn't equal to another EnumStringer.
@@ -73,7 +82,10 @@ public:
      * @param stringer EnumStringer to compare with.
      * @return bool result.
      */
-    bool operator!=(const EnumStringer<T>& stringer) const { return GetValue() != stringer.GetValue(); };
+    friend bool operator!=(const EnumStringer& lhs, const EnumStringer<T>& stringer)
+    {
+        return lhs.GetValue() != stringer.GetValue();
+    };
 
     /**
      * Compares if EnumStringer equals to specified EnumStringer type.
@@ -81,7 +93,7 @@ public:
      * @param stringer EnumStringer to compare with.
      * @return bool result.
      */
-    bool operator==(EnumType type) const { return GetValue() == type; };
+    friend bool operator==(const EnumStringer& lhs, EnumType type) { return lhs.GetValue() == type; };
 
     /**
      * Compares if EnumStringer doesn't equal to specified EnumStringer type.
@@ -89,7 +101,7 @@ public:
      * @param stringer EnumStringer to compare with.
      * @return bool result.
      */
-    bool operator!=(EnumType type) const { return GetValue() != type; };
+    friend bool operator!=(const EnumStringer& lhs, EnumType type) { return lhs.GetValue() != type; };
 
     /**
      * Compares if specified EnumStringer type equals to EnumStringer.
@@ -114,11 +126,9 @@ public:
      *
      * @return string.
      */
-    const String ToString() const override
+    String ToString() const override
     {
-        auto strings = T::GetStrings();
-
-        if (static_cast<size_t>(mValue) < strings.Size()) {
+        if (auto strings = T::GetStrings(); static_cast<size_t>(mValue) < strings.Size()) {
             return strings[static_cast<size_t>(mValue)];
         }
 

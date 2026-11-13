@@ -9,11 +9,13 @@ It implements the following interfaces:
 * [aos::cm::alerts::SenderItf](../alerts/itf/sender.hpp) - sends alerts to the cloud;
 * [aos::cm::monitoring::SenderItf](../monitoring/itf/sender.hpp) - sends monitoring to the cloud;
 * [aos::cm::updatemanager::SenderItf](../updatemanager/itf/sender.hpp) - sends unit status to the cloud;
+* [aos::cm::rootcerts::SenderItf](../rootcerts/itf/sender.hpp) - sends unit root certificates to the cloud;
 * [aos::cm::storagestate::SenderItf](../storagestate/itf/sender.hpp) - sends instance state request and new state
   notification;
 * [aos::cm::smcontroller::SenderItf](../smcontroller/itf/sender.hpp) - sends log messages;
 * [aos::cm::launcher::SenderItf](../launcher/itf/senderitf.hpp) - sends override env vars statuses;
-* [aos::cm::imagemanager::BlobInfoProviderItf](../imagemanager/itf/blobinfoprovider.hpp) - provides blobs info.
+* [aos::common::imagemanager::BlobInfoProviderItf](../../common/imagemanager/itf/blobinfoprovider.hpp) - provides
+  blobs info.
 
 It requires the following interfaces:
 
@@ -22,6 +24,8 @@ It requires the following interfaces:
 * [aos::cm::storagestate::StateHandlerItf](../storagestate/itf/statehandler.hpp) - updates and accepts instance state;
 * [aos::cm::smcontroller::LogProviderItf](../smcontroller/itf/logprovider.hpp) - requests logs;
 * [aos::cm::launcher::EnvVarHandlerItf](../launcher/itf/envvarhandler.hpp) - overrides instances env vars;
+* [aos::cm::rootcerts::RootCertsItf](../rootcerts/itf/rootcerts.hpp) - processes desired root certificates received
+  from cloud;
 * [aos::common::iamclient::CurrentNodeInfoProviderItf](../../common/iamclient/itf/currentnodeinfoprovider.hpp) -
   determines main node ID;
 * [aos::common::iamclient::CertHandlerItf](../../common/iamclient/itf/certhandler.hpp) - renews nodes certificates;
@@ -50,6 +54,10 @@ classDiagram
         <<interface>>
     }
 
+    class RootCertsSenderItf["aos::cm::rootcerts::SenderItf"] {
+        <<interface>>
+    }
+
     class StorageStateSenderItf["aos::cm::storagestate::SenderItf"] {
         <<interface>>
     }
@@ -62,7 +70,7 @@ classDiagram
         <<interface>>
     }
 
-    class BlobInfoProviderItf["aos::cm::imagemanager::BlobInfoProviderItf"] {
+    class BlobInfoProviderItf["aos::common::imagemanager::BlobInfoProviderItf"] {
         <<interface>>
     }
 
@@ -79,6 +87,10 @@ classDiagram
     }
 
     class EnvVarHandlerItf ["aos::cm::launcher::EnvVarHandlerItf"] {
+        <<interface>>
+    }
+
+    class RootCertsItf ["aos::cm::rootcerts::RootCertsItf"] {
         <<interface>>
     }
 
@@ -99,6 +111,7 @@ classDiagram
     Communication ..|> AlertsSenderItf
     Communication ..|> MonitoringSenderItf
     Communication ..|> UpdateManagerSenderItf
+    Communication ..|> RootCertsSenderItf
     Communication ..|> StorageStateSenderItf
     Communication ..|> SMControllerSenderItf
     Communication ..|> LauncherSenderItf
@@ -108,6 +121,7 @@ classDiagram
     Communication ..> StateHandlerItf
     Communication ..> LogProviderItf
     Communication ..> EnvVarHandlerItf
+    Communication ..> RootCertsItf
     Communication ..> CurrentNodeInfoProviderItf
     Communication ..> CertHandlerItf
     Communication ..> ProvisioningItf

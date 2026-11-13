@@ -21,7 +21,7 @@ namespace aos {
  * @tparam T array type.
  */
 template <typename T>
-class Array : public AlgorithmItf<T, T*, const T*> {
+class Array : public AlgorithmItf<T, T*, const T*> { // NOSONAR cpp:S3624 - non-owning view, nothing to release
 public:
     using Iterator      = T*;
     using ConstIterator = const T*;
@@ -45,7 +45,7 @@ public:
      * @param size C array size.
      */
     Array(const T* items, size_t size)
-        : mItems(const_cast<RemoveConstType<T>*>(items))
+        : mItems(const_cast<T*>(items)) // NOSONAR cpp:M23_090
         , mSize(size)
         , mMaxSize(size)
     {
@@ -56,7 +56,12 @@ public:
      *
      * @param array another array instance.
      */
-    Array(const Array& array) = default;
+    Array(const Array& array) noexcept = default;
+
+    /**
+     * Destructor.
+     */
+    ~Array() = default;
 
     // cppcheck-suppress uninitMemberVar
     // cppcheck-suppress operatorEqVarError
@@ -66,7 +71,7 @@ public:
      * @param array existing array.
      * @return Array&.
      */
-    Array& operator=(const Array& array)
+    Array& operator=(const Array& array) noexcept
     {
         [[maybe_unused]] auto err = Assign(array);
         assert(err.IsNone());
@@ -95,7 +100,7 @@ public:
         mSize = array.mSize;
 
         for (size_t i = 0; i < array.Size(); i++) {
-            new (&mItems[i]) T(array.mItems[i]);
+            new (&mItems[i]) T(array.mItems[i]); // NOSONAR cpp:M23_329
         }
 
         return ErrorEnum::eNone;
@@ -121,7 +126,7 @@ public:
     void Clear()
     {
         for (auto it = begin(); it != end(); it++) {
-            it->~T();
+            it->~T(); // NOSONAR cpp:S1235 - exact static type
         }
 
         mSize = 0;
@@ -155,7 +160,7 @@ public:
 
         if (size > mSize) {
             for (auto it = end(); it != end() + size - mSize; it++) {
-                new (it) T();
+                new (it) T(); // NOSONAR cpp:M23_329
             }
         }
 
@@ -179,7 +184,7 @@ public:
 
         if (size > mSize) {
             for (auto it = end(); it != end() + size - mSize; it++) {
-                new (it) T(value);
+                new (it) T(value); // NOSONAR cpp:M23_329
             }
         }
 
@@ -270,7 +275,7 @@ public:
             return ErrorEnum::eNoMemory;
         }
 
-        new (const_cast<RemoveConstType<T>*>(end())) T(item);
+        new (end()) T(item); // NOSONAR cpp:M23_329
 
         mSize++;
 
@@ -283,13 +288,13 @@ public:
      * @param item item to push.
      * @return Error.
      */
-    Error PushBack(T&& item)
+    Error PushBack(T&& item) // NOSONAR cpp:S5500
     {
         if (mSize == mMaxSize) {
             return ErrorEnum::eNoMemory;
         }
 
-        new (const_cast<RemoveConstType<T>*>(end())) T(Move(item));
+        new (end()) T(Move(item)); // NOSONAR cpp:M23_329
 
         mSize++;
 
@@ -309,7 +314,7 @@ public:
             return ErrorEnum::eNoMemory;
         }
 
-        new (end()) T(args...);
+        new (end()) T(args...); // NOSONAR cpp:S5912 - intentional type construction from derived args
 
         mSize++;
 
@@ -338,7 +343,7 @@ public:
      * @param array to compare with.
      * @return bool.
      */
-    bool operator==(const Array& array) const
+    bool operator==(const Array& array) const // NOSONAR cpp:S2807
     {
         if (array.Size() != mSize) {
             return false;
@@ -359,7 +364,7 @@ public:
      * @param array to compare with.
      * @return bool.
      */
-    bool operator!=(const Array& array) const { return !operator==(array); };
+    bool operator!=(const Array& array) const { return !operator==(array); }; // NOSONAR cpp:S2807
 
     /**
      * Inserts items from range.
@@ -382,11 +387,11 @@ public:
         }
 
         for (auto i = end() - pos - 1; i >= 0; i--) {
-            new (pos + size + i) T(*(pos + i));
+            new (pos + size + i) T(*(pos + i)); // NOSONAR cpp:M23_329
         }
 
         for (size_t i = 0; i < size; i++) {
-            new (pos + i) T(*(from + i));
+            new (pos + i) T(*(from + i)); // NOSONAR cpp:M23_329
         }
 
         mSize += size;
@@ -432,19 +437,18 @@ public:
         const auto* curEnd = end();
 
         for (auto it = first; it != last; ++it) {
-            it->~T();
+            it->~T(); // NOSONAR cpp:S1235 - exact static type
             mSize--;
         }
 
         auto curFirst = first;
 
-        for (T* it = const_cast<RemoveConstType<T>*>(last); it != curEnd; ++it, ++curFirst) {
-            // cppcheck-suppress constStatement
-            new (const_cast<RemoveConstType<T>*>(curFirst)) T(Move(*it));
-            it->~T();
+        for (T* it = const_cast<T*>(last); it != curEnd; ++it, ++curFirst) { // NOSONAR cpp:M23_090
+            new (const_cast<void*>(static_cast<const void*>(curFirst))) T(Move(*it)); // NOSONAR cpp:M23_090
+            it->~T(); // NOSONAR cpp:S1235 - exact static type
         }
 
-        return const_cast<Iterator>(first);
+        return const_cast<Iterator>(first); // NOSONAR cpp:M23_090
     }
 
     /**
@@ -519,11 +523,11 @@ public:
      *
      * @param array array to create from.
      */
-    StaticArray(const StaticArray& array)
+    StaticArray(const StaticArray& array) noexcept
         : Array<T>()
     {
         Array<T>::SetBuffer(mBuffer);
-        Array<T>::operator=(array);
+        (void)Array<T>::operator=(array);
     }
 
     /**
@@ -536,9 +540,9 @@ public:
      *
      * @param array array to create from.
      */
-    StaticArray& operator=(const StaticArray& array)
+    StaticArray& operator=(const StaticArray& array) noexcept
     {
-        Array<T>::operator=(array);
+        (void)Array<T>::operator=(array);
 
         return *this;
     }
@@ -549,10 +553,10 @@ public:
      *
      * @param array array to create from.
      */
-    StaticArray(const Array<T>& array)
+    StaticArray(const Array<T>& array) // NOSONAR cpp:S1709
     {
         Array<T>::SetBuffer(mBuffer);
-        Array<T>::operator=(array);
+        (void)Array<T>::operator=(array);
     }
 
     // cppcheck-suppress duplInheritedMember
@@ -563,7 +567,7 @@ public:
      */
     StaticArray& operator=(const Array<T>& array)
     {
-        Array<T>::operator=(array);
+        (void)Array<T>::operator=(array);
 
         return *this;
     }

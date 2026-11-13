@@ -41,30 +41,39 @@ public:
     /**
      * Gets certificate types.
      *
-     * @returns RetWithError<CertTypes>.
+     * @returns RetWithError<StorageIDs>.
      */
-    RetWithError<CertTypes> GetCertTypes() const override;
+    RetWithError<StorageIDs> GetCertKeyStorageIDs() const override;
 
     /**
      * Creates key.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param subject subject.
      * @param password password.
      * @param csr certificate signing request.
      * @returns Error.
      */
-    Error CreateKey(const String& certType, const String& subject, const String& password, String& csr) override;
+    Error CreateKey(const String& storageID, const String& subject, const String& password, String& csr) override;
 
     /**
      * Applies certificate.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param pemCert certificate in PEM.
      * @param[out] certInfo certificate info.
      * @returns Error.
      */
-    Error ApplyCert(const String& certType, const String& pemCert, CertInfo& certInfo) override;
+    Error ApplyCert(const String& storageID, const String& pemCert, CertInfo& certInfo) override;
+
+    /**
+     * Updates root certificates.
+     *
+     * @param pemCerts root certificates in PEM format.
+     * @param[out] infos result certificate information.
+     * @returns Error.
+     */
+    Error UpdateRootCerts(const Array<StaticString<crypto::cCertPEMLen>>& pemCerts, Array<CertInfo>& infos) override;
 
     /**
      * Finishes provisioning.

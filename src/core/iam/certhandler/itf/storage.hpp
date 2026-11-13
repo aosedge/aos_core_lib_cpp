@@ -20,11 +20,11 @@ public:
     /**
      * Adds new certificate info to the storage.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param certInfo certificate information.
      * @return Error.
      */
-    virtual Error AddCertInfo(const String& certType, const CertInfo& certInfo) = 0;
+    virtual Error AddCertInfo(const String& storageID, const CertInfo& certInfo) = 0;
 
     /**
      * Returns information about certificate with specified issuer and serial number.
@@ -39,28 +39,28 @@ public:
     /**
      * Returns info for all certificates with specified certificate type.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param[out] certsInfo result certificates info.
      * @return Error.
      */
-    virtual Error GetCertsInfo(const String& certType, Array<CertInfo>& certsInfo) = 0;
+    virtual Error GetCertsInfo(const String& storageID, Array<CertInfo>& certsInfo) = 0;
 
     /**
      * Removes certificate with specified certificate type and url.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param certURL certificate URL.
      * @return Error.
      */
-    virtual Error RemoveCertInfo(const String& certType, const String& certURL) = 0;
+    virtual Error RemoveCertInfo(const String& storageID, const String& certURL) = 0;
 
     /**
      * Removes all certificates with specified certificate type.
      *
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @return Error.
      */
-    virtual Error RemoveAllCertsInfo(const String& certType) = 0;
+    virtual Error RemoveAllCertsInfo(const String& storageID) = 0;
 
     /**
      * Destroys certificate info storage.

@@ -102,9 +102,9 @@ private:
     static constexpr auto cUnitConfigJSONLen = AOS_CONFIG_CM_UNITCONFIG_JSON_LEN;
 
     Error LoadConfig();
-    Error CheckVersion(const String& version);
+    Error CheckVersion(const String& version) const;
     Error FindNodeConfig(
-        const String& nodeID, const String& nodeType, const aos::UnitConfig& config, NodeConfig& nodeConfig);
+        const String& nodeID, const String& nodeType, const aos::UnitConfig& config, NodeConfig& nodeConfig) const;
 
     StaticString<cFilePathLen>             mUnitConfigFile;
     nodeinfoprovider::NodeInfoProviderItf* mNodeInfoProvider {};

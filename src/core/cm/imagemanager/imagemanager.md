@@ -1,25 +1,38 @@
 # Image manager
 
-Image manager stores update item images and provide update item image info for other modules.
+CM image manager downloads update items from the cloud, verifies them and keeps their blobs for the CM modules and the
+SM image managers. It is derived from the
+[common image manager](../../common/imagemanager/imagemanager.hpp), which stores the blobs, keeps the item statuses
+and removes the outdated items. The CM part implements the download of the blobs from the cloud and manages the
+temporary download files.
 
 It implements the following interfaces:
 
-* [aos::cm::imagemanager::ImageMangerItf](itf/imagemanager.hpp) - manages update items images;
-* [aos::cm::imagemanager::ItemStatusProviderItf](itf/itemstatusprovider.hpp) - provides update items statuses;
-* [aos::cm::imagemanager::ItemInfoProviderItf](itf/iteminfoprovider.hpp) - provides update items info;
-* [aos::spaceallocator::ItemRemoverItf](../../common/spaceallocator/spaceallocator.hpp) - remove outdated items.
+* [aos::cm::imagemanager::ImageManagerItf](itf/imagemanager.hpp) - installs and removes update items;
+* [aos::common::imagemanager::BlobInfoProviderItf](../../common/imagemanager/itf/blobinfoprovider.hpp) - provides
+  download info of the stored blobs to the SM image managers;
+* [aos::common::imagemanager::ItemStatusProviderItf](../../common/imagemanager/itf/itemstatusprovider.hpp) - provides
+  update items statuses (inherited from the common image manager);
+* [aos::common::imagemanager::ItemInfoProviderItf](../../common/imagemanager/itf/iteminfoprovider.hpp) - provides
+  local blob paths (inherited from the common image manager);
+* [aos::spaceallocator::ItemRemoverItf](../../common/spaceallocator/itf/spaceallocator.hpp) - removes outdated items:
+  the remover of the blobs is provided by the common image manager, the remover of the temporary download files by
+  `GetDownloadItemRemover`.
 
 It requires the following interfaces:
 
-* [aos::cm::imagemanager::StorageItf](itf/storage.hpp) - stores internal persistent data;
-* [aos::cm::imagemanager::BlobInfoProviderItf](itf/blobinfoprovider.hpp) - retrieves blobs info;
-* [aos::spaceallocator::SpaceAllocatorItf](../../common/spaceallocator/spaceallocator.hpp) - allocates disk space for
-  calculating required disk size;
-* [aos::cm::fileserver::FileServerItf](../fileserver/itf/fileserver.hpp) - translates local file path's to remote URL's;
-* [aos::crypto::CryptoHelperItf](../../common/crypto/itf/cryptohelper.hpp) - decrypts and verifies update images;
-* [aos::fs::FileInfoProviderItf](../../common/tools/fs.hpp) - gets file info (size, checksum, etc.);
-* [aos::ocispec::OCISpecItf](../../common/ocispec/ocispec.hpp) - parses OCI spec files;
-* [aos::cm::imagemanager::GIDPool::Validator](imagemanager.hpp) - validates GID on the platform.
+* [aos::common::imagemanager::BlobInfoProviderItf](../../common/imagemanager/itf/blobinfoprovider.hpp) - provides
+  download info of the blobs from the cloud;
+* [aos::common::imagemanager::StorageItf](../../common/imagemanager/itf/storage.hpp) - stores items and their blobs;
+* [aos::spaceallocator::SpaceAllocatorItf](../../common/spaceallocator/itf/spaceallocator.hpp) - allocates the space
+  of the blobs and, with a separate instance, the space of the temporary download files;
+* [aos::downloader::DownloaderItf](../../common/downloader/itf/downloader.hpp) - downloads blobs;
+* [aos::crypto::CryptoHelperItf](../../common/crypto/itf/cryptohelper.hpp) - decrypts blobs and verifies their
+  signatures;
+* [aos::cm::fileserver::FileServerItf](../fileserver/itf/fileserver.hpp) - translates local blob paths to URLs;
+* [aos::fs::FileInfoProviderItf](../../common/tools/fs.hpp) - gets file info (size, checksum);
+* [aos::oci::OCISpecItf](../../common/ocispec/itf/ocispec.hpp) - parses OCI spec files;
+* [aos::fs::FSPlatformItf](../../common/tools/fs.hpp) - flushes the file system.
 
 ```mermaid
 classDiagram
@@ -28,27 +41,18 @@ classDiagram
     class ImageManager ["aos::cm::imagemanager::ImageManager"] {
     }
 
-    class ImageManagerItf ["aos::cm::imagemanager::ImageMangerItf"] {
+    class CommonImageManager ["aos::common::imagemanager::ImageManager"] {
+    }
+
+    class ImageManagerItf ["aos::cm::imagemanager::ImageManagerItf"] {
         <<interface>>
     }
 
-    class ItemStatusProviderItf ["aos::cm::imagemanager::ItemStatusProviderItf"] {
+    class BlobInfoProviderItf ["aos::common::imagemanager::BlobInfoProviderItf"] {
         <<interface>>
     }
 
-    class ItemInfoProviderItf ["aos::cm::imagemanager::ItemInfoProviderItf"] {
-        <<interface>>
-    }
-
-    class ItemRemoverItf ["aos::spaceallocator::ItemRemoverItf"] {
-        <<interface>>
-    }
-
-    class StorageItf ["aos::cm::imagemanager::StorageItf"] {
-        <<interface>>
-    }
-
-    class BlobInfoProviderItf ["aos::cm::imagemanager::BlobInfoProviderItf"] {
+    class StorageItf ["aos::common::imagemanager::StorageItf"] {
         <<interface>>
     }
 
@@ -56,7 +60,7 @@ classDiagram
         <<interface>>
     }
 
-    class FileServerItf ["aos::cm::fileserver::FileServerItf"] {
+    class DownloaderItf ["aos::downloader::DownloaderItf"] {
         <<interface>>
     }
 
@@ -64,152 +68,85 @@ classDiagram
         <<interface>>
     }
 
-    class FileInfoProviderItf ["aos::fs::FileInfoProviderItf"] {
+    class FileServerItf ["aos::cm::fileserver::FileServerItf"] {
         <<interface>>
     }
 
-    class OCISpecItf ["aos::ocispec::OCISpecItf"] {
-        <<interface>>
-    }
-
-    class GIDPoolValidator ["aos::cm::imagemanager::GIDPool::Validator"] {
-        <<interface>>
-    }
-
-    ImageManagerItf --|> ItemStatusProviderItf
-
+    ImageManager --|> CommonImageManager
     ImageManager ..|> ImageManagerItf
-    ImageManager ..|> ItemInfoProviderItf
-    ImageManager ..|> ItemRemoverItf
+    ImageManager ..|> BlobInfoProviderItf
 
-    ImageManager ..> StorageItf
     ImageManager ..> BlobInfoProviderItf
+    ImageManager ..> StorageItf
     ImageManager ..> SpaceAllocatorItf
-    ImageManager ..> FileServerItf
+    ImageManager ..> DownloaderItf
     ImageManager ..> CryptoHelperItf
-    ImageManager ..> FileInfoProviderItf
-    ImageManager ..> OCISpecItf
-    ImageManager ..> GIDPoolValidator
+    ImageManager ..> FileServerItf
 ```
 
 ## Overview
 
-Aos update items consists of set of blobs according to
-[OCI specification](https://github.com/opencontainers/image-spec/blob/main/image-layout.md).
-Image manager puts all blobs into the install folder with corresponding to digest name:
+The blobs of the update items are stored by the common image manager as `<imagePath>/blobs/<algorithm>/<hash>`. The
+root blob of a CM item is the OCI image index, as the CM manages the images of several architectures. The layers are
+kept as packed blobs: the CM doesn't unpack them.
 
-```console
-./blobs/sha256/3588d02542238316759cbf24502f4344ffcc8a60c803870022f335d1390c13b4
-./blobs/sha256/4b0bc1c4050b03c95ef2a8e36e25feac42fd31283e8c30b3ee5df6b043155d3c
-./blobs/sha256/7968321274dc6b6171697c33df7815310468e694ac5be0ec03ff053bb135e768
-```
+The blobs are downloaded to the temporary files `<downloadPath>/<algorithm>/<hash>` on the download partition, and
+then decrypted or copied to the image storage. The temporary files are kept after the download, so an interrupted
+download is resumed and a blob is not downloaded again if it is needed again, for example to repair the blob in the
+image storage. The temporary files are removed by the download space allocator when the download space is needed.
 
-Unlike OCI specification, Aos image manger puts `index.json` as separate blob into the install folder together with
-other blobs.
+The CM update manager calls `SetCerts` with the certificates of the desired status, `InstallItem` for each item of the
+desired status and `RemoveItem` for each stored item that is not in the desired status. Up to `cMaxNumConcurrentItems`
+items are installed or removed at the same time.
 
-To assemble the update item, image manger store the index file digest in its internal storage. It allows to retrieve
-whole update item layers chain by reading the index file.
+## Install item
 
-## Initialization
+`InstallItem` converts the update item info to the common install item info with the image index as the root blob and
+calls `InstallItem` of the common image manager, which processes the blobs of the item and calls `DownloadBlob` for
+each blob that is missing or invalid.
 
-During initialization:
+`DownloadBlob`:
 
-* creates install directory if it doesn't exist;
-* verifies integrity of each update item and removes corrupted or not fully installed items;
-* removes outdated items;
-* remove orphaned blobs (blobs that are not referenced by any update item);
-* mark deleted items as outdated to space allocator;
+* restores the temporary file of the blob from the outdated items of the download space allocator, see
+  [Download space](#download-space);
+* removes the temporary file if it is larger than the blob size and frees its space; a complete temporary file is
+  reused without downloading;
+* allocates the space of the rest of the temporary file in the download space allocator and downloads the blob with
+  all its URLs. The download is canceled through the cancel context of the common image manager;
+* on download failure or cancel, the allocated space is resized to the downloaded size and accepted, so the download is
+  resumed by the next `DownloadBlob` of the blob;
+* validates the size and, if provided, the SHA3-256 checksum of the temporary file;
+* decrypts the temporary file to the blob path if the decrypt info is set, otherwise copies it;
+* verifies the signature of the blob with the certificates set by `SetCerts` if the sign info is set;
+* removes the temporary file and frees its space if the checksum validation, the decryption or the signature
+  verification fails, as the downloaded content is broken.
 
-## Removing outdated items
+The space of the blob in the image storage is allocated and the blob is validated by the common image manager.
 
-Image manager has configuration parameter that indicates how long removed update items should be stored on file system.
-If update item is in deleted state more than configured timeout, this item should be completely removed from the unit.
+## Download space
 
-For this purpose, image manager checks and removes outdated update items during initialization and also performs
-periodic check for outdated items (with subsequent removal). After removing some update items from the system, image
-manager removes orphaned blobs.
+The temporary files of the blobs that are not being downloaded are registered as outdated items of the download space
+allocator, identified by the blob digest with an empty version, so they are removed when the download space is needed.
+The item remover of the download space allocator is returned by `GetDownloadItemRemover`: it removes the temporary
+file of the digest and returns its size.
 
-## aos::cm::imagemanager::ImageMangerItf
+When `DownloadBlob` starts, it restores the temporary file of the blob from the outdated items, so the space
+allocation doesn't remove it. If no other blob is being downloaded, it also registers the temporary files found in the
+download directory with their modification time as the timestamp, which registers the files left by a previous run,
+and removes the files that don't match a valid digest.
 
-### DownloadUpdateItems
+When `DownloadBlob` ends and the temporary file is kept, the modification time of the file is updated and the file is
+added to the outdated items with it, so the least recently used temporary files are removed first.
 
-Downloads update items and set them to pending state.
+## Cancel
 
-Downloading procedure consists of the following steps:
+`Cancel` cancels all items being installed and waits until all `InstallItem` and `RemoveItem` calls in progress
+return. It is implemented by the common image manager: the downloads in progress are canceled through the cancel
+context passed to the downloader.
 
-* cleanup downloading items - removes update items that are in downloading or pending state and that are not listed in
-  the current download request;
-* cleanup downloading blobs - cleanups previously downloading blobs that are not listed in the current download request;
-* remove orphaned blobs - removes blobs that are not referenced by any item;
-* update existing item states - existing installed update items that have all valid blobs remains in installed state.
-  Other update items that have valid blobs are set to pending state. For newly create update items dedicated group ID
-  (GID) should be selected. And remaining update items are set to downloading state;
-* download missing or corrupted blobs - downloads, validates and decrypts blobs that are missing or corrupted;
-* update downloading items state - after successful blobs download, downloading items that have valid blobs are set to
-  pending state. If blob downloading fails or any other error occurs, the corresponding update items are set to failed
-  state.
+## Blob info for SM
 
-### InstallUpdateItems
-
-Installs update items in parallel.
-
-This method performs the following actions:
-
-* removes existing different version of the specified update items in order to have only one update item version on the
-  system;
-* verifies blobs integrity for each specified update items. Removes the item if checking integrity fails and return
-  failed state for this item;
-* sets specified update items with valid blobs state to installed;
-* sets existing and not specified items state to removed state;
-* removes orphaned blobs.
-
-### Cancel
-
-Cancels ongoing operation download or install.
-
-This methods terminates currant download or install operation. Items that are not properly downloaded or installed
-should be set to failed status with canceled error.
-
-## aos::cm::imagemanager::ItemStatusProviderItf
-
-### GetUpdateItemsStatuses
-
-Returns all update items statuses.
-
-### SubscribeListener
-
-Subscribes to changing update item statuses.
-
-### UnsubscribeListener
-
-Unsubscribes from changing update item statuses.
-
-## aos::cm::imagemanager::ItemStatusListenerItf
-
-### OnItemStatusChanged
-
-This method is called for each registered listener when update item status is changed.
-
-### OnUpdateItemRemoved
-
-This method is called for each registered listener when specified update item is completely removed from file system.
-It is required to perform cleanup operation by other modules e.g. remove associated instances etc.
-It is not called when update item is set to removed state.
-
-## aos::cm::imagemanager::ItemInfoProviderItf
-
-### GetIndexDigest
-
-Returns index digest of update item. It returns index file digest for installed or pending items.
-
-### GetBlobPath
-
-Returns blob path by digest.
-
-### GetBlobURL
-
-Returns blob URL by digest.
-
-### GetItemCurrentVersion
-
-Return version of installed item.
+`GetBlobInfo` provides the download info of a stored blob to the SM image managers: the digest, the size of the blob
+and its URL translated from the local path by the file server. The checksum is not provided, as the SM image manager
+validates the downloaded blob against its digest. The blob is not locked while the SM downloads it. `eNotFound` is
+returned if the blob is not referenced by any stored item.

@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <future>
+#include <iterator>
 #include <mutex>
 #include <queue>
 
@@ -620,8 +621,14 @@ TEST_F(StorageStateTests, UpdateState)
     stateUpdate->mState                       = newStateContent;
     stateUpdate->mChecksum                    = checksumBytes;
 
+    // Keep state file opened as the running instance holds it through bind mount.
+    std::ifstream stateFile(ToStatePath(cInstanceIdent));
+
     err = mStorageState.UpdateState(*stateUpdate);
     EXPECT_TRUE(err.IsNone()) << "Failed to update state: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(std::string(std::istreambuf_iterator<char>(stateFile), {}), newStateContent)
+        << "State file should be updated in place";
 
     EXPECT_TRUE(mStorageStub.Contains([&checksumBytes](const InstanceInfo& info) {
         return info.mInstanceIdent == cInstanceIdent && info.mStateChecksum == checksumBytes;

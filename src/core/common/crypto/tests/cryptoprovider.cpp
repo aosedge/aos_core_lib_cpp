@@ -6,11 +6,12 @@
 
 #include <gmock/gmock.h>
 
+#include <core/common/crypto/cryptoutils.hpp>
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
+#include <core/common/tests/stubs/testallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/fs.hpp>
-#include <core/common/tools/heapallocator.hpp>
 
 #if defined(WITH_MBEDTLS)
 #include <core/common/tests/crypto/providers/mbedtlsfactory.hpp>
@@ -20,7 +21,10 @@
 #include <core/common/tests/crypto/providers/opensslfactory.hpp>
 #endif
 
+#include "gcmtestvector.hpp"
+
 using namespace testing;
+using aos::tests::TestAllocator;
 
 namespace aos::crypto {
 
@@ -46,7 +50,7 @@ public:
 protected:
     // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
     // members are destroyed in reverse declaration order.
-    HeapAllocator mAllocator;
+    TestAllocator mAllocator;
 
     std::shared_ptr<CryptoFactoryItf> mFactory;
     CryptoProviderItf*                mCryptoProvider;
@@ -535,8 +539,7 @@ TEST_P(CryptoProviderTest, ASN1DecodeOID)
 TEST_P(CryptoProviderTest, CreateUUIDv5)
 {
     uuid::UUID space;
-    Error      err = ErrorEnum::eNone;
-
+    Error      err;
     Tie(space, err) = uuid::StringToUUID("58ac9ca0-2086-4683-a1b8-ec4bc08e01b6");
     ASSERT_TRUE(err.IsNone());
 
@@ -574,7 +577,7 @@ TEST_P(CryptoProviderTest, SHA256)
 
         ASSERT_TRUE(hasherPtr->Finalize(result).IsNone());
 
-        StaticString<cSHA256Size * 2> hashStr;
+        StaticString<cSHA256HexLen> hashStr;
         ASSERT_TRUE(hashStr.ByteArrayToHex(result).IsNone());
 
         EXPECT_EQ(hashStr, String(testCase.mExpectedHash));
@@ -608,7 +611,7 @@ TEST_P(CryptoProviderTest, SHA3_256)
 
         ASSERT_TRUE(hasherPtr->Finalize(result).IsNone());
 
-        StaticString<cSHA256Size * 2> hashStr;
+        StaticString<cSHA256HexLen> hashStr;
         ASSERT_TRUE(hashStr.ByteArrayToHex(result).IsNone());
 
         EXPECT_EQ(hashStr, String(testCase.mExpectedHash));
@@ -638,7 +641,7 @@ TEST_P(CryptoProviderTest, SHA256ByChunks)
 
     ASSERT_TRUE(hasherPtr->Finalize(result).IsNone());
 
-    aos::StaticString<cSHA256Size * 2> hashStr;
+    aos::StaticString<cSHA256HexLen> hashStr;
     ASSERT_TRUE(hashStr.ByteArrayToHex(result).IsNone());
 
     EXPECT_EQ(hashStr, String("a98c0eb748fcf3c87b8d231c0866f20dd12202923de5e93696ee4a3ad3da91ec"));
@@ -828,6 +831,333 @@ TEST_P(CryptoProviderTest, AES_CBC_Decryption)
     EXPECT_EQ(plaintext, expected);
 }
 
+namespace {
+
+using testvectors::cGCMCipher;
+using testvectors::cGCMIV;
+using testvectors::cGCMKey;
+using testvectors::cGCMPlain;
+using testvectors::cGCMTag;
+
+template <size_t size>
+Array<uint8_t> AsArray(const uint8_t (&data)[size])
+{
+    return Array<uint8_t>(data, size);
+}
+
+} // namespace
+
+TEST_P(CryptoProviderTest, AES_GCM_Encryption)
+{
+    auto [cipher, err] = mCryptoProvider->CreateAESEncoder("GCM", AsArray(cGCMKey), AsArray(cGCMIV));
+    ASSERT_TRUE(err.IsNone());
+    ASSERT_NE(cipher.Get(), nullptr);
+
+    auto                     outBuf = std::make_unique<StaticArray<uint8_t, cFileChunkSize>>();
+    StaticArray<uint8_t, 64> ciphertext;
+
+    // GCM is a stream mode: any chunk size is accepted
+    constexpr size_t cChunk = 7;
+
+    for (size_t offset = 0; offset < sizeof(cGCMPlain); offset += cChunk) {
+        const auto chunk = std::min(cChunk, sizeof(cGCMPlain) - offset);
+
+        ASSERT_TRUE(cipher->EncryptBlock(Array<uint8_t>(cGCMPlain + offset, chunk), *outBuf).IsNone());
+        EXPECT_EQ(outBuf->Size(), chunk);
+
+        ciphertext.Append(*outBuf);
+    }
+
+    ASSERT_TRUE(cipher->Finalize(*outBuf).IsNone());
+    EXPECT_TRUE(outBuf->IsEmpty());
+
+    EXPECT_EQ(ciphertext, AsArray(cGCMCipher));
+
+    StaticArray<uint8_t, AESCipherItf::cGCMTagSize> tag;
+
+    ASSERT_TRUE(cipher->GetTag(tag).IsNone());
+    EXPECT_EQ(tag, AsArray(cGCMTag));
+}
+
+TEST_P(CryptoProviderTest, AES_GCM_Decryption)
+{
+    auto [cipher, err] = mCryptoProvider->CreateAESDecoder("GCM", AsArray(cGCMKey), AsArray(cGCMIV));
+    ASSERT_TRUE(err.IsNone());
+    ASSERT_NE(cipher.Get(), nullptr);
+
+    auto                     outBuf = std::make_unique<StaticArray<uint8_t, cFileChunkSize>>();
+    StaticArray<uint8_t, 64> plaintext;
+
+    constexpr size_t cChunk = 13;
+
+    for (size_t offset = 0; offset < sizeof(cGCMCipher); offset += cChunk) {
+        const auto chunk = std::min(cChunk, sizeof(cGCMCipher) - offset);
+
+        ASSERT_TRUE(cipher->DecryptBlock(Array<uint8_t>(cGCMCipher + offset, chunk), *outBuf).IsNone());
+
+        plaintext.Append(*outBuf);
+    }
+
+    ASSERT_TRUE(cipher->SetTag(AsArray(cGCMTag)).IsNone());
+    ASSERT_TRUE(cipher->Finalize(*outBuf).IsNone());
+    EXPECT_TRUE(outBuf->IsEmpty());
+
+    EXPECT_EQ(plaintext, AsArray(cGCMPlain));
+}
+
+TEST_P(CryptoProviderTest, AES_GCM_DecryptionDetectsTamperedCiphertext)
+{
+    uint8_t tampered[sizeof(cGCMCipher)];
+    memcpy(tampered, cGCMCipher, sizeof(tampered));
+    tampered[10] ^= 0x01;
+
+    auto [cipher, err] = mCryptoProvider->CreateAESDecoder("GCM", AsArray(cGCMKey), AsArray(cGCMIV));
+    ASSERT_TRUE(err.IsNone());
+
+    auto outBuf = std::make_unique<StaticArray<uint8_t, cFileChunkSize>>();
+
+    ASSERT_TRUE(cipher->DecryptBlock(AsArray(tampered), *outBuf).IsNone());
+    ASSERT_TRUE(cipher->SetTag(AsArray(cGCMTag)).IsNone());
+
+    EXPECT_FALSE(cipher->Finalize(*outBuf).IsNone());
+}
+
+TEST_P(CryptoProviderTest, AES_GCM_DecryptionDetectsWrongTagAndKey)
+{
+    auto outBuf = std::make_unique<StaticArray<uint8_t, cFileChunkSize>>();
+
+    {
+        uint8_t tampered[sizeof(cGCMTag)];
+        memcpy(tampered, cGCMTag, sizeof(tampered));
+        tampered[15] ^= 0x80;
+
+        auto [cipher, err] = mCryptoProvider->CreateAESDecoder("GCM", AsArray(cGCMKey), AsArray(cGCMIV));
+        ASSERT_TRUE(err.IsNone());
+
+        ASSERT_TRUE(cipher->DecryptBlock(AsArray(cGCMCipher), *outBuf).IsNone());
+        ASSERT_TRUE(cipher->SetTag(AsArray(tampered)).IsNone());
+
+        EXPECT_FALSE(cipher->Finalize(*outBuf).IsNone());
+    }
+
+    {
+        uint8_t otherKey[sizeof(cGCMKey)];
+        memcpy(otherKey, cGCMKey, sizeof(otherKey));
+        otherKey[0] ^= 0x01;
+
+        auto [cipher, err] = mCryptoProvider->CreateAESDecoder("GCM", AsArray(otherKey), AsArray(cGCMIV));
+        ASSERT_TRUE(err.IsNone());
+
+        ASSERT_TRUE(cipher->DecryptBlock(AsArray(cGCMCipher), *outBuf).IsNone());
+        ASSERT_TRUE(cipher->SetTag(AsArray(cGCMTag)).IsNone());
+
+        EXPECT_FALSE(cipher->Finalize(*outBuf).IsNone());
+    }
+}
+
+TEST_P(CryptoProviderTest, AES_GCM_TagHandling)
+{
+    auto outBuf = std::make_unique<StaticArray<uint8_t, cFileChunkSize>>();
+
+    // a decoder cannot finish without the tag
+    {
+        auto [cipher, err] = mCryptoProvider->CreateAESDecoder("GCM", AsArray(cGCMKey), AsArray(cGCMIV));
+        ASSERT_TRUE(err.IsNone());
+
+        ASSERT_TRUE(cipher->DecryptBlock(AsArray(cGCMCipher), *outBuf).IsNone());
+
+        EXPECT_FALSE(cipher->Finalize(*outBuf).IsNone());
+    }
+
+    // the tag must have the full size
+    {
+        auto [cipher, err] = mCryptoProvider->CreateAESDecoder("GCM", AsArray(cGCMKey), AsArray(cGCMIV));
+        ASSERT_TRUE(err.IsNone());
+
+        EXPECT_FALSE(cipher->SetTag(Array<uint8_t>(cGCMTag, 8)).IsNone());
+    }
+
+    // an encoder has no tag before it is finalized and cannot be given one
+    {
+        auto [cipher, err] = mCryptoProvider->CreateAESEncoder("GCM", AsArray(cGCMKey), AsArray(cGCMIV));
+        ASSERT_TRUE(err.IsNone());
+
+        StaticArray<uint8_t, AESCipherItf::cGCMTagSize> tag;
+
+        EXPECT_FALSE(cipher->GetTag(tag).IsNone());
+        EXPECT_FALSE(cipher->SetTag(AsArray(cGCMTag)).IsNone());
+    }
+}
+
+TEST_P(CryptoProviderTest, AES_GCM_RequiresGCMSizedIV)
+{
+    const uint8_t iv16[16] = {};
+
+    EXPECT_FALSE(mCryptoProvider->CreateAESEncoder("GCM", AsArray(cGCMKey), AsArray(iv16)).mError.IsNone());
+    EXPECT_FALSE(mCryptoProvider->CreateAESDecoder("GCM", AsArray(cGCMKey), AsArray(iv16)).mError.IsNone());
+}
+
+TEST_P(CryptoProviderTest, AES_CBC_TagAccessorsAreNotSupported)
+{
+    const uint8_t iv16[16] = {};
+
+    auto [cipher, err] = mCryptoProvider->CreateAESEncoder("CBC", AsArray(cGCMKey), AsArray(iv16));
+    ASSERT_TRUE(err.IsNone());
+
+    StaticArray<uint8_t, AESCipherItf::cGCMTagSize> tag;
+
+    EXPECT_FALSE(cipher->GetTag(tag).IsNone());
+    EXPECT_FALSE(cipher->SetTag(AsArray(cGCMTag)).IsNone());
+}
+
+TEST_P(CryptoProviderTest, AES_UnsupportedModeIsNotSupported)
+{
+    const uint8_t iv16[16] = {};
+
+    EXPECT_TRUE(
+        mCryptoProvider->CreateAESEncoder("CTR", AsArray(cGCMKey), AsArray(iv16)).mError.Is(ErrorEnum::eNotSupported));
+    EXPECT_TRUE(
+        mCryptoProvider->CreateAESDecoder("CTR", AsArray(cGCMKey), AsArray(iv16)).mError.Is(ErrorEnum::eNotSupported));
+}
+
+TEST_P(CryptoProviderTest, AES_KeySizes)
+{
+    const uint8_t key[33] = {};
+
+    for (const auto* mode : {"CBC", "GCM"}) {
+        SCOPED_TRACE(mode);
+
+        const uint8_t iv[16] = {};
+        const auto    ivSize = String(mode) == "GCM" ? AESCipherItf::cGCMIVSize : AESCipherItf::cBlockSize;
+
+        for (const size_t keySize : {16, 24, 32}) {
+            SCOPED_TRACE(keySize);
+
+            EXPECT_TRUE(
+                mCryptoProvider->CreateAESEncoder(mode, Array<uint8_t>(key, keySize), Array<uint8_t>(iv, ivSize))
+                    .mError.IsNone());
+            EXPECT_TRUE(
+                mCryptoProvider->CreateAESDecoder(mode, Array<uint8_t>(key, keySize), Array<uint8_t>(iv, ivSize))
+                    .mError.IsNone());
+        }
+
+        for (const size_t keySize : {0, 15, 20, 33}) {
+            SCOPED_TRACE(keySize);
+
+            EXPECT_TRUE(
+                mCryptoProvider->CreateAESEncoder(mode, Array<uint8_t>(key, keySize), Array<uint8_t>(iv, ivSize))
+                    .mError.Is(ErrorEnum::eInvalidArgument));
+            EXPECT_TRUE(
+                mCryptoProvider->CreateAESDecoder(mode, Array<uint8_t>(key, keySize), Array<uint8_t>(iv, ivSize))
+                    .mError.Is(ErrorEnum::eInvalidArgument));
+        }
+    }
+}
+
+TEST_P(CryptoProviderTest, AES_CipherStateIsChecked)
+{
+    const uint8_t iv[16] = {};
+    const auto    input  = Array<uint8_t>(cGCMPlain, AESCipherItf::cBlockSize);
+
+    auto outBuf = std::make_unique<StaticArray<uint8_t, cFileChunkSize>>();
+
+    for (const auto* mode : {"CBC", "GCM"}) {
+        SCOPED_TRACE(mode);
+
+        const auto ivSize = String(mode) == "GCM" ? AESCipherItf::cGCMIVSize : AESCipherItf::cBlockSize;
+
+        auto [encoder, encErr] = mCryptoProvider->CreateAESEncoder(mode, AsArray(cGCMKey), Array<uint8_t>(iv, ivSize));
+        ASSERT_TRUE(encErr.IsNone());
+
+        auto [decoder, decErr] = mCryptoProvider->CreateAESDecoder(mode, AsArray(cGCMKey), Array<uint8_t>(iv, ivSize));
+        ASSERT_TRUE(decErr.IsNone());
+
+        // wrong direction
+        EXPECT_TRUE(encoder->DecryptBlock(input, *outBuf).Is(ErrorEnum::eWrongState));
+        EXPECT_TRUE(decoder->EncryptBlock(input, *outBuf).Is(ErrorEnum::eWrongState));
+
+        // nothing to encrypt
+        EXPECT_TRUE(encoder->EncryptBlock(Array<uint8_t>(), *outBuf).Is(ErrorEnum::eInvalidArgument));
+
+        // the tag is not available on the wrong side
+        StaticArray<uint8_t, AESCipherItf::cGCMTagSize> tag;
+
+        EXPECT_FALSE(decoder->GetTag(tag).IsNone());
+
+        // a finalized cipher cannot be used any more
+        ASSERT_TRUE(encoder->EncryptBlock(input, *outBuf).IsNone());
+        ASSERT_TRUE(encoder->Finalize(*outBuf).IsNone());
+
+        EXPECT_TRUE(encoder->EncryptBlock(input, *outBuf).Is(ErrorEnum::eWrongState));
+        EXPECT_TRUE(encoder->Finalize(*outBuf).Is(ErrorEnum::eWrongState));
+
+        ASSERT_TRUE(decoder->DecryptBlock(input, *outBuf).IsNone());
+
+        if (String(mode) == "GCM") {
+            ASSERT_TRUE(decoder->SetTag(AsArray(cGCMTag)).IsNone());
+        }
+
+        (void)decoder->Finalize(*outBuf);
+
+        EXPECT_TRUE(decoder->DecryptBlock(input, *outBuf).Is(ErrorEnum::eWrongState));
+        EXPECT_TRUE(decoder->Finalize(*outBuf).Is(ErrorEnum::eWrongState));
+
+        if (String(mode) == "GCM") {
+            EXPECT_TRUE(decoder->SetTag(AsArray(cGCMTag)).Is(ErrorEnum::eWrongState));
+        }
+    }
+}
+
+TEST_P(CryptoProviderTest, AES_CreateFailsWithoutMemory)
+{
+    const uint8_t iv[16] = {};
+
+    for (const auto* mode : {"CBC", "GCM"}) {
+        SCOPED_TRACE(mode);
+
+        const auto ivSize = String(mode) == "GCM" ? AESCipherItf::cGCMIVSize : AESCipherItf::cBlockSize;
+
+        mAllocator.FailAfter(0);
+
+        EXPECT_TRUE(mCryptoProvider->CreateAESEncoder(mode, AsArray(cGCMKey), Array<uint8_t>(iv, ivSize))
+                        .mError.Is(ErrorEnum::eNoMemory));
+        EXPECT_TRUE(mCryptoProvider->CreateAESDecoder(mode, AsArray(cGCMKey), Array<uint8_t>(iv, ivSize))
+                        .mError.Is(ErrorEnum::eNoMemory));
+
+        mAllocator.Reset();
+
+        // the provider is still usable once the allocator recovers
+        EXPECT_TRUE(
+            mCryptoProvider->CreateAESEncoder(mode, AsArray(cGCMKey), Array<uint8_t>(iv, ivSize)).mError.IsNone());
+    }
+}
+
+TEST_P(CryptoProviderTest, AES_CBC_InvalidInput)
+{
+    const uint8_t iv[16] = {};
+
+    auto outBuf = std::make_unique<StaticArray<uint8_t, cFileChunkSize>>();
+
+    // input is not a multiple of the block size
+    {
+        auto [decoder, err] = mCryptoProvider->CreateAESDecoder("CBC", AsArray(cGCMKey), AsArray(iv));
+        ASSERT_TRUE(err.IsNone());
+
+        EXPECT_TRUE(decoder->DecryptBlock(Array<uint8_t>(cGCMCipher, AESCipherItf::cBlockSize + 1), *outBuf)
+                        .Is(ErrorEnum::eInvalidArgument));
+    }
+
+    // corrupted padding
+    {
+        auto [decoder, err] = mCryptoProvider->CreateAESDecoder("CBC", AsArray(cGCMKey), AsArray(iv));
+        ASSERT_TRUE(err.IsNone());
+
+        ASSERT_TRUE(decoder->DecryptBlock(Array<uint8_t>(cGCMCipher, AESCipherItf::cBlockSize), *outBuf).IsNone());
+
+        EXPECT_FALSE(decoder->Finalize(*outBuf).IsNone());
+    }
+}
+
 TEST_P(CryptoProviderTest, VerifyRSASignature)
 {
     StaticArray<x509::Certificate, 1> certs;
@@ -888,6 +1218,46 @@ TEST_P(CryptoProviderTest, VerifyECDSASignature)
 
     EXPECT_TRUE(
         mCryptoProvider->Verify(pubKey, HashEnum::eSHA384, x509::PaddingEnum::eNone, digest, signature).IsNone());
+}
+
+TEST_P(CryptoProviderTest, VerifyCACert)
+{
+    StaticString<cCertPEMLen>         buff;
+    StaticArray<x509::Certificate, 1> certs;
+
+    ASSERT_TRUE(fs::ReadFileToString(TEST_CERTIFICATES_DIR "/ca.cer", buff).IsNone());
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(buff, certs).IsNone());
+    ASSERT_EQ(certs.Size(), 1u);
+
+    const auto& cert = certs[0];
+
+    EXPECT_EQ(cert.mVersion, x509::cX509Version3);
+    EXPECT_TRUE(cert.mIsCA);
+    ASSERT_TRUE(cert.mKeyUsage.HasValue());
+    EXPECT_NE(cert.mKeyUsage.GetValue() & x509::keyusage::cKeyCertSign, 0u);
+    EXPECT_NE(cert.mKeyUsage.GetValue() & x509::keyusage::cCRLSign, 0u);
+    EXPECT_FALSE(cert.mSubjectKeyId.IsEmpty());
+    EXPECT_EQ(cert.mIssuer, cert.mSubject);
+    ASSERT_TRUE(ValidateCACert(cert).IsNone());
+}
+
+TEST_P(CryptoProviderTest, VerifyLeafCert)
+{
+    StaticString<cCertPEMLen>         buff;
+    StaticArray<x509::Certificate, 1> certs;
+
+    ASSERT_TRUE(fs::ReadFileToString(TEST_CERTIFICATES_DIR "/client.cer", buff).IsNone());
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(buff, certs).IsNone());
+    ASSERT_EQ(certs.Size(), 1u);
+
+    const auto& cert = certs[0];
+
+    EXPECT_EQ(cert.mVersion, x509::cX509Version3);
+    EXPECT_FALSE(cert.mIsCA);
+    ASSERT_TRUE(cert.mKeyUsage.HasValue());
+    EXPECT_EQ(cert.mKeyUsage.GetValue() & x509::keyusage::cKeyCertSign, 0u);
+    EXPECT_EQ(cert.mKeyUsage.GetValue() & x509::keyusage::cCRLSign, 0u);
+    EXPECT_FALSE(ValidateCACert(cert).IsNone());
 }
 
 TEST_P(CryptoProviderTest, VerifyCertChain)

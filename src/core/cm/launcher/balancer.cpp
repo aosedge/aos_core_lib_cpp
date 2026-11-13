@@ -62,9 +62,9 @@ Error Balancer::LoadSMDataForActiveInstances()
         return AOS_ERROR_WRAP(err);
     }
 
-    auto loadErr
+    if (auto loadErr
         = mNodeManager->LoadSMDataForActiveInstances(mInstanceManager->GetActiveInstances(), *mImageInfoProvider);
-    if (!loadErr.IsNone()) {
+        !loadErr.IsNone()) {
         return AOS_ERROR_WRAP(loadErr);
     }
 
@@ -101,8 +101,9 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
             continue;
         }
 
-        if (auto err = mImageInfoProvider->GetImageIndex(id.mItemID, info.mVersion, *imageIndex); !err.IsNone()) {
-            LOG_ERR() << "Can't get images" << Log::Field("instance", id) << Log::Field(err);
+        if (auto err = mImageInfoProvider->GetImageIndex(info.mIndexDigest, *imageIndex); !err.IsNone()) {
+            LOG_ERR() << "Can't get images" << Log::Field("instance", id)
+                      << Log::Field("indexDigest", info.mIndexDigest) << Log::Field(err);
 
             mInstanceManager->ScheduleInstance(instance, AOS_ERROR_WRAP(err));
 
@@ -115,7 +116,8 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
             LOG_DBG() << "Try to schedule instance" << Log::Field("instance", id)
                       << Log::Field("manifest", manifest.mDigest);
 
-            if (scheduleErr = ScheduleInstance(instance, manifest); scheduleErr.IsNone()) {
+            scheduleErr = ScheduleInstance(instance, manifest);
+            if (scheduleErr.IsNone()) {
                 LOG_DBG() << "Instance scheduled successfully" << Log::Field("nodeID", info.mNodeID);
 
                 break;
@@ -139,7 +141,7 @@ Error Balancer::ScheduleInstance(SharedPtr<Instance>& instance, const oci::Index
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { instance->ResetConfigs(); });
+    auto releaseConfigs = DeferRelease([&instance]() { instance->ResetConfigs(); });
 
     if (auto err = instance->LoadConfigs(imageDescriptor); !err.IsNone()) {
         return AOS_ERROR_WRAP(Error(err, "can't load instance configs"));
@@ -163,14 +165,16 @@ Error Balancer::ScheduleInstance(SharedPtr<Instance>& instance, const oci::Index
     const auto& node    = nodeRuntime.mFirst;
     const auto& runtime = nodeRuntime.mSecond;
 
-    if (auto err = mInstanceManager->ScheduleInstance(instance, *node, runtime->mRuntimeID); !err.IsNone()) {
+    if (auto err = mInstanceManager->ScheduleInstance(instance, *node, // NOSONAR cpp:S2259 - non-null on success
+            runtime->mRuntimeID);
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(Error(err, "can't schedule instance"));
     }
 
     return ErrorEnum::eNone;
 }
 
-Error Balancer::SelectNodes(Instance& instance, Array<Node*>& nodes)
+Error Balancer::SelectNodes(Instance& instance, Array<Node*>& nodes) const
 {
     FilterNodesByID(instance, nodes);
     if (nodes.IsEmpty()) {
@@ -184,25 +188,26 @@ Error Balancer::SelectNodes(Instance& instance, Array<Node*>& nodes)
 
     FilterNodesByResources(instance, nodes);
     if (nodes.IsEmpty()) {
-        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no nodes with with service resources"));
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no nodes with service resources"));
     }
 
     return ErrorEnum::eNone;
 }
 
-void Balancer::FilterNodesByID(Instance& instance, Array<Node*>& nodes)
+void Balancer::FilterNodesByID(const Instance& instance, Array<Node*>& nodes) const
 {
-    nodes.RemoveIf([&instance](const Node* node) { return !instance.IsNodeIDOk(node->GetInfo().mNodeID); });
+    (void)nodes.RemoveIf([&instance](const Node* node) { return !instance.IsNodeIDOk(node->GetInfo().mNodeID); });
 }
 
-void Balancer::FilterNodesByLabels(Instance& instance, Array<Node*>& nodes)
+void Balancer::FilterNodesByLabels(const Instance& instance, Array<Node*>& nodes) const
 {
-    nodes.RemoveIf([&instance](const Node* node) { return !instance.AreNodeLabelsOk(node->GetConfig().mLabels); });
+    (void)nodes.RemoveIf(
+        [&instance](const Node* node) { return !instance.AreNodeLabelsOk(node->GetConfig().mLabels); });
 }
 
-void Balancer::FilterNodesByResources(Instance& instance, Array<Node*>& nodes)
+void Balancer::FilterNodesByResources(Instance& instance, Array<Node*>& nodes) const
 {
-    nodes.RemoveIf([&instance](const Node* node) { return !instance.AreNodeResourcesOk(*node); });
+    (void)nodes.RemoveIf([&instance](const Node* node) { return !instance.AreNodeResourcesOk(*node); });
 }
 
 RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntime(Instance& instance, const Array<Node*>& nodes)
@@ -238,12 +243,12 @@ RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntime(Instance& 
 
     FilterByNumInstances(*nodeRuntimes);
     if (nodeRuntimes->IsEmpty()) {
-        return {nullptr, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no runtimes with requested RAM"))};
+        return {nullptr, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no runtimes with available instance slots"))};
     }
 
     FilterTopPriorityNodes(*nodeRuntimes);
     if (nodeRuntimes->IsEmpty()) {
-        return {nullptr, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "failed top priority nodes filtering"))};
+        return {nullptr, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "no runtimes after top priority filtering"))};
     }
 
     // Select best node.
@@ -279,7 +284,7 @@ RetWithError<Pair<Node*, const RuntimeInfo*>> Balancer::SelectRuntime(Instance& 
     return {result, ErrorEnum::eNone};
 }
 
-Error Balancer::CreateRuntimes(const Array<Node*>& nodes, NodeRuntimes& runtimes)
+Error Balancer::CreateRuntimes(const Array<Node*>& nodes, NodeRuntimes& runtimes) const
 {
     for (auto node : nodes) {
         if (auto err = runtimes.Emplace(node); !err.IsNone()) {
@@ -296,7 +301,7 @@ Error Balancer::CreateRuntimes(const Array<Node*>& nodes, NodeRuntimes& runtimes
 
         // Remove node with no runtimes
         if (nodeRuntimes.IsEmpty()) {
-            runtimes.Remove(node);
+            (void)runtimes.Remove(node);
         }
     }
 
@@ -304,7 +309,7 @@ Error Balancer::CreateRuntimes(const Array<Node*>& nodes, NodeRuntimes& runtimes
 }
 
 template <typename Filter>
-void Balancer::FilterRuntimes(NodeRuntimes& runtimes, Filter& filter)
+void Balancer::FilterRuntimes(NodeRuntimes& runtimes, Filter& filter) const
 {
     for (auto it = runtimes.begin(); it != runtimes.end();) {
         auto& node         = it->mFirst;
@@ -326,9 +331,9 @@ void Balancer::FilterRuntimes(NodeRuntimes& runtimes, Filter& filter)
     }
 }
 
-void Balancer::FilterByRuntimeType(Instance& instance, NodeRuntimes& runtimes)
+void Balancer::FilterByRuntimeType(const Instance& instance, NodeRuntimes& runtimes) const
 {
-    auto filter = [&instance](Node* node, const RuntimeInfo* runtime) {
+    auto filter = [&instance](const Node* node, const RuntimeInfo* runtime) {
         (void)node;
 
         return instance.IsRuntimeTypeOk(runtime->mRuntimeType, runtime->mRuntimeID);
@@ -337,9 +342,9 @@ void Balancer::FilterByRuntimeType(Instance& instance, NodeRuntimes& runtimes)
     FilterRuntimes(runtimes, filter);
 }
 
-void Balancer::FilterByPlatform(Instance& instance, NodeRuntimes& runtimes)
+void Balancer::FilterByPlatform(const Instance& instance, NodeRuntimes& runtimes) const
 {
-    auto filter = [&instance](Node* node, const RuntimeInfo* runtime) {
+    auto filter = [&instance](const Node* node, const RuntimeInfo* runtime) {
         (void)node;
 
         return instance.IsPlatformOk(*runtime);
@@ -348,7 +353,7 @@ void Balancer::FilterByPlatform(Instance& instance, NodeRuntimes& runtimes)
     FilterRuntimes(runtimes, filter);
 }
 
-void Balancer::FilterByCPU(Instance& instance, NodeRuntimes& nodes)
+void Balancer::FilterByCPU(Instance& instance, NodeRuntimes& nodes) const
 {
     auto filter = [&instance](Node* node, const RuntimeInfo* runtime) {
         auto availCPU = node->GetAvailableCPU(runtime->mRuntimeID);
@@ -359,7 +364,7 @@ void Balancer::FilterByCPU(Instance& instance, NodeRuntimes& nodes)
     FilterRuntimes(nodes, filter);
 }
 
-void Balancer::FilterByRAM(Instance& instance, NodeRuntimes& nodes)
+void Balancer::FilterByRAM(Instance& instance, NodeRuntimes& nodes) const
 {
     auto filter = [&instance](Node* node, const RuntimeInfo* runtime) {
         auto availRAM = node->GetAvailableRAM(runtime->mRuntimeID);
@@ -370,7 +375,7 @@ void Balancer::FilterByRAM(Instance& instance, NodeRuntimes& nodes)
     FilterRuntimes(nodes, filter);
 }
 
-void Balancer::FilterByNumInstances(NodeRuntimes& nodes)
+void Balancer::FilterByNumInstances(NodeRuntimes& nodes) const
 {
     auto filter
         = [](Node* node, const RuntimeInfo* runtime) { return !node->IsMaxNumInstancesReached(runtime->mRuntimeID); };
@@ -378,7 +383,7 @@ void Balancer::FilterByNumInstances(NodeRuntimes& nodes)
     FilterRuntimes(nodes, filter);
 }
 
-void Balancer::FilterTopPriorityNodes(NodeRuntimes& nodes)
+void Balancer::FilterTopPriorityNodes(NodeRuntimes& nodes) const
 {
     if (nodes.IsEmpty()) {
         return;
@@ -392,7 +397,7 @@ void Balancer::FilterTopPriorityNodes(NodeRuntimes& nodes)
 
     auto topPriority = topPriorityNode->mFirst->GetConfig().mPriority;
 
-    nodes.RemoveIf(
+    (void)nodes.RemoveIf(
         [topPriority](const NodeRuntimes& item) { return item.mFirst->GetConfig().mPriority != topPriority; });
 }
 
@@ -409,16 +414,16 @@ Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
         const auto& version = info.mVersion;
 
         // Check for running instance
-        bool isInstanceRunning
+        if (bool isInstanceRunning
             = !info.mManifestDigest.IsEmpty() && !info.mNodeID.IsEmpty() && !info.mRuntimeID.IsEmpty();
-        if (!isInstanceRunning) {
+            !isInstanceRunning) {
             continue;
         }
 
         // Load image descriptor
-        if (auto err = mImageInfoProvider->GetImageIndex(id.mItemID, version, *imageIndex); !err.IsNone()) {
+        if (auto err = mImageInfoProvider->GetImageIndex(info.mIndexDigest, *imageIndex); !err.IsNone()) {
             LOG_ERR() << "Can't get image index" << Log::Field("instance", id) << Log::Field("version", version)
-                      << Log::Field(err);
+                      << Log::Field("indexDigest", info.mIndexDigest) << Log::Field(err);
 
             continue;
         }
@@ -437,7 +442,7 @@ Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
         }
 
         // Load configs
-        auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { instance->ResetConfigs(); });
+        auto releaseConfigs = DeferRelease([&instance]() { instance->ResetConfigs(); });
 
         if (auto err = instance->LoadConfigs(*imageDescriptor); !err.IsNone()) {
             LOG_ERR() << "Can't load configs" << Log::Field("instance", id) << Log::Field(err);
@@ -480,6 +485,12 @@ Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
 Error Balancer::UpdateMonitoringData(bool isInitialUpdate)
 {
     for (auto& node : mNodeManager->GetNodes()) {
+        // Only connected provisioned nodes participate in scheduling. Nevertheless, paused nodes must still remain in
+        // mNodes so stop instance requests can be sent to them. Still, GetAverageMonitoring can fail, so skip
+        // monitoring data request for non-provisioned or disconnected nodes.
+        if (!node.IsConnected() || node.GetInfo().mState != NodeStateEnum::eProvisioned) {
+            continue;
+        }
         const auto& nodeID = node.GetInfo().mNodeID;
 
         auto nodeMonitoring = MakeUnique<monitoring::NodeMonitoringData>(mAllocator);

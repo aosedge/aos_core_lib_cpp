@@ -18,14 +18,4 @@
  */
 #define AOS_CONFIG_FILE_PATH_LEN 512
 
-/**
- * Monitoring poll period.
- */
-#define AOS_CONFIG_MONITORING_POLL_PERIOD_SEC 1
-
-/**
- * Monitoring average window.
- */
-#define AOS_CONFIG_MONITORING_AVERAGE_WINDOW_SEC 3
-
 #endif

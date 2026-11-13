@@ -9,6 +9,7 @@
 #define AOS_CORE_COMMON_TOOLS_UTILS_HPP_
 
 #include <cstddef>
+#include <cstdint>
 
 namespace aos {
 
@@ -28,10 +29,98 @@ constexpr size_t ArraySize(T (&)[cSize])
  * @param align alignment.
  * @return constexpr size_t aligned size.
  */
-constexpr size_t AlignedSize(size_t size, size_t align = sizeof(int))
+constexpr size_t AlignedSize(size_t size, size_t align = sizeof(int32_t))
 {
     return (size + align - 1) / align * align;
 };
+
+/**
+ * Remove reference template.
+ *
+ * @tparam T reference type.
+ */
+template <typename T>
+struct RemoveRef {
+    using type = T;
+};
+
+/**
+ * Remove reference template.
+ *
+ * @tparam T reference type.
+ */
+template <typename T>
+struct RemoveRef<T&> {
+    using type = T;
+};
+
+/**
+ * Remove reference template.
+ *
+ * @tparam T reference type.
+ */
+template <typename T>
+struct RemoveRef<T&&> {
+    using type = T;
+};
+
+/**
+ * Remove const template.
+ *
+ * @tparam T const type.
+ */
+template <typename T>
+struct RemoveConst {
+    using type = T;
+};
+
+/**
+ * Remove const template.
+ *
+ * @tparam T const type.
+ */
+template <typename T>
+struct RemoveConst<const T> {
+    using type = T;
+};
+
+template <class T>
+using RemoveConstType = typename RemoveConst<T>::type;
+
+/**
+ * Move template.
+ *
+ * @tparam T object to move.
+ */
+template <typename T>
+inline typename RemoveRef<T>::type&& Move(T&& object)
+{
+    return static_cast<typename RemoveRef<T>::type&&>(object); // NOSONAR cpp:M23_279
+}
+
+/**
+ * Forward template. Preserves the value category of a forwarding reference argument when
+ * passing it on to another function.
+ *
+ * @tparam T object to forward.
+ */
+template <typename T>
+inline T&& Forward(typename RemoveRef<T>::type& object) // NOSONAR cpp:M23_280
+{
+    return static_cast<T&&>(object);
+}
+
+/**
+ * Forward template. Preserves the value category of a forwarding reference argument when
+ * passing it on to another function.
+ *
+ * @tparam T object to forward.
+ */
+template <typename T>
+inline T&& Forward(typename RemoveRef<T>::type&& object)
+{
+    return static_cast<T&&>(object);
+}
 
 /**
  * Implements struct of pair fields.
@@ -66,17 +155,20 @@ struct Pair {
      * @param @args arguments to create a second parameter.
      */
     template <typename... Args>
-    Pair(const F& f, Args&&... args)
+    Pair(const F& f, Args&&... args) // NOSONAR cpp:S1709
         : mFirst(f)
-        , mSecond(args...)
+        , mSecond(Forward<Args>(args)...) // NOSONAR cpp:M23_279
     {
     }
 
     /**
      * Comparison operators.
      */
-    bool operator==(const Pair<F, S>& other) const { return mFirst == other.mFirst && mSecond == other.mSecond; }
-    bool operator!=(const Pair<F, S>& other) const { return !(*this == other); }
+    friend bool operator==(const Pair& lhs, const Pair<F, S>& other)
+    {
+        return lhs.mFirst == other.mFirst && lhs.mSecond == other.mSecond;
+    };
+    friend bool operator!=(const Pair& lhs, const Pair<F, S>& other) { return !(lhs == other); };
 
     /**
      * Pair first value.
@@ -126,70 +218,6 @@ constexpr T Max(T value, Args... args)
 }
 
 /**
- * Remove reference template.
- *
- * @tparam T reference type.
- */
-template <typename T>
-struct RemoveRef {
-    typedef T type;
-};
-
-/**
- * Remove reference template.
- *
- * @tparam T reference type.
- */
-template <typename T>
-struct RemoveRef<T&> {
-    typedef T type;
-};
-
-/**
- * Remove reference template.
- *
- * @tparam T reference type.
- */
-template <typename T>
-struct RemoveRef<T&&> {
-    typedef T type;
-};
-
-/**
- * Remove const template.
- *
- * @tparam T const type.
- */
-template <typename T>
-struct RemoveConst {
-    typedef T type;
-};
-
-/**
- * Remove const template.
- *
- * @tparam T const type.
- */
-template <typename T>
-struct RemoveConst<const T> {
-    typedef T type;
-};
-
-template <class T>
-using RemoveConstType = typename RemoveConst<T>::type;
-
-/**
- * Move template.
- *
- * @tparam T object to move.
- */
-template <typename T>
-inline typename RemoveRef<T>::type&& Move(T&& object)
-{
-    return static_cast<typename RemoveRef<T>::type&&>(object);
-}
-
-/**
  * Forward conditional template.
  *
  * @tparam B condition.
@@ -198,7 +226,7 @@ inline typename RemoveRef<T>::type&& Move(T&& object)
  */
 template <bool B, typename T, typename F>
 struct ConditionalStruct {
-    typedef T type;
+    using type = T;
 };
 
 /**
@@ -209,7 +237,7 @@ struct ConditionalStruct {
  */
 template <typename T, typename F>
 struct ConditionalStruct<false, T, F> {
-    typedef F type;
+    using type = F;
 };
 
 /**
@@ -238,7 +266,7 @@ struct EnableStruct { };
  */
 template <typename T>
 struct EnableStruct<true, T> {
-    typedef T type;
+    using type = T;
 };
 
 /**
@@ -259,14 +287,14 @@ using EnableIf = typename EnableStruct<B, T>::type;
 template <typename B, typename D>
 struct IsBaseOf {
 private:
-    typedef char Yes[1];
-    typedef char No[2];
+    using Yes = char[1];
+    using No  = char[2];
 
     static Yes& Test(B*);
     static No&  Test(...);
 
 public:
-    static const bool value = sizeof(Test(static_cast<D*>(0))) == sizeof(Yes);
+    static const bool value = sizeof(Test(static_cast<D*>(nullptr))) == sizeof(Yes);
 };
 
 /**
@@ -275,12 +303,15 @@ public:
  * @tparam T type.
  * @tparam v value.
  */
-template <typename T, T v>
+template <typename T, auto v>
 struct IntegralConstant {
     static constexpr T value = v;
     using ValueType          = T;
     using Type               = IntegralConstant;
-    constexpr operator ValueType() const noexcept { return value; }
+    constexpr operator ValueType() const noexcept // NOSONAR cpp:S1709
+    {
+        return value;
+    }
 };
 
 /**

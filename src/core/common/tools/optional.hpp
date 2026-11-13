@@ -35,14 +35,17 @@ public:
      *
      * @param value.
      */
-    Optional(const T& value) { SetValue(value); }
+    Optional(const T& value) // NOSONAR cpp:S1709
+    {
+        SetValue(value);
+    }
 
     /**
      * Copy constructor.
      *
      * @param other.
      */
-    Optional(const Optional& other) { *this = other; }
+    Optional(const Optional& other) noexcept { *this = other; }
 
     /**
      * Copy operator.
@@ -50,7 +53,7 @@ public:
      * @param other.
      * @return Optional.
      */
-    Optional& operator=(const Optional& other)
+    Optional& operator=(const Optional& other) noexcept
     {
         if (other.HasValue()) {
             SetValue(other.GetValue());
@@ -76,7 +79,7 @@ public:
     {
         assert(HasValue());
         // cppcheck-suppress invalidPointerCast
-        return *reinterpret_cast<T*>(mBuffer);
+        return *reinterpret_cast<T*>(mBuffer); // NOSONAR cpp:S3630
     }
 
     /**
@@ -88,7 +91,7 @@ public:
     {
         assert(HasValue());
         // cppcheck-suppress invalidPointerCast
-        return *reinterpret_cast<const T*>(mBuffer);
+        return *reinterpret_cast<const T*>(mBuffer); // NOSONAR cpp:S3630
     }
 
     /**
@@ -101,9 +104,9 @@ public:
     {
         if (HasValue()) {
             // cppcheck-suppress invalidPointerCast
-            *reinterpret_cast<T*>(mBuffer) = value;
+            *reinterpret_cast<T*>(mBuffer) = value; // NOSONAR cpp:S3630
         } else {
-            ::new (static_cast<void*>(mBuffer)) T(value);
+            ::new (static_cast<void*>(mBuffer)) T(value); // NOSONAR cpp:M23_329
             mHasValue = true;
         }
     }
@@ -117,10 +120,10 @@ public:
     void EmplaceValue(Args... args)
     {
         if (HasValue()) {
-            GetValue().~T();
+            GetValue().~T(); // NOSONAR cpp:M23_329
         }
 
-        ::new (static_cast<void*>(mBuffer)) T(args...);
+        ::new (static_cast<void*>(mBuffer)) T(args...); // NOSONAR cpp:M23_329
         mHasValue = true;
     }
 
@@ -130,7 +133,7 @@ public:
     void Reset()
     {
         if (HasValue()) {
-            GetValue().~T();
+            GetValue().~T(); // NOSONAR cpp:M23_329
         }
 
         mHasValue = false;
@@ -142,18 +145,18 @@ public:
      * @param other instance to compare with.
      * @return bool.
      */
-    bool operator==(const Optional& other) const
+    friend bool operator==(const Optional& lhs, const Optional& other)
     {
-        if (!HasValue() && !other.HasValue()) {
+        if (!lhs.HasValue() && !other.HasValue()) {
             return true;
         }
 
-        if (HasValue() != other.HasValue()) {
+        if (lhs.HasValue() != other.HasValue()) {
             return false;
         }
 
-        return GetValue() == other.GetValue();
-    }
+        return lhs.GetValue() == other.GetValue();
+    };
 
     /**
      * Compares optional instances.
@@ -161,7 +164,7 @@ public:
      * @param other instance to compare with.
      * @return bool.
      */
-    bool operator!=(const Optional& other) const { return !operator==(other); }
+    friend bool operator!=(const Optional& lhs, const Optional& other) { return !(lhs == other); };
 
     /**
      * Returns pointer to contained value.

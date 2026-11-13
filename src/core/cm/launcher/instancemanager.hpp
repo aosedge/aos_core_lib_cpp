@@ -7,9 +7,8 @@
 #ifndef AOS_CORE_CM_LAUNCHER_INSTANCEMANAGER_HPP_
 #define AOS_CORE_CM_LAUNCHER_INSTANCEMANAGER_HPP_
 
-#include <core/cm/imagemanager/itf/blobinfoprovider.hpp>
-#include <core/cm/imagemanager/itf/iteminfoprovider.hpp>
 #include <core/cm/storagestate/storagestate.hpp>
+#include <core/common/imagemanager/itf/iteminfoprovider.hpp>
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/monitoring/itf/monitoringdata.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
@@ -36,16 +35,18 @@ public:
      *
      * @param allocator allocator to use for temporary objects.
      * @param config Configuration object.
-     * @param imageInfoProvider Interface for retrieving service information from images.
+     * @param itemInfoProvider Interface for retrieving local blob paths.
      * @param storageState Interface for managing storage and state partitions.
+     * @param ociSpec OCI spec interface.
      * @param gidValidator GID validator.
      * @param uidValidator UID validator.
      * @param storage Interface to persistent storage.
      * @return Error.
      */
-    Error Init(AllocatorItf& allocator, const Config& config, imagemanager::ItemInfoProviderItf& itemInfoProvider,
-        storagestate::StorageStateItf& storageState, oci::OCISpecItf& ociSpec, IdentifierPoolValidator gidValidator,
-        IdentifierPoolValidator uidValidator, StorageItf& storage);
+    Error Init(AllocatorItf& allocator, const Config& config,
+        common::imagemanager::ItemInfoProviderItf& itemInfoProvider, storagestate::StorageStateItf& storageState,
+        oci::OCISpecItf& ociSpec, IdentifierPoolValidator gidValidator, IdentifierPoolValidator uidValidator,
+        StorageItf& storage);
 
     /**
      * Starts the instance manager.
@@ -188,7 +189,7 @@ public:
      *
      * @param instance instance.
      */
-    void DisableInstance(SharedPtr<Instance>& instance);
+    void DisableInstance(const SharedPtr<Instance>& instance);
 
     /**
      * Updates monitoring data for active instances.
@@ -210,7 +211,7 @@ public:
      * @param instance instance.
      * @return bool.
      */
-    bool IsSubjectEnabled(const Instance& instance);
+    bool IsSubjectEnabled(const Instance& instance) const;
 
     /**
      * Checks if instance is scheduled.
@@ -245,21 +246,31 @@ public:
      *
      * @param instance instance.
      * @param error error.
-     * @return Error.
      */
-    Error ScheduleInstance(SharedPtr<Instance>& instance, const Error& error);
+    void ScheduleInstance(SharedPtr<Instance>& instance, const Error& error);
 
 private:
     static constexpr auto cRemovePeriod = Time::cDay;
 
     Error SetStatus(const InstanceStatus& status);
-    Error SetStatus(Array<InstanceStatus>& statuses, const InstanceStatus& status);
+    Error SetStatus(Array<InstanceStatus>& statuses, const InstanceStatus& status) const;
+
+    /**
+     * Applies node instance status to the instance if the instance is scheduled on the status node and runtime.
+     * Otherwise the status confirms the instance stop on a node the instance left, or the stop of an instance which
+     * failed scheduling, and the instance keeps its own status.
+     *
+     * @param instance instance.
+     * @param status node instance status.
+     * @return Error.
+     */
+    Error ApplyNodeStatus(Instance& instance, const InstanceStatus& status) const;
 
     Error LoadInstancesFromStorage();
     Error LoadInstanceFromStorage(const InstanceInfo& info);
     Error LoadInstanceStatuses();
 
-    Error SetExpiredStatus();
+    Error SetExpiredStatus() const;
     Error RemoveOutdatedInstances();
     Error ClearInstancesWithDeletedImages();
     template <typename Predicate>
@@ -272,17 +283,18 @@ private:
     SharedPtr<Instance> FindReadyInstance(const InstanceIdent& id, const String& version);
     SharedPtr<Instance> FindReadyInstance(const String& itemID, const String& subjectID, const String& nodeID,
         const String& runtimeID, const String& version);
-    uint64_t            FindIndexForNewInstance(const String& itemID, const String& subjectID, const String& version);
+    uint64_t FindIndexForNewInstance(const String& itemID, const String& subjectID, const String& version) const;
 
     UniquePtr<InstanceInfo> CreateInfo(
         const InstanceIdent& id, const String& nodeID, const String& runtimeID, const RunInstanceRequest& request);
+    Error UpdateIndexDigest(Instance& instance, const String& indexDigest);
 
     SharedPtr<Instance> FindInstance(
         const Array<SharedPtr<Instance>>& instances, const InstanceIdent& id, const String& version);
     SharedPtr<Instance> FindInstance(const Array<SharedPtr<Instance>>& instances, const String& itemID,
         const String& subjectID, const String& nodeID, const String& runtimeID, const String& version);
     uint64_t            FindIndexForNewInstance(const Array<SharedPtr<Instance>>& instances, const String& itemID,
-                   const String& subjectID, const String& version);
+                   const String& subjectID, const String& version) const;
 
     SharedPtr<Instance> FindActiveInstanceByRuntime(const InstanceIdent& id, const String& runtimeID);
 

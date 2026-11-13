@@ -95,13 +95,13 @@ public:
 private:
     void SetNodeInfo(UnitNodeInfo& info) const;
     void SetSMInfo(UnitNodeInfo& info) const;
+    void ResetSMInfo();
 
     Duration             mWaitTimeout;
     StaticString<cIDLen> mNodeID;
     Optional<NodeInfo>   mNodeInfo;
     Optional<SMInfo>     mSMInfo;
     Time                 mLastUpdate {Time::Now()};
-    bool                 mSMReceived {};
     bool                 mHasSMComponent {true};
 };
 

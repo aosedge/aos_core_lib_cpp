@@ -17,8 +17,7 @@ namespace aos::cm::launcher {
 template <typename Predicate>
 Error InstanceManager::RemoveInstances(Array<SharedPtr<Instance>>& instances, Predicate predicate) const
 {
-    Error firstErr = ErrorEnum::eNone;
-
+    Error firstErr;
     for (auto instance = instances.begin(); instance != instances.end();) {
         if (predicate(*instance)) {
             if (auto err = (*instance)->Remove(); !err.IsNone() && firstErr.IsNone()) {
@@ -39,7 +38,7 @@ Error InstanceManager::RemoveInstances(Array<SharedPtr<Instance>>& instances, Pr
  **********************************************************************************************************************/
 
 Error InstanceManager::Init(AllocatorItf& allocator, const Config& config,
-    imagemanager::ItemInfoProviderItf& itemInfoProvider, storagestate::StorageStateItf& storageState,
+    common::imagemanager::ItemInfoProviderItf& itemInfoProvider, storagestate::StorageStateItf& storageState,
     oci::OCISpecItf& ociSpec, IdentifierPoolValidator gidValidator, IdentifierPoolValidator uidValidator,
     StorageItf& storage)
 {
@@ -95,7 +94,7 @@ Error InstanceManager::Start()
         return AOS_ERROR_WRAP(err);
     }
 
-    auto onInitTimerExpired = [this](void*) { SetExpiredStatus(); };
+    auto onInitTimerExpired = [this](void*) { (void)SetExpiredStatus(); };
 
     if (auto err = mInitTimer.Start(mConfig.mNodesConnectionTimeout, onInitTimerExpired); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -173,8 +172,7 @@ Array<InstanceStatus>& InstanceManager::GetRunningInstances()
 
 Error InstanceManager::UpdateStatus(const InstanceStatus& status)
 {
-    Error firstErr = ErrorEnum::eNone;
-
+    Error firstErr;
     auto& statuses = status.mPreinstalled ? mPreinstalledComponents : mRunningInstances;
 
     auto existing = statuses.FindIf([&status](const InstanceStatus& item) {
@@ -193,7 +191,7 @@ Error InstanceManager::UpdateStatus(const InstanceStatus& status)
     if (!status.mPreinstalled) {
         auto instance = FindActiveInstance(static_cast<const InstanceIdent&>(status), status.mVersion);
         if (instance) {
-            if (auto err = instance->UpdateStatus(status); !err.IsNone()) {
+            if (auto err = ApplyNodeStatus(*instance, status); !err.IsNone()) {
                 firstErr = err;
             }
         } else {
@@ -216,6 +214,10 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const RunInsta
 {
     auto id = InstanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, index, request.mUpdateItemType};
     if (auto instance = FindReadyInstance(id, request.mVersion); instance) {
+        if (auto err = UpdateIndexDigest(*instance, request.mIndexDigest); !err.IsNone()) {
+            return {nullptr, err};
+        }
+
         return {instance, ErrorEnum::eNone};
     }
 
@@ -234,9 +236,13 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const RunInsta
 RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const RunInstanceRequest& request,
     const String& nodeID, const String& runtimeID, const Array<SharedPtr<Instance>>& newInstances)
 {
-    auto instance
+    if (auto instance
         = FindReadyInstance(request.mItemID, request.mSubjectInfo.mSubjectID, nodeID, runtimeID, request.mVersion);
-    if (instance) {
+        instance) {
+        if (auto err = UpdateIndexDigest(*instance, request.mIndexDigest); !err.IsNone()) {
+            return {nullptr, err};
+        }
+
         return {instance, ErrorEnum::eNone};
     }
 
@@ -274,8 +280,7 @@ Error InstanceManager::RemoveGeneratedInstances(const RunInstanceRequest& reques
 
     auto firstErr = RemoveInstances(mActiveInstances, matchRequest);
 
-    auto cachedErr = RemoveInstances(mCachedInstances, matchRequest);
-    if (firstErr.IsNone() && !cachedErr.IsNone()) {
+    if (auto cachedErr = RemoveInstances(mCachedInstances, matchRequest); firstErr.IsNone() && !cachedErr.IsNone()) {
         firstErr = cachedErr;
     }
 
@@ -284,7 +289,7 @@ Error InstanceManager::RemoveGeneratedInstances(const RunInstanceRequest& reques
 
 Error InstanceManager::SubmitScheduledInstances()
 {
-    for (auto& instance : mActiveInstances) {
+    for (const auto& instance : mActiveInstances) {
         auto isStashed = mScheduledInstances.ContainsIf(
             [&instance](const SharedPtr<Instance>& item) { return instance.Get() == item.Get(); });
 
@@ -296,12 +301,12 @@ Error InstanceManager::SubmitScheduledInstances()
                 LOG_ERR() << "Cache instance failed" << Log::Field("instanceID", id) << AOS_ERROR_WRAP(err);
             }
 
-            mCachedInstances.PushBack(instance);
+            (void)mCachedInstances.PushBack(instance);
         }
     }
 
     mActiveInstances = mScheduledInstances;
-    mCachedInstances.RemoveIf([this](const SharedPtr<Instance>& instance) {
+    (void)mCachedInstances.RemoveIf([this](const SharedPtr<Instance>& instance) {
         return mActiveInstances.ContainsIf(
             [instance](const SharedPtr<Instance>& item) { return instance.Get() == item.Get(); });
     });
@@ -313,7 +318,7 @@ Error InstanceManager::SubmitScheduledInstances()
     return ErrorEnum::eNone;
 }
 
-void InstanceManager::DisableInstance(SharedPtr<Instance>& instance)
+void InstanceManager::DisableInstance(const SharedPtr<Instance>& instance)
 {
     if (auto err = instance->Cache(true); !err.IsNone()) {
         const auto& id = instance->GetInfo().mInstanceIdent;
@@ -321,10 +326,10 @@ void InstanceManager::DisableInstance(SharedPtr<Instance>& instance)
         LOG_ERR() << "Disable instance failed" << Log::Field("instanceID", id) << AOS_ERROR_WRAP(err);
     }
 
-    mCachedInstances.PushBack(instance);
+    (void)mCachedInstances.PushBack(instance);
 
-    mScheduledInstances.Remove(instance);
-    mActiveInstances.Remove(instance);
+    (void)mScheduledInstances.Remove(instance);
+    (void)mActiveInstances.Remove(instance);
 
     ClearCacheIfLimitReached();
 }
@@ -333,15 +338,14 @@ void InstanceManager::ClearCacheIfLimitReached()
 {
     // Cache shares the allocator budget with active/scheduled instances. Drop the whole cache once the
     // allowed number of instances is reached.
-    if (mScheduledInstances.Size() + mActiveInstances.Size() + mCachedInstances.Size() < 2 * cMaxNumInstances - 1) {
-        // Storage can hold at most cMaxNumInstances instances (active + cached are persisted), so keep their
-        // total within that limit and drop the cache once it is reached.
-        if (mActiveInstances.Size() + mCachedInstances.Size() <= cMaxNumInstances) {
-            return;
-        }
+    // Storage can hold at most cMaxNumInstances instances (active + cached are persisted), so keep their
+    // total within that limit and drop the cache once it is reached.
+    if (mScheduledInstances.Size() + mActiveInstances.Size() + mCachedInstances.Size() < 2 * cMaxNumInstances - 1
+        && mActiveInstances.Size() + mCachedInstances.Size() <= cMaxNumInstances) {
+        return;
     }
 
-    for (auto& instance : mCachedInstances) {
+    for (const auto& instance : mCachedInstances) {
         if (auto err = instance->Remove(); !err.IsNone()) {
             LOG_ERR() << "Remove cached instance failed" << Log::Field("instanceID", instance->GetInfo().mInstanceIdent)
                       << AOS_ERROR_WRAP(err);
@@ -398,14 +402,13 @@ void InstanceManager::UpdateMonitoringData(const Array<monitoring::InstanceMonit
  * Private
  **********************************************************************************************************************/
 
-Error InstanceManager::SetStatus(Array<InstanceStatus>& statuses, const InstanceStatus& status)
+Error InstanceManager::SetStatus(Array<InstanceStatus>& statuses, const InstanceStatus& status) const
 {
-    auto existing = statuses.FindIf([&status](const InstanceStatus& item) {
-        return static_cast<const InstanceIdent&>(item) == static_cast<const InstanceIdent&>(status)
-            && item.mVersion == status.mVersion;
-    });
-
-    if (existing != statuses.end()) {
+    if (auto existing = statuses.FindIf([&status](const InstanceStatus& item) {
+            return static_cast<const InstanceIdent&>(item) == static_cast<const InstanceIdent&>(status)
+                && item.mVersion == status.mVersion;
+        });
+        existing != statuses.end()) {
         *existing = status;
 
         return ErrorEnum::eNone;
@@ -477,7 +480,7 @@ Error InstanceManager::LoadInstanceFromStorage(const InstanceInfo& info)
 
 Error InstanceManager::LoadInstanceStatuses()
 {
-    for (auto& instance : mActiveInstances) {
+    for (const auto& instance : mActiveInstances) {
         if (!instance->GetInfo().mNodeID.IsEmpty()) {
             if (auto err = mRunningInstances.EmplaceBack(instance->GetStatus()); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
@@ -488,7 +491,7 @@ Error InstanceManager::LoadInstanceStatuses()
     return ErrorEnum::eNone;
 }
 
-Error InstanceManager::SetExpiredStatus()
+Error InstanceManager::SetExpiredStatus() const
 {
     for (auto& instance : mActiveInstances) {
         if (instance->GetStatus().mState == aos::InstanceStateEnum::eActivating) {
@@ -501,8 +504,8 @@ Error InstanceManager::SetExpiredStatus()
 
 Error InstanceManager::RemoveOutdatedInstances()
 {
-    Error firstErr = ErrorEnum::eNone;
-    auto  now      = Time::Now();
+    Error firstErr;
+    auto  now = Time::Now();
 
     for (auto instance = mCachedInstances.begin(); instance != mCachedInstances.end();) {
         if (now.Sub((*instance)->GetInfo().mTimestamp) >= mConfig.mInstanceTTL) {
@@ -543,9 +546,8 @@ Error InstanceManager::ClearInstancesWithDeletedImages()
         return true;
     };
 
-    Error firstErr  = RemoveInstances(mActiveInstances, activeCmp);
-    Error cachedErr = RemoveInstances(mCachedInstances, cachedCmp);
-    if (firstErr.IsNone() && !cachedErr.IsNone()) {
+    auto firstErr = RemoveInstances(mActiveInstances, activeCmp);
+    if (auto cachedErr = RemoveInstances(mCachedInstances, cachedCmp); firstErr.IsNone() && !cachedErr.IsNone()) {
         firstErr = cachedErr;
     }
 
@@ -609,7 +611,7 @@ RetWithError<bool> InstanceManager::SetSubjects(const Array<StaticString<cIDLen>
     return {false, ErrorEnum::eNone};
 }
 
-bool InstanceManager::IsSubjectEnabled(const Instance& instance)
+bool InstanceManager::IsSubjectEnabled(const Instance& instance) const
 {
     return !instance.GetInfo().mIsUnitSubject || mSubjects.Contains(instance.GetInfo().mInstanceIdent.mSubjectID);
 }
@@ -621,11 +623,11 @@ bool InstanceManager::IsScheduled(const InstanceIdent& id, const String& version
 
 Error InstanceManager::UpdateRunningInstances(const String& nodeID, const Array<InstanceStatus>& statuses)
 {
-    mRunningInstances.RemoveIf([&nodeID](const InstanceStatus& status) { return status.mNodeID == nodeID; });
-    mPreinstalledComponents.RemoveIf([&nodeID](const InstanceStatus& status) { return status.mNodeID == nodeID; });
+    (void)mRunningInstances.RemoveIf([&nodeID](const InstanceStatus& status) { return status.mNodeID == nodeID; });
+    (void)mPreinstalledComponents.RemoveIf(
+        [&nodeID](const InstanceStatus& status) { return status.mNodeID == nodeID; });
 
-    Error firstErr = ErrorEnum::eNone;
-
+    Error firstErr;
     for (const auto& status : statuses) {
         if (auto err = SetStatus(status); !err.IsNone() && firstErr.IsNone()) {
             firstErr = err;
@@ -641,14 +643,13 @@ Error InstanceManager::SetStatus(const InstanceStatus& status)
         return SetStatus(mPreinstalledComponents, status);
     }
 
-    Error firstErr = ErrorEnum::eNone;
+    Error firstErr;
     if (auto err = SetStatus(mRunningInstances, status); !err.IsNone()) {
         firstErr = err;
     }
 
-    auto instance = FindActiveInstance(static_cast<const InstanceIdent&>(status), status.mVersion);
-    if (instance) {
-        if (auto err = instance->UpdateStatus(status); !err.IsNone() && firstErr.IsNone()) {
+    if (auto instance = FindActiveInstance(static_cast<const InstanceIdent&>(status), status.mVersion); instance) {
+        if (auto err = ApplyNodeStatus(*instance, status); !err.IsNone() && firstErr.IsNone()) {
             firstErr = err;
         }
     } else {
@@ -658,6 +659,23 @@ Error InstanceManager::SetStatus(const InstanceStatus& status)
     }
 
     return firstErr;
+}
+
+Error InstanceManager::ApplyNodeStatus(Instance& instance, const InstanceStatus& status) const
+{
+    if (instance.GetInfo().mNodeID != status.mNodeID || instance.GetInfo().mRuntimeID != status.mRuntimeID) {
+        LOG_DBG() << "Skip node status for instance not scheduled on node"
+                  << Log::Field("instance", static_cast<const InstanceIdent&>(status))
+                  << Log::Field("nodeID", status.mNodeID) << Log::Field("runtimeID", status.mRuntimeID);
+
+        return ErrorEnum::eNone;
+    }
+
+    if (auto err = instance.UpdateStatus(status); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error InstanceManager::ScheduleInstance(SharedPtr<Instance>& instance, NodeItf& node, const String& runtimeID)
@@ -673,15 +691,14 @@ Error InstanceManager::ScheduleInstance(SharedPtr<Instance>& instance, NodeItf& 
     return ErrorEnum::eNone;
 }
 
-Error InstanceManager::ScheduleInstance(SharedPtr<Instance>& instance, const Error& error)
+void InstanceManager::ScheduleInstance(SharedPtr<Instance>& instance, const Error& error)
 {
     instance->SetError(error);
 
     if (auto err = mScheduledInstances.EmplaceBack(instance); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        LOG_ERR() << "Can't schedule instance" << Log::Field("instance", instance->GetInfo().mInstanceIdent)
+                  << Log::Field(AOS_ERROR_WRAP(err));
     }
-
-    return ErrorEnum::eNone;
 }
 
 SharedPtr<Instance> InstanceManager::FindReadyInstance(const InstanceIdent& id, const String& version)
@@ -725,7 +742,8 @@ SharedPtr<Instance> InstanceManager::FindReadyInstance(
     return nullptr;
 }
 
-uint64_t InstanceManager::FindIndexForNewInstance(const String& itemID, const String& subjectID, const String& version)
+uint64_t InstanceManager::FindIndexForNewInstance(
+    const String& itemID, const String& subjectID, const String& version) const
 {
     uint64_t schedInstance  = FindIndexForNewInstance(mScheduledInstances, itemID, subjectID, version);
     uint64_t activeInstance = FindIndexForNewInstance(mActiveInstances, itemID, subjectID, version);
@@ -755,6 +773,7 @@ UniquePtr<InstanceInfo> InstanceManager::CreateInfo(
     info->mState              = InstanceStateEnum::eActive;
     info->mIsUnitSubject      = request.mSubjectInfo.mIsUnitSubject;
     info->mVersion            = request.mVersion;
+    info->mIndexDigest        = request.mIndexDigest;
     info->mOwnerID            = request.mOwnerID;
     info->mSubjectType        = request.mSubjectInfo.mSubjectType;
     info->mLabels             = request.mLabels;
@@ -762,6 +781,27 @@ UniquePtr<InstanceInfo> InstanceManager::CreateInfo(
     info->mDisableRebalancing = !nodeID.IsEmpty();
 
     return info;
+}
+
+Error InstanceManager::UpdateIndexDigest(Instance& instance, const String& indexDigest)
+{
+    if (instance.GetInfo().mIndexDigest == indexDigest) {
+        return ErrorEnum::eNone;
+    }
+
+    LOG_DBG() << "Update instance index digest" << Log::Field("instance", instance.GetInfo().mInstanceIdent)
+              << Log::Field("version", instance.GetInfo().mVersion) << Log::Field("indexDigest", indexDigest);
+
+    instance.SetIndexDigest(indexDigest);
+
+    if (auto err = mStorage->UpdateInstance(instance.GetInfo()); !err.IsNone()) {
+        LOG_ERR() << "Can't update instance" << Log::Field("instance", instance.GetInfo().mInstanceIdent)
+                  << Log::Field(err);
+
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 SharedPtr<Instance> InstanceManager::FindInstance(
@@ -788,8 +828,8 @@ SharedPtr<Instance> InstanceManager::FindInstance(const Array<SharedPtr<Instance
     return it != instances.end() ? *it : SharedPtr<Instance>();
 }
 
-uint64_t InstanceManager::FindIndexForNewInstance(
-    const Array<SharedPtr<Instance>>& instances, const String& itemID, const String& subjectID, const String& version)
+uint64_t InstanceManager::FindIndexForNewInstance(const Array<SharedPtr<Instance>>& instances, const String& itemID,
+    const String& subjectID, const String& version) const
 {
     uint64_t newIndex = 0;
 

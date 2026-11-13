@@ -27,7 +27,13 @@ It requires the following interfaces:
 * [aos::sm::launcher::RuntimeItf](itf/runtime.hpp) - launch different kind of items on different runtimes, and
   provides instance monitoring data (implements `aos::monitoring::InstanceMonitoringProviderItf` interface);
 * [aos::sm::launcher::StorageItf](itf/storage.hpp) - persistently store current instances;
-* [aos::sm::launcher::SenderItf](itf/sender.hpp) - sends node and updated instances statuses.
+* [aos::sm::launcher::SenderItf](itf/sender.hpp) - sends node and updated instances statuses;
+* [aos::sm::imagemanager::ImageManagerItf](../imagemanager/itf/imagemanager.hpp) - installs and removes update items,
+  cancels the items being installed when the launcher is stopped;
+* [aos::common::imagemanager::ItemStatusProviderItf](../../common/imagemanager/itf/itemstatusprovider.hpp) - provides
+  the states of the stored update items;
+* [aos::common::imagemanager::ItemInfoProviderItf](../../common/imagemanager/itf/iteminfoprovider.hpp) - provides the
+  local paths of the blobs.
 
 ```mermaid
 classDiagram
@@ -121,49 +127,92 @@ Launcher processes instances in parallel using a thread pool.
 ## Update instances
 
 On update instances request, launcher checks if previous launch is still in progress. If so, it returns
-`eWrongState` error. Otherwise, it stops all running instances, updates storage and local cache to reflect
-new instances, and starts required instances. After all instances updated,
-it sends node instances status using `InstanceStatusSenderItf`.
+`eWrongState` error. Otherwise, it stops the requested instances and removes them from storage and local cache.
+It then removes unused update items and installs required items, once per item ID and version.
+If reading the item statuses fails, launcher logs the error and attempts to install all required items.
+
+An installation failure marks every dependent instance as `eFailed` with the installation error. These instances
+remain in the local cache for status reporting, but are not prepared, persisted, or started. Other items can still
+start normally. On a subsequent request, cached `eFailed` instances are prepared again after successful installation.
+This retry applies to all failed instances, including failures during preparation or runtime startup.
+
+After preparing eligible instances, launcher starts their networks and runtimes and sends node instances statuses.
 
 ```mermaid
 sequenceDiagram
     participant smclient
     participant launcher
+    participant imagemanager
     participant runtimes@{ "type" : "collections" }
     participant storage
 
     smclient ->> launcher: UpdateInstances
     alt Previous launch is in progress
         launcher ->> smclient: eWrongState
-
     else Previous launch completed
-        loop All runtimes
-            loop Stop instances
-                launcher ->> runtimes: StopInstance
-                runtimes -->> launcher: eInactive
-            end
+        loop Stop instances
+            launcher ->> runtimes: StopInstance
+            launcher ->> launcher: Stop instance network
+            launcher ->> storage: RemoveInstanceInfo (ignore eNotFound)
+            launcher ->> launcher: Release network and remove from cache
+        end
 
-            loop Cached instances
-                launcher ->> storage: RemoveInstanceInfo
-                launcher ->> launcher: removeFromCache
-            end
+        launcher ->> imagemanager: Remove unused update items
+        launcher ->> imagemanager: GetItemsStatuses
+        loop Required items not known to be installed
+            launcher ->> imagemanager: InstallItem
+            imagemanager -->> launcher: Installation result
+        end
 
-            loop Start instances
-                launcher ->> launcher: addToCache
-                launcher ->> runtimes: StartInstance
-                
-                runtimes -->> launcher: status
-                alt  eActive or eActivating
+        loop Start instances
+            launcher ->> launcher: Find or add to cache
+            alt Item installation failed
+                launcher ->> launcher: Set eFailed with installation error
+            else Item available
+                opt New or previously failed instance
                     launcher ->> storage: UpdateInstanceInfo
+                    launcher ->> launcher: Prepare configs and network
+                end
+                alt Preparation succeeded
+                    launcher ->> launcher: Start instance network
+                    opt Network startup succeeded
+                        launcher ->> runtimes: StartInstance
+                        runtimes -->> launcher: status
+                    end
+                else Preparation failed
+                    launcher ->> launcher: Set eFailed
                 end
             end
         end
+        launcher ->> smclient: SendNodeInstancesStatuses
     end
-
-    launcher ->> smclient: SendNodeInstancesStatuses
 ```
 
-Launcher processes instances in parallel using a thread pool.
+Launcher processes instances in parallel using a thread pool. Installation, preparation, network startup, and
+runtime startup are separate stages; each stage completes before the next one starts.
+
+## Integrity recovery
+
+Launcher repairs the update items whose content is broken by installing them again with
+`ImageManagerItf::InstallItem`, which validates the item and downloads only the broken blobs. An item is repaired at
+most once per request:
+
+* after the instances of a request are prepared, launcher installs again once each item that has an instance whose
+  item configs failed to read with `eIntegrity`. Then it prepares again the failed instances of the repaired items;
+* after the instances of a request are started, launcher installs again once each item that has an instance failed to
+  start with `eIntegrity`, unless the item was already repaired at the prepare stage. Then it starts again the failed
+  instances of the repaired items.
+
+The instances of an item which can't be repaired stay failed with the repair error, and an instance which fails the
+second prepare or start stays failed with the error of this attempt.
+
+The repair needs the CM, which may be not connected on module start, so the stored instances are read and started
+without the repair. The first request handles the broken content: it prepares and starts again the instances failed
+with `eIntegrity`, and prepares again the running instances whose item configs failed to read on module start.
+
+Any other error doesn't trigger the repair. The new or failed instances of an item whose installation failed aren't
+started, so they aren't repaired either: they stay failed with the installation error until the next request. A
+running instance of such an item keeps running.
 
 ## aos::sm::launcher::InstanceStatusReceiverItf
 

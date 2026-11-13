@@ -32,10 +32,11 @@ struct UnitNodeInfo : public NodeInfo {
      * @param rhs unit node info to compare with.
      * @return bool.
      */
-    bool operator==(const UnitNodeInfo& rhs) const
+    friend bool operator==(const UnitNodeInfo& lhs, const UnitNodeInfo& rhs)
     {
-        return NodeInfo::operator==(rhs) && mResources == rhs.mResources && mRuntimes == rhs.mRuntimes;
-    }
+        return (static_cast<const NodeInfo&>(lhs) == rhs) && lhs.mResources == rhs.mResources
+            && lhs.mRuntimes == rhs.mRuntimes;
+    };
 
     /**
      * Compares unit node info.
@@ -43,7 +44,7 @@ struct UnitNodeInfo : public NodeInfo {
      * @param rhs unit node info to compare with.
      * @return bool.
      */
-    bool operator!=(const UnitNodeInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const UnitNodeInfo& lhs, const UnitNodeInfo& rhs) { return !(lhs == rhs); };
 };
 
 using UnitNodeInfoArray = StaticArray<UnitNodeInfo, cMaxNumNodes>;
@@ -65,11 +66,11 @@ struct UpdateItemStatus {
      * @param rhs update item status to compare with.
      * @return bool.
      */
-    bool operator==(const UpdateItemStatus& rhs) const
+    friend bool operator==(const UpdateItemStatus& lhs, const UpdateItemStatus& rhs)
     {
-        return mItemID == rhs.mItemID && mType == rhs.mType && mVersion == rhs.mVersion
-            && mPreinstalled == rhs.mPreinstalled && mState == rhs.mState && mError == rhs.mError;
-    }
+        return lhs.mItemID == rhs.mItemID && lhs.mType == rhs.mType && lhs.mVersion == rhs.mVersion
+            && lhs.mPreinstalled == rhs.mPreinstalled && lhs.mState == rhs.mState && lhs.mError == rhs.mError;
+    };
 
     /**
      * Compares update item status.
@@ -77,7 +78,7 @@ struct UpdateItemStatus {
      * @param rhs update item status to compare with.
      * @return bool.
      */
-    bool operator!=(const UpdateItemStatus& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const UpdateItemStatus& lhs, const UpdateItemStatus& rhs) { return !(lhs == rhs); };
 };
 
 // Multiplying by 2 to account for existing and new versions of update items.
@@ -95,10 +96,10 @@ struct UnitInstanceStatus : public InstanceStatusData {
      * @param rhs instance status to compare with.
      * @return bool.
      */
-    bool operator==(const UnitInstanceStatus& rhs) const
+    friend bool operator==(const UnitInstanceStatus& lhs, const UnitInstanceStatus& rhs)
     {
-        return InstanceStatusData::operator==(rhs) && mInstance == rhs.mInstance;
-    }
+        return (static_cast<const InstanceStatusData&>(lhs) == rhs) && lhs.mInstance == rhs.mInstance;
+    };
 
     /**
      * Compares instance status.
@@ -106,7 +107,7 @@ struct UnitInstanceStatus : public InstanceStatusData {
      * @param rhs instance status to compare with.
      * @return bool.
      */
-    bool operator!=(const UnitInstanceStatus& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const UnitInstanceStatus& lhs, const UnitInstanceStatus& rhs) { return !(lhs == rhs); };
 };
 
 using UnitInstanceStatusArray = StaticArray<UnitInstanceStatus*, cMaxNumInstances>;
@@ -151,21 +152,21 @@ struct UnitInstancesStatuses {
      * @param rhs instances statuses to compare with.
      * @return bool.
      */
-    bool operator==(const UnitInstancesStatuses& rhs) const
+    friend bool operator==(const UnitInstancesStatuses& lhs, const UnitInstancesStatuses& rhs)
     {
-        if (mInstances.Size() != rhs.mInstances.Size()) {
+        if (lhs.mInstances.Size() != rhs.mInstances.Size()) {
             return false;
         }
 
-        for (size_t i = 0; i < mInstances.Size(); i++) {
-            if (*mInstances[i] != *rhs.mInstances[i]) {
+        for (size_t i = 0; i < lhs.mInstances.Size(); i++) {
+            if (*lhs.mInstances[i] != *rhs.mInstances[i]) {
                 return false;
             }
         }
 
-        return mItemID == rhs.mItemID && mType == rhs.mType && mSubjectID == rhs.mSubjectID && mVersion == rhs.mVersion
-            && mPreinstalled == rhs.mPreinstalled;
-    }
+        return lhs.mItemID == rhs.mItemID && lhs.mType == rhs.mType && lhs.mSubjectID == rhs.mSubjectID
+            && lhs.mVersion == rhs.mVersion && lhs.mPreinstalled == rhs.mPreinstalled;
+    };
 
     /**
      * Compares instances statuses.
@@ -173,7 +174,10 @@ struct UnitInstancesStatuses {
      * @param rhs instances statuses to compare with.
      * @return bool.
      */
-    bool operator!=(const UnitInstancesStatuses& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const UnitInstancesStatuses& lhs, const UnitInstancesStatuses& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 using UnitInstancesStatusesArray = StaticArray<UnitInstancesStatuses, cMaxNumUpdateItems>;
@@ -195,12 +199,12 @@ struct UnitStatus : public Protocol {
      * @param rhs unit status to compare with.
      * @return bool.
      */
-    bool operator==(const UnitStatus& rhs) const
+    friend bool operator==(const UnitStatus& lhs, const UnitStatus& rhs)
     {
-        return Protocol::operator==(rhs) && mIsDeltaInfo == rhs.mIsDeltaInfo && mUnitConfig == rhs.mUnitConfig
-            && mNodes == rhs.mNodes && mUpdateItems == rhs.mUpdateItems && mInstances == rhs.mInstances
-            && mUnitSubjects == rhs.mUnitSubjects;
-    }
+        return (static_cast<const Protocol&>(lhs) == rhs) && lhs.mIsDeltaInfo == rhs.mIsDeltaInfo
+            && lhs.mUnitConfig == rhs.mUnitConfig && lhs.mNodes == rhs.mNodes && lhs.mUpdateItems == rhs.mUpdateItems
+            && lhs.mInstances == rhs.mInstances && lhs.mUnitSubjects == rhs.mUnitSubjects;
+    };
 
     /**
      * Compares unit status.
@@ -208,7 +212,7 @@ struct UnitStatus : public Protocol {
      * @param rhs unit status to compare with.
      * @return bool.
      */
-    bool operator!=(const UnitStatus& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const UnitStatus& lhs, const UnitStatus& rhs) { return !(lhs == rhs); };
 };
 
 } // namespace aos

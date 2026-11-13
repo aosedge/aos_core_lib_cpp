@@ -35,7 +35,7 @@ public:
 
 Error Launcher::Init(AllocatorItf& allocator, const Config& config,
     nodeinfoprovider::NodeInfoProviderItf& nodeInfoProvider, InstanceRunnerItf& runner,
-    imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec,
+    common::imagemanager::ItemInfoProviderItf& itemInfoProvider, oci::OCISpecItf& ociSpec,
     unitconfig::NodeConfigProviderItf& nodeConfigProvider, storagestate::StorageStateItf& storageState,
     MonitoringProviderItf& monitorProvider, alerts::AlertsProviderItf& alertsProvider,
     iamclient::IdentProviderItf& identProvider, IdentifierPoolValidator gidValidator,
@@ -67,7 +67,8 @@ Error Launcher::Init(AllocatorItf& allocator, const Config& config,
     mNodeManager.Init(allocator, *mNodeInfoProvider, *mNodeConfigProvider, *mRunner, mOverrideEnvVarsProcessor);
     mBalancer.Init(allocator, mInstanceManager, mImageInfoProvider, mNodeManager, *mMonitorProvider, *mRunner);
 
-    if (err = mOverrideEnvVarsProcessor.Init(config, storage, sender, *this); !err.IsNone()) {
+    err = mOverrideEnvVarsProcessor.Init(config, storage, sender, *this);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -104,7 +105,7 @@ Error Launcher::Start()
 
     StaticArray<AlertTag, 1> alertTags;
 
-    alertTags.PushBack(AlertTagEnum::eSystemQuotaAlert);
+    (void)alertTags.PushBack(AlertTagEnum::eSystemQuotaAlert);
 
     if (auto err = mAlertsProvider->SubscribeListener(alertTags, *this); !err.IsNone()) {
         return err;
@@ -170,8 +171,13 @@ Error Launcher::Stop()
     mNewSubjects.Reset();
     mInstanceStatuses.Clear();
 
-    mProcessUpdatesCondVar.NotifyAll();
-    mAllNodesConnectedCondVar.NotifyAll();
+    if (auto err = mProcessUpdatesCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify process updates" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    if (auto err = mAllNodesConnectedCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify nodes connected" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 
     // Unsubscribe from providers.
     if (auto err = mIdentProvider->UnsubscribeListener(*this); !err.IsNone()) {
@@ -199,7 +205,7 @@ Error Launcher::Stop()
         return AOS_ERROR_WRAP(err);
     }
 
-    updateLock.Unlock();
+    (void)updateLock.Unlock();
 
     if (auto err = mWorkerThread.Join(); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -217,7 +223,9 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
     mDisableProcessUpdates    = true;
     auto enableNodeMonitoring = DeferRelease(this, [](Launcher* self) {
         self->mDisableProcessUpdates = false;
-        self->mProcessUpdatesCondVar.NotifyAll();
+        if (auto err = self->mProcessUpdatesCondVar.NotifyAll(); !err.IsNone()) {
+            LOG_ERR() << "Can't notify process updates" << Log::Field(AOS_ERROR_WRAP(err));
+        }
     });
 
     LOG_INF() << "Run instances" << Log::Field("numRequests", requests.Size());
@@ -225,6 +233,7 @@ Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<In
     for (const auto& request : requests) {
         LOG_INF() << "Run instance request" << Log::Field("itemID", request.mItemID)
                   << Log::Field("type", request.mUpdateItemType) << Log::Field("version", request.mVersion)
+                  << Log::Field("indexDigest", request.mIndexDigest)
                   << Log::Field("numInstances", request.mNumInstances);
     }
 
@@ -383,7 +392,7 @@ void Launcher::UpdateInstanceStatuses()
 
 void Launcher::FailActivatingInstances()
 {
-    for (auto& instance : mInstanceManager.GetActiveInstances()) {
+    for (const auto& instance : mInstanceManager.GetActiveInstances()) {
         if (instance->GetStatus().mState == aos::InstanceStateEnum::eActivating
             && instance->GetStatus().mType != UpdateItemTypeEnum::eComponent) {
             const auto& instanceInfo = instance->GetInfo();
@@ -429,11 +438,15 @@ void Launcher::ProcessUpdate()
         {
             UniqueLock updateLock {mUpdateMutex};
 
-            mProcessUpdatesCondVar.Wait(updateLock, [this]() {
+            auto hasProcessUpdates = [this]() {
                 return (!mUpdatedNodes.IsEmpty() || mNewSubjects.HasValue() || mAlertReceived || !mIsRunning
                            || mIsNodeInfoChanged || mIsOverrideEnvVarsChanged || mForceRebalance)
                     && !mDisableProcessUpdates;
-            });
+            };
+
+            if (auto err = mProcessUpdatesCondVar.Wait(updateLock, hasProcessUpdates); !err.IsNone()) {
+                LOG_ERR() << "Can't wait for process updates" << Log::Field(AOS_ERROR_WRAP(err));
+            }
 
             WaitAllNodesConnected(updateLock);
         }
@@ -503,7 +516,8 @@ void Launcher::ProcessUpdate()
         if (doRebalance) {
             mForceRebalance = false;
 
-            if (err = BalanceInstances(updateLock, true); !err.IsNone()) {
+            err = BalanceInstances(updateLock, true);
+            if (!err.IsNone()) {
                 LOG_ERR() << "Rebalancing failed" << Log::Field(AOS_ERROR_WRAP(err));
             }
         }
@@ -520,7 +534,9 @@ void Launcher::WaitAllNodesConnected(UniqueLock<Mutex>& lock)
         return !mNodeManager.GetNodes().ContainsIf(notConnected) || !mIsRunning;
     };
 
-    mAllNodesConnectedCondVar.Wait(lock, allNodesConnected);
+    if (auto err = mAllNodesConnectedCondVar.Wait(lock, allNodesConnected); !err.IsNone()) {
+        LOG_ERR() << "Can't wait for nodes connected" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 }
 
 void Launcher::ProcessNotScheduledInstances()
@@ -529,7 +545,10 @@ void Launcher::ProcessNotScheduledInstances()
         [](const SharedPtr<Instance>& instance) { return instance->GetInfo().mNodeID.IsEmpty(); });
 
     mForceRebalance = hasNotScheduledInstance;
-    mProcessUpdatesCondVar.NotifyAll();
+
+    if (auto err = mProcessUpdatesCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify process updates" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 }
 
 Error Launcher::OnInstanceStatusReceived(const InstanceStatus& status)
@@ -595,10 +614,15 @@ Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Arra
         return AOS_ERROR_WRAP(err);
     }
 
-    mProcessUpdatesCondVar.NotifyAll();
+    if (auto err = mProcessUpdatesCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify process updates" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
     // Node is not connected untill it receives instance statuses.
     // So, we need to trigger notification for waiting nodes after we handled statuses.
-    mAllNodesConnectedCondVar.NotifyAll();
+    if (auto err = mAllNodesConnectedCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify nodes connected" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 
     return ErrorEnum::eNone;
 }
@@ -612,8 +636,13 @@ void Launcher::OnNodeInfoChanged(const UnitNodeInfo& info)
     if (mNodeManager.UpdateNodeInfo(info)) {
         mIsNodeInfoChanged = true;
 
-        mProcessUpdatesCondVar.NotifyAll();
-        mAllNodesConnectedCondVar.NotifyAll();
+        if (auto err = mProcessUpdatesCondVar.NotifyAll(); !err.IsNone()) {
+            LOG_ERR() << "Can't notify process updates" << Log::Field(AOS_ERROR_WRAP(err));
+        }
+
+        if (auto err = mAllNodesConnectedCondVar.NotifyAll(); !err.IsNone()) {
+            LOG_ERR() << "Can't notify nodes connected" << Log::Field(AOS_ERROR_WRAP(err));
+        }
     }
 }
 
@@ -628,7 +657,10 @@ Error Launcher::OnAlertReceived(const AlertVariant& alert)
     }
 
     mAlertReceived = true;
-    mProcessUpdatesCondVar.NotifyAll();
+
+    if (auto err = mProcessUpdatesCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify process updates" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 
     return ErrorEnum::eNone;
 }
@@ -641,7 +673,9 @@ void Launcher::SubjectsChanged(const Array<StaticString<cIDLen>>& subjects)
 
     mNewSubjects.EmplaceValue(subjects);
 
-    mProcessUpdatesCondVar.NotifyAll();
+    if (auto err = mProcessUpdatesCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify process updates" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 }
 
 void Launcher::OnOverrideEnvVarsChanged()
@@ -650,7 +684,9 @@ void Launcher::OnOverrideEnvVarsChanged()
 
     mIsOverrideEnvVarsChanged = true;
 
-    mProcessUpdatesCondVar.NotifyAll();
+    if (auto err = mProcessUpdatesCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify process updates" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 }
 
 } // namespace aos::cm::launcher

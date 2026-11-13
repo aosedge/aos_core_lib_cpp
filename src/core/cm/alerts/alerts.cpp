@@ -143,7 +143,7 @@ void Alerts::OnDisconnect()
 
 Error Alerts::SendAlert(const AlertVariant& alert)
 {
-    LockGuard lock {mMutex};
+    LockGuard lock {mMutex}; // NOSONAR cpp:S5489 - false positive; single LockGuard, LIFO unlock on return
 
     LOG_DBG() << "Send alert" << Log::Field("alert", alert);
 
@@ -286,14 +286,16 @@ UniquePtr<aos::Alerts> Alerts::CreatePackage()
 
     const auto count = Min<size_t>(cAlertItemsCount, mAlerts.Size());
 
-    package->mItems.Assign(Array<AlertVariant>(mAlerts.begin(), count));
+    if (auto err = package->mItems.Assign(Array<AlertVariant>(mAlerts.begin(), count)); !err.IsNone()) {
+        LOG_ERR() << "Failed to assign alerts to package" << Log::Field(err);
+    }
 
     return package;
 }
 
 void Alerts::ShrinkCache(size_t count)
 {
-    mAlerts.Erase(mAlerts.begin(), mAlerts.begin() + Min<size_t>(count, mAlerts.Size()));
+    (void)mAlerts.Erase(mAlerts.begin(), mAlerts.begin() + Min<size_t>(count, mAlerts.Size()));
 }
 
 void Alerts::NotifyListeners(const AlertVariant& alert)
@@ -306,7 +308,9 @@ void Alerts::NotifyListeners(const AlertVariant& alert)
                 continue;
             }
 
-            receiver->OnAlertReceived(alert);
+            if (auto err = receiver->OnAlertReceived(alert); !err.IsNone()) {
+                LOG_ERR() << "Failed to notify alert receiver" << Log::Field(err);
+            }
         }
     }
 }

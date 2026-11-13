@@ -16,6 +16,7 @@ set(TARGET_NAME mocks)
 
 set(HEADERS
     alertsmock.hpp
+    blobinfoprovidermock.hpp
     certprovidermock.hpp
     cloudconnectionmock.hpp
     cryptomock.hpp
@@ -24,6 +25,9 @@ set(HEADERS
     fsmock.hpp
     identprovidermock.hpp
     instancestatusprovidermock.hpp
+    iteminfoprovidermock.hpp
+    itemstatuslistenermock.hpp
+    itemstatusprovidermock.hpp
     logprovidermock.hpp
     monitoringmock.hpp
     nodehandlermock.hpp

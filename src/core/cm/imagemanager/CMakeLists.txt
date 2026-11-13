@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2025 EPAM Systems, Inc.
+# Copyright (C) 2026 EPAM Systems, Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -20,22 +20,20 @@ set(SOURCES imagemanager.cpp)
 # Headers
 # ######################################################################################################################
 
-set(HEADERS
-    config.hpp
-    imagemanager.hpp
-    itf/blobinfoprovider.hpp
-    itf/imagemanager.hpp
-    itf/iteminfoprovider.hpp
-    itf/itemstatusprovider.hpp
-    itf/storage.hpp
-)
+set(HEADERS config.hpp imagemanager.hpp itf/imagemanager.hpp)
 
 # ######################################################################################################################
 # Libraries
 # ######################################################################################################################
 
-set(LIBRARIES aos::core::cm::fileserver aos::core::common::crypto aos::core::common::downloader
-              aos::core::common::ocispec aos::core::common::spaceallocator aos::core::common::tools
+set(LIBRARIES
+    aos::core::cm::fileserver
+    aos::core::common::crypto
+    aos::core::common::downloader
+    aos::core::common::imagemanager
+    aos::core::common::ocispec
+    aos::core::common::spaceallocator
+    aos::core::common::tools
 )
 
 # ######################################################################################################################

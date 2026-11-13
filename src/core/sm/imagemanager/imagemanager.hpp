@@ -8,20 +8,11 @@
 #define AOS_CORE_SM_IMAGEMANAGER_IMAGEMANAGER_HPP_
 
 #include <core/common/downloader/itf/downloader.hpp>
-#include <core/common/ocispec/itf/ocispec.hpp>
-#include <core/common/spaceallocator/itf/spaceallocator.hpp>
-#include <core/common/tools/list.hpp>
-#include <core/common/tools/memory.hpp>
-#include <core/common/tools/thread.hpp>
-#include <core/common/tools/timer.hpp>
+#include <core/common/imagemanager/imagemanager.hpp>
 
-#include "itf/blobinfoprovider.hpp"
 #include "itf/imagehandler.hpp"
 #include "itf/imagemanager.hpp"
-#include "itf/iteminfoprovider.hpp"
 #include "itf/storage.hpp"
-
-#include "config.hpp"
 
 namespace aos::sm::imagemanager {
 
@@ -30,162 +21,117 @@ namespace aos::sm::imagemanager {
  */
 
 /**
- * Image manager.
+ * SM image manager.
+ *
+ * Downloads deployable items from the CM and unpacks their layers. A layer blob is removed once the layer is unpacked.
+ * The layers of the items without an image config are kept as packed blobs only.
  */
-class ImageManager : public ImageManagerItf, public ItemInfoProviderItf, public spaceallocator::ItemRemoverItf {
+class ImageManager : public common::imagemanager::ImageManager, public ImageManagerItf {
 public:
     /**
      * Initializes image manager.
      *
-     * @param allocator allocator to use for temporary objects.
      * @param config image manager config.
-     * @param blobInfoProvider blob info provider.
-     * @param spaceAllocator space allocator.
-     * @param downloader downloader.
+     * @param blobInfoProvider provides download info of the blobs from the CM.
+     * @param storage image manager storage.
+     * @param spaceAllocator space allocator of the blobs and the unpacked layers.
+     * @param downloader downloads blobs.
+     * @param imageHandler unpacks layers.
      * @param fileInfoProvider file info provider.
      * @param ociSpec OCI spec interface.
-     * @param imageHandler image handler.
-     * @param storage image manager storage.
-     * @return Error.
+     * @param fsPlatform file system platform interface.
+     * @param allocator allocator for temporary objects.
+     * @return Error: eInvalidArgument if the image path is too long to hold the longest blob or layer path.
      */
-    Error Init(AllocatorItf& allocator, const Config& config, BlobInfoProviderItf& blobInfoProvider,
-        spaceallocator::SpaceAllocatorItf& spaceAllocator, downloader::DownloaderItf& downloader,
-        fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec, ImageHandlerItf& imageHandler,
-        StorageItf& storage);
+    Error Init(const common::imagemanager::Config& config, common::imagemanager::BlobInfoProviderItf& blobInfoProvider,
+        StorageItf& storage, spaceallocator::SpaceAllocatorItf& spaceAllocator, downloader::DownloaderItf& downloader,
+        ImageHandlerItf& imageHandler, fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec,
+        fs::FSPlatformItf& fsPlatform, AllocatorItf& allocator);
 
     /**
-     * Starts image manager.
-     *
-     * @return Error.
-     */
-    Error Start();
-
-    /**
-     * Stops image manager.
-     *
-     * @return Error.
-     */
-    Error Stop();
-
-    /**
-     * Returns all installed update items statuses.
-     *
-     * @param statuses list of installed update item statuses.
-     * @return Error.
-     */
-    Error GetAllInstalledItems(Array<UpdateItemStatus>& statuses) const override;
-
-    /**
-     * Installs update item.
+     * Installs update item. Calling it for an installed item validates the item and repairs it if needed.
      *
      * @param itemInfo update item info.
      * @return Error.
      */
-    Error InstallUpdateItem(const UpdateItemInfo& itemInfo) override;
+    Error InstallItem(const UpdateItemInfo& itemInfo) override;
 
     /**
-     * Removes update item.
+     * Removes update item. The item is kept in the cache as an outdated item, so its blobs and unpacked layers are
+     * reused if the item is installed again.
      *
      * @param itemID update item ID.
      * @param version update item version.
      * @return Error.
      */
-    Error RemoveUpdateItem(const String& itemID, const String& version) override;
+    Error RemoveItem(const String& itemID, const String& version) override;
 
     /**
-     * Returns blob path by its digest.
+     * Cancels all items being installed, including the items waiting for a layer processed by another item. Waits
+     * until all InstallItem and RemoveItem calls in progress return.
      *
-     * @param digest blob digest.
-     * @param[out] path result blob path.
      * @return Error.
      */
-    Error GetBlobPath(const String& digest, String& path) const override;
+    Error Cancel() override;
 
     /**
-     * Returns layer path by its digest.
+     * Returns unpacked layer path. It doesn't validate the unpacked layer. The unpacked layer of an item in the
+     * eRemoved state may be removed at any time, so the consumer must request the path only for the layers of the items
+     * it uses.
      *
-     * @param digest layer digest.
-     * @param[out] path result layer path.
-     * @return Error.
+     * @param diffID layer diff ID.
+     * @param[out] path unpacked layer path.
+     * @return Error: eInvalidArgument if the diff ID is malformed, eNotFound if the unpacked layer doesn't exist.
      */
-    Error GetLayerPath(const String& digest, String& path) const override;
+    Error GetLayerPath(const String& diffID, String& path) const override;
 
 private:
-    static constexpr auto cBlobsFolder         = "blobs";
     static constexpr auto cLayersFolder        = "layers";
     static constexpr auto cUnpackedLayerFolder = "layer";
     static constexpr auto cDigestFile          = "digest";
     static constexpr auto cSizeFile            = "size";
-    static constexpr auto cMaxNumItemVersions  = 2;
-    // oci::cMaxNumLayers + 3 (layers + manifest + image config + aos service)
-    static constexpr auto cMaxNumItemBlobs       = oci::cMaxNumLayers + 3;
-    static constexpr auto cMaxNumInstalledBlobs  = cMaxNumUpdateItems * (cMaxNumItemBlobs);
-    static constexpr auto cMaxNumInstalledLayers = cMaxNumUpdateItems * oci::cMaxNumLayers;
-    struct InstallItem {
-        StaticString<cIDLen>                                           mID;
-        StaticString<cVersionLen>                                      mVersion;
-        StaticArray<StaticString<oci::cDigestLen>, cMaxNumItemBlobs>   mBlobs;
-        StaticArray<StaticString<oci::cDigestLen>, oci::cMaxNumLayers> mLayers;
-    };
+    // Extra slots for the item remover and the cleanup, which don't wait for the layers.
+    static constexpr auto cMaxNumLayersInProgress = cMaxNumConcurrentItems + 2;
 
-    RetWithError<size_t> RemoveItem(const String& id, const String& version) override;
+    Error DownloadBlob(CancelContext& ctx, const String& path, const BlobInfo& blobInfo) override;
+    Error ValidateLayer(const String& path, const oci::ContentDescriptor& descriptor, const String& diffID) override;
+    Error UnpackLayer(const String& path, const oci::ContentDescriptor& descriptor, const String& diffID) override;
+    RetWithError<size_t> RemoveLayer(
+        const String& path, const oci::ContentDescriptor& descriptor, const String& diffID) override;
+    RetWithError<size_t> RemoveOrphanLayers() override;
 
-    Error CreateBlobPath(const String& digest, String& path) const;
-    Error CreateLayerPath(const String& digest, String& path) const;
-    Error ValidateBlob(const String& path, const String& digest) const;
-    Error DownloadBlob(const String& path, const String& digest, size_t size);
-    Error InstallBlob(
-        const oci::ContentDescriptor& descriptor, InstallItem* installItem = nullptr, bool waitInstalling = true);
-    Error ValidateLayer(const String& path, const String& diffDigest) const;
-    Error CreateLayerMetadata(const String& path, size_t size, spaceallocator::SpaceItf* space);
-    Error UnpackLayer(const String& path, const oci::ContentDescriptor& descriptor, const String& diffDigest);
-    Error InstallLayer(const oci::ContentDescriptor& descriptor, const String& diffDigest, InstallItem& installItem);
-    Error GetBlobURL(const String& digest, String& url) const;
-    void  ReleaseSpace(const String& path, spaceallocator::SpaceItf* space, Error err);
-    Error WaitForInstallingBlob(const String& digest);
-    Error ReleaseInstallingBlob(const String& digest);
-    RetWithError<List<InstallItem>::Iterator> CreateInstallingItem(const UpdateItemInfo& itemInfo);
-    void                                      ReleaseInstallingItem(List<InstallItem>::Iterator it);
-    Error                InstallServiceLayers(const oci::ImageManifest& manifest, InstallItem& installItem);
-    Error                InstallComponentLayers(const oci::ImageManifest& manifest, InstallItem& installItem);
-    Error                AddNewUpdateItem(const UpdateItemInfo& itemInfo);
-    Error                StoreUpdateItem(const UpdateItemInfo& itemInfo);
-    Error                RemoveUpdateItem(const UpdateItemData& itemData);
-    RetWithError<size_t> RemoveOldUpdateItems(Array<UpdateItemData>& itemsData);
-    RetWithError<size_t> RemoveOldItemVersions(Array<UpdateItemData>& itemData);
-    RetWithError<size_t> CropUpdateItems();
-    Error                UpdateOutdatedItems();
-    Error                HandleOutdatedItems();
-    Error                HandleItemsIntegrity();
-    Error                AddInstallingItems(
-                       Array<StaticString<cFilePathLen>>& usedBlobs, Array<StaticString<cFilePathLen>>& usedLayers);
-    Error CalcItemBlobsAndLayers(const UpdateItemData& itemData, Array<StaticString<cFilePathLen>>& itemBlobs,
-        Array<StaticString<cFilePathLen>>& itemLayers);
-    RetWithError<size_t> RemoveOrphanBlobs(const Array<StaticString<cFilePathLen>>& usedBlobs);
-    RetWithError<size_t> RemoveOrphanLayers(const Array<StaticString<cFilePathLen>>& usedLayers);
-    RetWithError<size_t> RemoveOrphans();
-    Error                ValidateUpdateItem(const UpdateItemData& itemData);
-    void                 ProcessOutdatedItems();
+    Error CreateLayerPath(const String& diffID, String& path) const;
+    Error ValidateUnpackedLayer(const String& layerPath) const;
+    Error InstallUnpackedLayer(const String& path, const String& mediaType, const String& layerPath);
+    Error UnpackToLayerPath(const String& path, const String& mediaType, const String& layerPath, size_t unpackedSize,
+        spaceallocator::SpaceItf& space);
+    Error CreateLayerMetadata(const String& layerPath, size_t unpackedSize);
+    RetWithError<size_t> RemoveLayerFiles(const String& layerPath);
+    void                 AcceptRemainingSpace(const String& layerPath, spaceallocator::SpaceItf& space);
+    void                 RemoveLayerBlob(const String& path);
+    static Error         CheckLayerMediaType(const String& mediaType);
+    RetWithError<size_t> RemoveOrphanLayer(const String& layerPath, const String& diffID);
 
-    Config                             mConfig;
-    BlobInfoProviderItf*               mBlobInfoProvider {};
-    spaceallocator::SpaceAllocatorItf* mSpaceAllocator {};
-    downloader::DownloaderItf*         mDownloader {};
-    fs::FileInfoProviderItf*           mFileInfoProvider {};
-    oci::OCISpecItf*                   mOCISpec {};
-    ImageHandlerItf*                   mImageHandler {};
-    StorageItf*                        mStorage {};
+    Error LockLayer(const String& diffID);
+    bool  TryLockLayer(const String& diffID);
+    void  UnlockLayer(const String& diffID);
+    void  SetLayersCanceled(bool canceled);
 
-    AllocatorItf* mAllocator {};
+    bool IsLayerInProgress(const String& diffID) const
+    {
+        return mLayersInProgress.Find(diffID) != mLayersInProgress.end();
+    }
 
-    Timer                                                             mTimer;
-    mutable Mutex                                                     mMutex;
-    ConditionalVariable                                               mCV;
-    StaticList<InstallItem, cMaxNumConcurrentItems>                   mInstallingItems;
-    StaticList<StaticString<oci::cDigestLen>, cMaxNumConcurrentItems> mInstallingBlobs;
-    Thread<>                                                          mThread;
-    bool                                                              mClose {};
-    bool                                                              mProcessOutdatedItems {};
+    StaticString<cFilePathLen> mLayersPath;
+    downloader::DownloaderItf* mDownloader {};
+    ImageHandlerItf*           mImageHandler {};
+    StorageItf*                mStorage {};
+    AllocatorItf*              mAllocator {};
+
+    Mutex                                                              mLayersMutex;
+    ConditionalVariable                                                mLayersCondVar;
+    StaticList<StaticString<oci::cDigestLen>, cMaxNumLayersInProgress> mLayersInProgress;
+    size_t                                                             mNumCancels {};
 };
 
 /** @}*/

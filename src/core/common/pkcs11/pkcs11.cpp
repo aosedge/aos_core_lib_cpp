@@ -5,13 +5,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <stdlib.h>
-#include <time.h>
+#include <core/common/config.hpp>
 
 #if !AOS_CONFIG_PKCS11_USE_STATIC_LIB
 #include <dlfcn.h>
 #endif
 
+#include <core/common/crypto/cryptoutils.hpp>
 #include <core/common/tools/logger.hpp>
 
 #include "pkcs11.hpp"
@@ -31,23 +31,23 @@ Error ConvertFromPKCS11String(const Array<uint8_t>& src, String& dst)
         return ErrorEnum::eNone;
     }
 
-    int size = src.Size();
+    auto size = static_cast<int32_t>(src.Size());
 
     if (!dst.Resize(size).IsNone()) {
         return ErrorEnum::eNoMemory;
     }
 
-    memcpy(dst.Get(), src.Get(), size);
+    (void)memcpy(dst.Get(), src.Get(), size);
 
     // Trim string
-    for (int i = size - 1; i >= 0; --i) {
+    for (int32_t i = size - 1; i >= 0; --i) {
         if (dst[i] == ' ')
             --size;
         else
             break;
     }
 
-    dst.Resize(size);
+    (void)dst.Resize(size);
 
     return ErrorEnum::eNone;
 }
@@ -65,8 +65,8 @@ Error ConvertToPKCS11String(const String& src, CK_UTF8CHAR (&dst)[cSize])
         return ErrorEnum::eNoMemory;
     }
 
-    memset(dst, ' ', cSize);
-    memcpy(dst, src.CStr(), src.Size());
+    (void)memset(dst, ' ', cSize);
+    (void)memcpy(dst, src.CStr(), src.Size());
 
     return ErrorEnum::eNone;
 }
@@ -79,12 +79,12 @@ void ConvertFromPKCS11Version(const CK_VERSION& src, Version& dst)
 
 CK_UTF8CHAR_PTR ConvertToPKCS11UTF8CHARPTR(const char* src)
 {
-    return reinterpret_cast<CK_UTF8CHAR_PTR>(const_cast<char*>(src));
+    return reinterpret_cast<CK_UTF8CHAR_PTR>(const_cast<char*>(src)); // NOSONAR cpp:M23_090
 }
 
 Error ConvertFromPKCS11SlotInfo(const CK_SLOT_INFO& src, SlotInfo& dst)
 {
-    Error err = ConvertFromPKCS11String(src.manufacturerID, dst.mManufacturerID);
+    auto err = ConvertFromPKCS11String(src.manufacturerID, dst.mManufacturerID);
     if (!err.IsNone()) {
         return err;
     }
@@ -104,7 +104,7 @@ Error ConvertFromPKCS11SlotInfo(const CK_SLOT_INFO& src, SlotInfo& dst)
 
 Error ConvertFromPKCS11TokenInfo(const CK_TOKEN_INFO& src, TokenInfo& dst)
 {
-    Error err = ConvertFromPKCS11String(src.label, dst.mLabel);
+    auto err = ConvertFromPKCS11String(src.label, dst.mLabel);
     if (!err.IsNone()) {
         return err;
     }
@@ -140,7 +140,7 @@ Error ConvertFromPKCS11LibInfo(const CK_INFO& src, LibInfo& dst)
     ConvertFromPKCS11Version(src.cryptokiVersion, dst.mCryptokiVersion);
     ConvertFromPKCS11Version(src.libraryVersion, dst.mLibraryVersion);
 
-    Error err = ConvertFromPKCS11String(src.manufacturerID, dst.mManufacturerID);
+    auto err = ConvertFromPKCS11String(src.manufacturerID, dst.mManufacturerID);
     if (!err.IsNone()) {
         return err;
     }
@@ -165,10 +165,10 @@ Error ConvertToPKCS11Attributes(const Array<ObjectAttribute>& src, Array<CK_ATTR
         CK_ATTRIBUTE tmp;
 
         tmp.type       = attr.mType;
-        tmp.pValue     = const_cast<uint8_t*>(attr.mValue.Get());
+        tmp.pValue     = const_cast<uint8_t*>(attr.mValue.Get()); // NOSONAR cpp:M23_090
         tmp.ulValueLen = attr.mValue.Size();
 
-        dst.PushBack(tmp);
+        (void)dst.PushBack(tmp);
     }
 
     return ErrorEnum::eNone;
@@ -194,7 +194,7 @@ Error BuildAttributes(const Array<AttributeType>& types, Array<Array<uint8_t>>& 
         tmp.pValue     = static_cast<void*>(values[i].Get());
         tmp.ulValueLen = values[i].MaxSize();
 
-        dst.PushBack(tmp);
+        (void)dst.PushBack(tmp);
     }
 
     return ErrorEnum::eNone;
@@ -214,7 +214,7 @@ Error GetAttributesValues(const Array<CK_ATTRIBUTE>& src, Array<Array<uint8_t>>&
         }
 
         auto tmp = Array<uint8_t>(static_cast<uint8_t*>(attr.pValue), attr.ulValueLen);
-        values.PushBack(tmp);
+        (void)values.PushBack(tmp);
     }
 
     return ErrorEnum::eNone;
@@ -222,7 +222,7 @@ Error GetAttributesValues(const Array<CK_ATTRIBUTE>& src, Array<Array<uint8_t>>&
 
 Array<uint8_t> ConvertToAttributeValue(const String& val)
 {
-    return {const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(val.Get())), val.Size()};
+    return {const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(val.Get())), val.Size()}; // NOSONAR cpp:M23_090
 }
 
 template <typename T>
@@ -235,28 +235,18 @@ Array<uint8_t> ConvertToAttributeValue(T& val)
  * GenPIN
  **********************************************************************************************************************/
 
-Error GenPIN(String& pin)
+Error GenPIN(crypto::RandomItf& random, String& pin)
 {
     const auto cPinLength = Min<size_t>(cGenPINLen, pin.MaxSize());
 
-    pin.Clear();
+    StaticArray<uint8_t, cGenPINLen / 2> buffer;
 
-    srand(::time(nullptr)); // use current time as seed for random generator
+    if (auto err = random.RandBuffer(buffer, cPinLength / 2); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
 
-    StaticString<sizeof(unsigned) * 2> chunk;
-
-    while (pin.Size() < cPinLength) {
-        unsigned value     = rand();
-        auto     byteArray = Array<uint8_t>(reinterpret_cast<uint8_t*>(&value), sizeof(value));
-
-        auto err = chunk.ByteArrayToHex(byteArray);
-        if (!err.IsNone()) {
-            return err;
-        }
-
-        auto chunkSize = Min(cPinLength - pin.Size(), chunk.Size());
-
-        pin.Insert(pin.end(), chunk.begin(), chunk.begin() + chunkSize);
+    if (auto err = pin.ByteArrayToHex(buffer); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
@@ -306,7 +296,7 @@ DynamicLibraryContext::~DynamicLibraryContext()
 
 RetWithError<CK_FUNCTION_LIST_PTR> DynamicLibraryContext::Init()
 {
-    CK_C_GetFunctionList getFuncList = reinterpret_cast<CK_C_GetFunctionList>(dlsym(mHandle, "C_GetFunctionList"));
+    auto getFuncList = reinterpret_cast<CK_C_GetFunctionList>(dlsym(mHandle, "C_GetFunctionList")); // NOSONAR cpp:S3630
 
     if (getFuncList == nullptr) {
         LOG_ERR() << "Can't find get function list function: dlsym err = " << dlerror();
@@ -316,11 +306,10 @@ RetWithError<CK_FUNCTION_LIST_PTR> DynamicLibraryContext::Init()
 
     CK_FUNCTION_LIST_PTR functionList = nullptr;
 
-    CK_RV rv = getFuncList(&functionList);
-    if (rv != CKR_OK) {
-        LOG_ERR() << "Get function list failed: err = " << rv;
+    if (CK_RV rv = getFuncList(&functionList); rv != CKR_OK) {
+        LOG_ERR() << "Get function list failed: err = " << static_cast<int32_t>(rv);
 
-        return {nullptr, static_cast<int>(rv)};
+        return {nullptr, static_cast<int32_t>(rv)};
     }
 
     return {functionList, ErrorEnum::eNone};
@@ -338,8 +327,7 @@ Error LibraryContext::Init(AllocatorItf& allocator)
 
     mAllocator = &allocator;
 
-    Error err = ErrorEnum::eNone;
-
+    Error err;
     Tie(mFunctionList, err) = PKCS11LibraryContext::Init();
     if (!err.IsNone()) {
         return err;
@@ -356,37 +344,39 @@ Error LibraryContext::Init(AllocatorItf& allocator)
 
     initArgs.flags = CKF_OS_LOCKING_OK;
 
-    auto rv = mFunctionList->C_Initialize(&initArgs);
+    if (auto rv = mFunctionList->C_Initialize(&initArgs); rv != CKR_OK) {
+        LOG_ERR() << "Init library failed: err = " << static_cast<int32_t>(rv);
+
+        return static_cast<int32_t>(rv);
+    }
 #else
-    auto rv = mFunctionList->C_Initialize(nullptr);
-#endif
-    if (rv != CKR_OK) {
+    if (auto rv = mFunctionList->C_Initialize(nullptr); rv != CKR_OK) {
         LOG_ERR() << "Init library failed: err = " << rv;
 
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
+#endif
 
     return ErrorEnum::eNone;
 }
 
-Error LibraryContext::InitToken(SlotID slotID, const String& pin, const String& label)
+Error LibraryContext::InitToken(SlotID slotID, const String& pin, const String& label) const
 {
     if (!mFunctionList || !mFunctionList->C_InitToken) {
         return ErrorEnum::eWrongState;
     }
 
-    CK_UTF8CHAR pkcsLabel[cLabelLen];
+    CK_UTF8CHAR pkcsLabel[cLabelLen] {};
 
-    auto err = ConvertToPKCS11String(label, pkcsLabel);
-    if (!err.IsNone()) {
+    if (auto err = ConvertToPKCS11String(label, pkcsLabel); !err.IsNone()) {
         return err;
     }
 
     const char* pinPtr = pin.IsEmpty() ? nullptr : pin.CStr();
 
-    CK_RV rv = mFunctionList->C_InitToken(slotID, ConvertToPKCS11UTF8CHARPTR(pinPtr), pin.Size(), pkcsLabel);
-    if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+    if (CK_RV rv = mFunctionList->C_InitToken(slotID, ConvertToPKCS11UTF8CHARPTR(pinPtr), pin.Size(), pkcsLabel);
+        rv != CKR_OK) {
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -402,17 +392,16 @@ Error LibraryContext::GetSlotList(bool tokenPresent, Array<SlotID>& slotList) co
 
     CK_RV rv = mFunctionList->C_GetSlotList(static_cast<CK_BBOOL>(tokenPresent), nullptr, &count);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
-    auto err = slotList.Resize(count);
-    if (!err.IsNone()) {
+    if (auto err = slotList.Resize(count); !err.IsNone()) {
         return err;
     }
 
     rv = mFunctionList->C_GetSlotList(static_cast<CK_BBOOL>(tokenPresent), slotList.Get(), &count);
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -426,9 +415,8 @@ Error LibraryContext::GetSlotInfo(SlotID slotID, SlotInfo& slotInfo) const
 
     CK_SLOT_INFO pkcsInfo;
 
-    CK_RV rv = mFunctionList->C_GetSlotInfo(slotID, &pkcsInfo);
-    if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+    if (CK_RV rv = mFunctionList->C_GetSlotInfo(slotID, &pkcsInfo); rv != CKR_OK) {
+        return static_cast<int32_t>(rv);
     }
 
     return ConvertFromPKCS11SlotInfo(pkcsInfo, slotInfo);
@@ -442,9 +430,8 @@ Error LibraryContext::GetTokenInfo(SlotID slotID, TokenInfo& tokenInfo) const
 
     CK_TOKEN_INFO pkcsInfo;
 
-    CK_RV rv = mFunctionList->C_GetTokenInfo(slotID, &pkcsInfo);
-    if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+    if (CK_RV rv = mFunctionList->C_GetTokenInfo(slotID, &pkcsInfo); rv != CKR_OK) {
+        return static_cast<int32_t>(rv);
     }
 
     return ConvertFromPKCS11TokenInfo(pkcsInfo, tokenInfo);
@@ -458,9 +445,8 @@ Error LibraryContext::GetLibInfo(LibInfo& libInfo) const
 
     CK_INFO pkcsInfo;
 
-    CK_RV rv = mFunctionList->C_GetInfo(&pkcsInfo);
-    if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+    if (CK_RV rv = mFunctionList->C_GetInfo(&pkcsInfo); rv != CKR_OK) {
+        return static_cast<int32_t>(rv);
     }
 
     return ConvertFromPKCS11LibInfo(pkcsInfo, libInfo);
@@ -470,7 +456,7 @@ RetWithError<SharedPtr<SessionContext>> LibraryContext::OpenSession(SlotID slotI
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Open session: slotID=" << slotID;
+    LOG_DBG() << "Open session: slotID=" << static_cast<int32_t>(slotID);
 
     SessionParams params = {slotID, flags};
 
@@ -480,7 +466,7 @@ RetWithError<SharedPtr<SessionContext>> LibraryContext::OpenSession(SlotID slotI
         }
     }
 
-    Error                     err = ErrorEnum::eNone;
+    Error                     err;
     SharedPtr<SessionContext> session;
 
     Tie(session, err) = PKCS11OpenSession(slotID, flags);
@@ -489,7 +475,7 @@ RetWithError<SharedPtr<SessionContext>> LibraryContext::OpenSession(SlotID slotI
     }
 
     if (mSessions.Size() != mSessions.MaxSize()) {
-        mSessions.PushBack({params, session});
+        (void)mSessions.PushBack({params, session});
 
         return {session, ErrorEnum::eNone};
     }
@@ -511,15 +497,14 @@ void LibraryContext::ClearSessions()
     mSessions.Clear();
 }
 
-Error LibraryContext::CloseAllSessions(SlotID slotID)
+Error LibraryContext::CloseAllSessions(SlotID slotID) const
 {
     if (!mFunctionList || !mFunctionList->C_CloseAllSessions) {
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_CloseAllSessions(slotID);
-    if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+    if (CK_RV rv = mFunctionList->C_CloseAllSessions(slotID); rv != CKR_OK) {
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -535,7 +520,7 @@ LibraryContext::~LibraryContext()
 
     CK_RV rv = mFunctionList->C_Finalize(nullptr);
     if (rv != CKR_OK) {
-        LOG_ERR() << "Finalize library failed: err = " << rv;
+        LOG_ERR() << "Finalize library failed: err = " << static_cast<int32_t>(rv);
     }
 }
 
@@ -545,16 +530,17 @@ RetWithError<SharedPtr<SessionContext>> LibraryContext::PKCS11OpenSession(SlotID
         return {nullptr, ErrorEnum::eWrongState};
     }
 
-    SessionHandle handle;
+    SessionHandle handle {};
 
     CK_RV rv = mFunctionList->C_OpenSession(slotID, flags, nullptr, nullptr, &handle);
     if (rv != CKR_OK) {
-        return {nullptr, static_cast<int>(rv)};
+        return {nullptr, static_cast<int32_t>(rv)};
     }
 
     auto session = MakeShared<SessionContext>(mAllocator, handle, mFunctionList);
     if (!session) {
-        if (rv = mFunctionList->C_CloseSession(handle); rv != CKR_OK) {
+        rv = mFunctionList->C_CloseSession(handle);
+        if (rv != CKR_OK) {
             LOG_ERR() << "Close session failed" << Log::Field("ret", rv);
         }
 
@@ -582,9 +568,8 @@ Error SessionContext::GetSessionInfo(SessionInfo& info) const
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_GetSessionInfo(mHandle, &info);
-    if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+    if (CK_RV rv = mFunctionList->C_GetSessionInfo(mHandle, &info); rv != CKR_OK) {
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -594,7 +579,7 @@ Error SessionContext::Login(UserType userType, const String& pin)
 {
     LockGuard lock {mMutex};
 
-    LOG_DBG() << "Login: userType=" << userType;
+    LOG_DBG() << "Login: userType=" << static_cast<int32_t>(userType);
 
     if (!mFunctionList || !mFunctionList->C_Login) {
         return ErrorEnum::eWrongState;
@@ -608,7 +593,7 @@ Error SessionContext::Login(UserType userType, const String& pin)
     }
 
     if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -622,9 +607,8 @@ Error SessionContext::Logout()
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_Logout(mHandle);
-    if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+    if (CK_RV rv = mFunctionList->C_Logout(mHandle); rv != CKR_OK) {
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -640,9 +624,8 @@ Error SessionContext::InitPIN(const String& pin)
 
     const char* pinPtr = pin.IsEmpty() ? nullptr : pin.CStr();
 
-    CK_RV rv = mFunctionList->C_InitPIN(mHandle, ConvertToPKCS11UTF8CHARPTR(pinPtr), pin.Size());
-    if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+    if (CK_RV rv = mFunctionList->C_InitPIN(mHandle, ConvertToPKCS11UTF8CHARPTR(pinPtr), pin.Size()); rv != CKR_OK) {
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -659,14 +642,13 @@ Error SessionContext::GetAttributeValues(
 
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> pkcsAttributes;
 
-    Error err = BuildAttributes(types, values, pkcsAttributes);
-    if (!err.IsNone()) {
+    if (auto err = BuildAttributes(types, values, pkcsAttributes); !err.IsNone()) {
         return err;
     }
 
-    CK_RV rv = mFunctionList->C_GetAttributeValue(mHandle, object, pkcsAttributes.Get(), pkcsAttributes.Size());
-    if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+    if (CK_RV rv = mFunctionList->C_GetAttributeValue(mHandle, object, pkcsAttributes.Get(), pkcsAttributes.Size());
+        rv != CKR_OK) {
+        return static_cast<int32_t>(rv);
     }
 
     return GetAttributesValues(pkcsAttributes, values);
@@ -676,13 +658,12 @@ Error SessionContext::FindObjects(const Array<ObjectAttribute>& templ, Array<Obj
 {
     LockGuard lock {mMutex};
 
-    Error initErr = FindObjectsInit(templ);
-    if (!initErr.IsNone()) {
+    if (auto initErr = FindObjectsInit(templ); !initErr.IsNone()) {
         return initErr;
     }
 
-    Error findErr    = FindObjects(objects);
-    Error finalError = FindObjectsFinal();
+    auto findErr    = FindObjects(objects);
+    auto finalError = FindObjectsFinal();
 
     if (!findErr.IsNone()) {
         return findErr;
@@ -705,16 +686,15 @@ RetWithError<ObjectHandle> SessionContext::CreateObject(const Array<ObjectAttrib
 
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> pkcsTempl;
 
-    Error err = ConvertToPKCS11Attributes(templ, pkcsTempl);
-    if (!err.IsNone()) {
+    if (auto err = ConvertToPKCS11Attributes(templ, pkcsTempl); !err.IsNone()) {
         return {0, err};
     }
 
     ObjectHandle objHandle = CK_INVALID_HANDLE;
 
-    CK_RV rv = mFunctionList->C_CreateObject(mHandle, pkcsTempl.Get(), pkcsTempl.Size(), &objHandle);
-    if (rv != CKR_OK) {
-        return {0, static_cast<int>(rv)};
+    if (CK_RV rv = mFunctionList->C_CreateObject(mHandle, pkcsTempl.Get(), pkcsTempl.Size(), &objHandle);
+        rv != CKR_OK) {
+        return {0, static_cast<int32_t>(rv)};
     }
 
     return {objHandle, ErrorEnum::eNone};
@@ -728,9 +708,8 @@ Error SessionContext::DestroyObject(ObjectHandle object)
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_DestroyObject(mHandle, object);
-    if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+    if (CK_RV rv = mFunctionList->C_DestroyObject(mHandle, object); rv != CKR_OK) {
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -748,7 +727,7 @@ Error SessionContext::Sign(
 
     CK_ULONG signSize = signature.MaxSize();
 
-    signature.Resize(signature.MaxSize());
+    (void)signature.Resize(signature.MaxSize());
 
     err = Sign(data, signature.Get(), &signSize);
     if (!err.IsNone()) {
@@ -771,7 +750,7 @@ Error SessionContext::Decrypt(
     // SoftHSM doesn't provide a precise size with Decrypt(data, nullptr, &resultSize) call.
     CK_ULONG resultSize = result.MaxSize();
 
-    result.Resize(result.MaxSize());
+    (void)result.Resize(result.MaxSize());
 
     err = Decrypt(data, result.Get(), &resultSize);
     if (!err.IsNone()) {
@@ -805,7 +784,7 @@ SessionContext::~SessionContext()
 
     CK_RV rv = mFunctionList->C_CloseSession(mHandle);
     if (rv != CKR_OK) {
-        LOG_ERR() << "Close session failed: error = " << rv;
+        LOG_ERR() << "Close session failed: error = " << static_cast<int32_t>(rv);
     }
 }
 
@@ -815,9 +794,8 @@ Error SessionContext::SignInit(CK_MECHANISM_PTR mechanism, ObjectHandle privKey)
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_SignInit(mHandle, mechanism, privKey);
-    if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+    if (CK_RV rv = mFunctionList->C_SignInit(mHandle, mechanism, privKey); rv != CKR_OK) {
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -829,9 +807,10 @@ Error SessionContext::Sign(const Array<uint8_t>& data, CK_BYTE_PTR signature, CK
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_Sign(mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), signature, signSize);
-    if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+    if (CK_RV rv = mFunctionList->C_Sign(
+            mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), signature, signSize); // NOSONAR cpp:M23_090
+        rv != CKR_OK) {
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -843,9 +822,8 @@ Error SessionContext::DecryptInit(CK_MECHANISM_PTR mechanism, ObjectHandle privK
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_DecryptInit(mHandle, mechanism, privKey);
-    if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+    if (CK_RV rv = mFunctionList->C_DecryptInit(mHandle, mechanism, privKey); rv != CKR_OK) {
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -857,9 +835,10 @@ Error SessionContext::Decrypt(const Array<uint8_t>& data, CK_BYTE_PTR result, CK
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_Decrypt(mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), result, resultSize);
-    if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+    if (CK_RV rv = mFunctionList->C_Decrypt(
+            mHandle, const_cast<uint8_t*>(data.Get()), data.Size(), result, resultSize); // NOSONAR cpp:M23_090
+        rv != CKR_OK) {
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -873,14 +852,12 @@ Error SessionContext::FindObjectsInit(const Array<ObjectAttribute>& templ) const
 
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> pkcsTempl;
 
-    Error err = ConvertToPKCS11Attributes(templ, pkcsTempl);
-    if (!err.IsNone()) {
+    if (auto err = ConvertToPKCS11Attributes(templ, pkcsTempl); !err.IsNone()) {
         return err;
     }
 
-    CK_RV rv = mFunctionList->C_FindObjectsInit(mHandle, pkcsTempl.Get(), pkcsTempl.Size());
-    if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+    if (CK_RV rv = mFunctionList->C_FindObjectsInit(mHandle, pkcsTempl.Get(), pkcsTempl.Size()); rv != CKR_OK) {
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -892,32 +869,31 @@ Error SessionContext::FindObjects(Array<ObjectHandle>& objects) const
         return ErrorEnum::eWrongState;
     }
 
-    unsigned long foundObjectsCount = 0, chunk = 0;
+    uint64_t foundObjectsCount = 0;
+    uint64_t chunk             = 0;
 
-    objects.Resize(objects.MaxSize());
+    (void)objects.Resize(objects.MaxSize());
 
     while (true) {
         if (foundObjectsCount == objects.MaxSize()) {
             return ErrorEnum::eNoMemory;
         }
 
-        CK_RV rv = mFunctionList->C_FindObjects(
-            mHandle, objects.begin() + foundObjectsCount, objects.MaxSize() - foundObjectsCount, &chunk);
-        if (rv != CKR_OK) {
-            return static_cast<int>(rv);
+        if (CK_RV rv = mFunctionList->C_FindObjects(
+                mHandle, objects.begin() + foundObjectsCount, objects.MaxSize() - foundObjectsCount, &chunk);
+            rv != CKR_OK) {
+            return static_cast<int32_t>(rv);
         }
 
         foundObjectsCount += chunk;
 
         // success only when we ensured that all objects found
         if (chunk == 0) {
-            objects.Resize(foundObjectsCount);
+            (void)objects.Resize(foundObjectsCount);
 
             return objects.IsEmpty() ? ErrorEnum::eNotFound : ErrorEnum::eNone;
         }
     }
-
-    return ErrorEnum::eFailed;
 }
 
 Error SessionContext::FindObjectsFinal() const
@@ -926,9 +902,8 @@ Error SessionContext::FindObjectsFinal() const
         return ErrorEnum::eWrongState;
     }
 
-    CK_RV rv = mFunctionList->C_FindObjectsFinal(mHandle);
-    if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+    if (CK_RV rv = mFunctionList->C_FindObjectsFinal(mHandle); rv != CKR_OK) {
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -968,7 +943,7 @@ SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary(const String& library)
 
 #if !AOS_CONFIG_PKCS11_USE_STATIC_LIB
 
-    dlerror(); // clean previous error status
+    (void)dlerror(); // clean previous error status
 
     LOG_DBG() << "Load library: path=" << library;
 
@@ -988,7 +963,7 @@ SharedPtr<LibraryContext> PKCS11Manager::OpenLibrary(const String& library)
         return nullptr;
     }
 
-    mLibraries.EmplaceBack(library, ctx);
+    (void)mLibraries.EmplaceBack(library, ctx);
 
     return ctx;
 }
@@ -1024,34 +999,71 @@ RetWithError<PrivateKey> Utils::GenerateRSAKeyPairWithLabel(
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> pubKeyTempl;
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> privKeyTempl;
 
-    pubKeyTempl.PushBack({CKA_CLASS, &pubKeyClass, sizeof(pubKeyClass)});
-    pubKeyTempl.PushBack({CKA_KEY_TYPE, &keyTypeRSA, sizeof(keyTypeRSA)});
-    pubKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)});
-    pubKeyTempl.PushBack({CKA_VERIFY, &trueVal, sizeof(trueVal)});
-    pubKeyTempl.PushBack({CKA_ENCRYPT, &trueVal, sizeof(trueVal)});
-    pubKeyTempl.PushBack({CKA_PUBLIC_EXPONENT, publicExp, sizeof(publicExp)});
-    pubKeyTempl.PushBack({CKA_MODULUS_BITS, &modulusBits, sizeof(modulusBits)});
-    pubKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()});
-    pubKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()});
+    if (auto err = pubKeyTempl.PushBack({CKA_CLASS, &pubKeyClass, sizeof(pubKeyClass)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_KEY_TYPE, &keyTypeRSA, sizeof(keyTypeRSA)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_VERIFY, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_ENCRYPT, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_PUBLIC_EXPONENT, publicExp, sizeof(publicExp)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_MODULUS_BITS, &modulusBits, sizeof(modulusBits)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err
+        = pubKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
 
-    privKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)});
-    privKeyTempl.PushBack({CKA_SIGN, &trueVal, sizeof(trueVal)});
-    privKeyTempl.PushBack({CKA_DECRYPT, &trueVal, sizeof(trueVal)});
-    privKeyTempl.PushBack({CKA_SENSITIVE, &trueVal, sizeof(trueVal)});
-    privKeyTempl.PushBack({CKA_EXTRACTABLE, &falseVal, sizeof(falseVal)});
-    privKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()});
-    privKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()});
+    if (auto err = privKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_SIGN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_DECRYPT, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_SENSITIVE, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_EXTRACTABLE, &falseVal, sizeof(falseVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err
+        = privKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
 
     CK_MECHANISM mechanism = {CKM_RSA_PKCS_KEY_PAIR_GEN, nullptr, 0};
 
     ObjectHandle privKeyHandle = CK_INVALID_HANDLE;
     ObjectHandle pubKeyHandle  = CK_INVALID_HANDLE;
 
-    CK_RV rv = funcList->C_GenerateKeyPair(mSession->GetHandle(), &mechanism, pubKeyTempl.Get(), pubKeyTempl.Size(),
-        privKeyTempl.Get(), privKeyTempl.Size(), &pubKeyHandle, &privKeyHandle);
-
-    if (rv != CKR_OK) {
-        return {{}, static_cast<int>(rv)};
+    if (CK_RV rv = funcList->C_GenerateKeyPair(mSession->GetHandle(), &mechanism, pubKeyTempl.Get(), pubKeyTempl.Size(),
+            privKeyTempl.Get(), privKeyTempl.Size(), &pubKeyHandle, &privKeyHandle);
+        rv != CKR_OK) {
+        return {{}, static_cast<int32_t>(rv)};
     }
 
     return ExportPrivateKey(privKeyHandle, pubKeyHandle, keyTypeRSA);
@@ -1062,7 +1074,7 @@ RetWithError<PrivateKey> Utils::GenerateECDSAKeyPairWithLabel(
 {
     // only P384 (secp384r1) curve is supported for now
     if (curve != EllipticCurve::eP384) {
-        LOG_ERR() << "Unsupported elliptic curve: curve=" << static_cast<int>(curve)
+        LOG_ERR() << "Unsupported elliptic curve: curve=" << static_cast<int32_t>(curve)
                   << ", only P384 (secp384r1) is supported";
 
         return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
@@ -1079,36 +1091,69 @@ RetWithError<PrivateKey> Utils::GenerateECDSAKeyPairWithLabel(
     CK_BBOOL        trueVal      = CK_TRUE;
     CK_BBOOL        falseVal     = CK_FALSE;
 
-    static uint8_t cP384OID[] = {0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x22};
+    static constexpr uint8_t cP384OID[] = {0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x22};
 
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> pubKeyTempl;
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> privKeyTempl;
 
-    pubKeyTempl.PushBack({CKA_CLASS, &pubKeyClass, sizeof(pubKeyClass)});
-    pubKeyTempl.PushBack({CKA_KEY_TYPE, &keyTypeECDSA, sizeof(keyTypeECDSA)});
-    pubKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)});
-    pubKeyTempl.PushBack({CKA_VERIFY, &trueVal, sizeof(trueVal)});
-    pubKeyTempl.PushBack({CKA_ECDSA_PARAMS, cP384OID, sizeof(cP384OID)});
-    pubKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()});
-    pubKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()});
+    if (auto err = pubKeyTempl.PushBack({CKA_CLASS, &pubKeyClass, sizeof(pubKeyClass)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_KEY_TYPE, &keyTypeECDSA, sizeof(keyTypeECDSA)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_VERIFY, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack(
+            {CKA_ECDSA_PARAMS, const_cast<uint8_t*>(cP384OID), sizeof(cP384OID)}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = pubKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err
+        = pubKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
 
-    privKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)});
-    privKeyTempl.PushBack({CKA_SIGN, &trueVal, sizeof(trueVal)});
-    privKeyTempl.PushBack({CKA_SENSITIVE, &trueVal, sizeof(trueVal)});
-    privKeyTempl.PushBack({CKA_EXTRACTABLE, &falseVal, sizeof(falseVal)});
-    privKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()});
-    privKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()});
+    if (auto err = privKeyTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_SIGN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_SENSITIVE, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_EXTRACTABLE, &falseVal, sizeof(falseVal)}); !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err = privKeyTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
+    if (auto err
+        = privKeyTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
+        return {{}, AOS_ERROR_WRAP(err)};
+    }
 
     CK_MECHANISM mechanism = {CKM_ECDSA_KEY_PAIR_GEN, nullptr, 0};
 
     ObjectHandle privKeyHandle = CK_INVALID_HANDLE;
     ObjectHandle pubKeyHandle  = CK_INVALID_HANDLE;
 
-    CK_RV rv = funcList->C_GenerateKeyPair(mSession->GetHandle(), &mechanism, pubKeyTempl.Get(), pubKeyTempl.Size(),
-        privKeyTempl.Get(), privKeyTempl.Size(), &pubKeyHandle, &privKeyHandle);
-
-    if (rv != CKR_OK) {
-        return {{}, static_cast<int>(rv)};
+    if (CK_RV rv = funcList->C_GenerateKeyPair(mSession->GetHandle(), &mechanism, pubKeyTempl.Get(), pubKeyTempl.Size(),
+            privKeyTempl.Get(), privKeyTempl.Size(), &pubKeyHandle, &privKeyHandle);
+        rv != CKR_OK) {
+        return {{}, static_cast<int32_t>(rv)};
     }
 
     return ExportPrivateKey(privKeyHandle, pubKeyHandle, keyTypeECDSA);
@@ -1131,9 +1176,9 @@ RetWithError<PrivateKey> Utils::FindPrivateKey(const Array<uint8_t>& id, const S
 
     StaticArray<ObjectAttribute, cObjectAttributesCount> privKeyTempl;
 
-    privKeyTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(privKeyClass)});
-    privKeyTempl.PushBack({CKA_ID, id});
-    privKeyTempl.PushBack({CKA_LABEL, ConvertToAttributeValue(label)});
+    (void)privKeyTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(privKeyClass)});
+    (void)privKeyTempl.PushBack({CKA_ID, id});
+    (void)privKeyTempl.PushBack({CKA_LABEL, ConvertToAttributeValue(label)});
 
     StaticArray<ObjectHandle, cKeysPerToken> privKeys;
 
@@ -1145,18 +1190,18 @@ RetWithError<PrivateKey> Utils::FindPrivateKey(const Array<uint8_t>& id, const S
     // Find public part with matching attributes: id, label & key type.
     StaticArray<AttributeType, cSingleAttribute> keyTypeAttribute;
 
-    keyTypeAttribute.PushBack(CKA_KEY_TYPE);
+    (void)keyTypeAttribute.PushBack(CKA_KEY_TYPE);
 
-    CK_KEY_TYPE                                          keyType;
+    CK_KEY_TYPE                                          keyType {};
     StaticArray<Array<uint8_t>, cSingleAttribute>        keyTypeValue;
     StaticArray<ObjectAttribute, cObjectAttributesCount> pubKeyTempl;
 
-    keyTypeValue.PushBack(ConvertToAttributeValue(keyType));
+    (void)keyTypeValue.PushBack(ConvertToAttributeValue(keyType));
 
-    pubKeyTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(pubKeyClass)});
-    pubKeyTempl.PushBack({CKA_ID, id});
-    pubKeyTempl.PushBack({CKA_LABEL, ConvertToAttributeValue(label)});
-    pubKeyTempl.PushBack({CKA_KEY_TYPE, ConvertToAttributeValue(keyType)});
+    (void)pubKeyTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(pubKeyClass)});
+    (void)pubKeyTempl.PushBack({CKA_ID, id});
+    (void)pubKeyTempl.PushBack({CKA_LABEL, ConvertToAttributeValue(label)});
+    (void)pubKeyTempl.PushBack({CKA_KEY_TYPE, ConvertToAttributeValue(keyType)});
 
     StaticArray<ObjectHandle, cKeysPerToken> pubKeys;
 
@@ -1183,8 +1228,7 @@ RetWithError<PrivateKey> Utils::FindPrivateKey(const Array<uint8_t>& id, const S
 
 Error Utils::DeletePrivateKey(const PrivateKey& key)
 {
-    auto err = mSession->DestroyObject(key.GetPrivHandle());
-    if (!err.IsNone()) {
+    if (auto err = mSession->DestroyObject(key.GetPrivHandle()); !err.IsNone()) {
         return err;
     }
 
@@ -1206,31 +1250,59 @@ Error Utils::ImportCertificate(const Array<uint8_t>& id, const String& label, co
 
     StaticArray<uint8_t, crypto::cSerialNumDERSize> serialNum;
 
-    auto err = mCryptoProvider.ASN1EncodeBigInt(cert.mSerial, serialNum);
-    if (!err.IsNone()) {
-        return err;
+    if (auto encodeErr = mCryptoProvider.ASN1EncodeBigInt(cert.mSerial, serialNum); !encodeErr.IsNone()) {
+        return encodeErr;
     }
 
     StaticArray<CK_ATTRIBUTE, cObjectAttributesCount> certTempl;
 
-    certTempl.PushBack({CKA_CLASS, &certClass, sizeof(certClass)});
-    certTempl.PushBack({CKA_CERTIFICATE_TYPE, &certTypeX509, sizeof(certTypeX509)});
-    certTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)});
-    certTempl.PushBack({CKA_PRIVATE, &falseVal, sizeof(falseVal)});
-    certTempl.PushBack({CKA_SUBJECT, const_cast<uint8_t*>(cert.mSubject.Get()), cert.mSubject.Size()});
-    certTempl.PushBack({CKA_ISSUER, const_cast<uint8_t*>(cert.mIssuer.Get()), cert.mIssuer.Size()});
-    certTempl.PushBack({CKA_SERIAL_NUMBER, serialNum.Get(), serialNum.Size()});
-    certTempl.PushBack({CKA_VALUE, const_cast<uint8_t*>(cert.mRaw.Get()), cert.mRaw.Size()});
-    certTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()});
+    if (auto err = certTempl.PushBack({CKA_CLASS, &certClass, sizeof(certClass)}); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_CERTIFICATE_TYPE, &certTypeX509, sizeof(certTypeX509)}); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_TOKEN, &trueVal, sizeof(trueVal)}); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_PRIVATE, &falseVal, sizeof(falseVal)}); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack(
+            {CKA_SUBJECT, const_cast<uint8_t*>(cert.mSubject.Get()), cert.mSubject.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack(
+            {CKA_ISSUER, const_cast<uint8_t*>(cert.mIssuer.Get()), cert.mIssuer.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_SERIAL_NUMBER, serialNum.Get(), serialNum.Size()}); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack(
+            {CKA_VALUE, const_cast<uint8_t*>(cert.mRaw.Get()), cert.mRaw.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+    if (auto err = certTempl.PushBack({CKA_ID, const_cast<uint8_t*>(id.Get()), id.Size()}); // NOSONAR cpp:M23_090
+        !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
     if (!label.IsEmpty()) {
-        certTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()});
+        if (auto err
+            = certTempl.PushBack({CKA_LABEL, const_cast<char*>(label.Get()), label.Size()}); // NOSONAR cpp:M23_090
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     ObjectHandle certHandle = CK_INVALID_HANDLE;
 
-    CK_RV rv = funcList->C_CreateObject(mSession->GetHandle(), certTempl.Get(), certTempl.Size(), &certHandle);
-    if (rv != CKR_OK) {
-        return static_cast<int>(rv);
+    if (CK_RV rv = funcList->C_CreateObject(mSession->GetHandle(), certTempl.Get(), certTempl.Size(), &certHandle);
+        rv != CKR_OK) {
+        return static_cast<int32_t>(rv);
     }
 
     return ErrorEnum::eNone;
@@ -1249,9 +1321,9 @@ RetWithError<bool> Utils::HasCertificate(const Array<uint8_t>& issuer, const Arr
     }
 
     StaticArray<ObjectAttribute, cObjectAttributesCount> certTempl;
-    certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
-    certTempl.PushBack({CKA_ISSUER, issuer});
-    certTempl.PushBack({CKA_SERIAL_NUMBER, asn1SerialNum});
+    (void)certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
+    (void)certTempl.PushBack({CKA_ISSUER, issuer});
+    (void)certTempl.PushBack({CKA_SERIAL_NUMBER, asn1SerialNum});
 
     StaticArray<ObjectHandle, cSingleObject> certHandles;
 
@@ -1282,6 +1354,11 @@ RetWithError<SharedPtr<crypto::x509::CertificateChain>> Utils::FindCertificateCh
         return {nullptr, err};
     }
 
+    if (certHandles.Size() > 1) {
+        // No working-status event at this layer; warn and continue with the first handle.
+        LOG_WRN() << "Multiple PKCS11 certificate objects found" << Log::Field("count", certHandles.Size());
+    }
+
     SharedPtr<crypto::x509::Certificate> certificate;
 
     auto chain = MakeShared<crypto::x509::CertificateChain>(&mAllocator);
@@ -1304,6 +1381,11 @@ RetWithError<SharedPtr<crypto::x509::CertificateChain>> Utils::FindCertificateCh
         return {nullptr, err};
     }
 
+    err = ValidateCertificateChain(*chain);
+    if (!err.IsNone()) {
+        return {nullptr, err};
+    }
+
     return {chain, err};
 }
 
@@ -1314,9 +1396,9 @@ Error Utils::DeleteCertificate(const Array<uint8_t>& id, const String& label)
 
     StaticArray<ObjectAttribute, cObjectAttributesCount> certTempl;
 
-    certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
-    certTempl.PushBack({CKA_ID, id});
-    certTempl.PushBack({CKA_LABEL, ConvertToAttributeValue(label)});
+    (void)certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
+    (void)certTempl.PushBack({CKA_ID, id});
+    (void)certTempl.PushBack({CKA_LABEL, ConvertToAttributeValue(label)});
 
     StaticArray<ObjectHandle, cKeysPerToken> certHandles;
 
@@ -1348,8 +1430,8 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
         StaticArray<Array<uint8_t>, cObjectAttributesCount> attrValues;
         StaticArray<AttributeType, cObjectAttributesCount>  attrTypes;
 
-        attrTypes.PushBack(CKA_MODULUS);
-        attrTypes.PushBack(CKA_PUBLIC_EXPONENT);
+        (void)attrTypes.PushBack(CKA_MODULUS);
+        (void)attrTypes.PushBack(CKA_PUBLIC_EXPONENT);
 
         auto n = MakeUnique<StaticArray<uint8_t, crypto::cRSAModulusSize>>(&mAllocator);
         if (!n) {
@@ -1361,11 +1443,10 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
             return {{}, ErrorEnum::eNoMemory};
         }
 
-        attrValues.PushBack(*n);
-        attrValues.PushBack(*e);
+        (void)attrValues.PushBack(*n);
+        (void)attrValues.PushBack(*e);
 
-        auto err = mSession->GetAttributeValues(pubKeyHandle, attrTypes, attrValues);
-        if (!err.IsNone()) {
+        if (auto err = mSession->GetAttributeValues(pubKeyHandle, attrTypes, attrValues); !err.IsNone()) {
             return {{}, err};
         }
 
@@ -1388,8 +1469,8 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
         StaticArray<Array<uint8_t>, cObjectAttributesCount> attrValues;
         StaticArray<AttributeType, cObjectAttributesCount>  attrTypes;
 
-        attrTypes.PushBack(CKA_ECDSA_PARAMS);
-        attrTypes.PushBack(CKA_EC_POINT);
+        (void)attrTypes.PushBack(CKA_ECDSA_PARAMS);
+        (void)attrTypes.PushBack(CKA_EC_POINT);
 
         auto derEncodedParams = MakeUnique<StaticArray<uint8_t, crypto::cECDSAParamsOIDSize>>(&mAllocator);
         if (!derEncodedParams) {
@@ -1401,8 +1482,8 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
             return {{}, ErrorEnum::eNoMemory};
         }
 
-        attrValues.PushBack(*derEncodedParams);
-        attrValues.PushBack(*derEncodedPoint);
+        (void)attrValues.PushBack(*derEncodedParams);
+        (void)attrValues.PushBack(*derEncodedPoint);
 
         auto err = mSession->GetAttributeValues(pubKeyHandle, attrTypes, attrValues);
         if (!err.IsNone()) {
@@ -1429,6 +1510,13 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
             return {{}, err};
         }
 
+        if (static constexpr uint8_t cSecp384r1OID[] = {0x2B, 0x81, 0x04, 0x00, 0x22};
+            *params != Array<uint8_t>(cSecp384r1OID, sizeof(cSecp384r1OID))) {
+            LOG_ERR() << "Unsupported elliptic curve, only P384 (secp384r1) is supported";
+
+            return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
+        }
+
         auto pubKey = MakeUnique<crypto::ECDSAPublicKey>(&mAllocator, *params, *point);
         if (!pubKey) {
             return {{}, ErrorEnum::eNoMemory};
@@ -1444,22 +1532,29 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
 
         return {pkcsKey, ErrorEnum::eNone};
     }
+
+    default:
+        break;
     }
 
-    LOG_ERR() << "Unsupported key type: keyType=" << keyType << ", only RSA and ECDSA (secp384r1) are supported";
+    LOG_ERR() << "Unsupported key type: keyType=" << static_cast<int32_t>(keyType)
+              << ", only RSA and ECDSA (secp384r1) are supported";
 
     return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
 }
 
-Error Utils::FindCertificates(const Array<uint8_t>& id, const String& label, Array<ObjectHandle>& handles)
+Error Utils::FindCertificates(const Array<uint8_t>& id, const String& label, Array<ObjectHandle>& handles) const
 {
-    CK_OBJECT_CLASS certClass = CKO_CERTIFICATE;
+    CK_OBJECT_CLASS     certClass    = CKO_CERTIFICATE;
+    CK_CERTIFICATE_TYPE certTypeX509 = CKC_X_509;
 
     StaticArray<ObjectAttribute, cObjectAttributesCount> certTempl;
 
-    certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
-    certTempl.PushBack({CKA_ID, id});
-    certTempl.PushBack({CKA_LABEL, ConvertToAttributeValue(label)});
+    // CKA_ID / CKA_LABEL / CKC_X_509 are applied here, no need to recheck after get.
+    (void)certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
+    (void)certTempl.PushBack({CKA_CERTIFICATE_TYPE, ConvertToAttributeValue(certTypeX509)});
+    (void)certTempl.PushBack({CKA_ID, id});
+    (void)certTempl.PushBack({CKA_LABEL, ConvertToAttributeValue(label)});
 
     return mSession->FindObjects(certTempl, handles);
 }
@@ -1470,18 +1565,48 @@ Error Utils::FindCertificateChain(const crypto::x509::Certificate& certificate, 
         return ErrorEnum::eNone;
     }
 
-    CK_OBJECT_CLASS                                      certClass = CKO_CERTIFICATE;
+    CK_OBJECT_CLASS                                      certClass    = CKO_CERTIFICATE;
+    CK_CERTIFICATE_TYPE                                  certTypeX509 = CKC_X_509;
     StaticArray<ObjectAttribute, cObjectAttributesCount> certTempl;
 
-    certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
-    certTempl.PushBack({CKA_SUBJECT, certificate.mIssuer});
+    // Lookup by subject; CKC_X_509 in the find template. No expected CKA_ID / CKA_LABEL.
+    (void)certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
+    (void)certTempl.PushBack({CKA_CERTIFICATE_TYPE, ConvertToAttributeValue(certTypeX509)});
+    (void)certTempl.PushBack({CKA_SUBJECT, certificate.mIssuer});
 
     StaticArray<ObjectHandle, cKeysPerToken> handles;
     SharedPtr<crypto::x509::Certificate>     foundCert;
 
     auto err = mSession->FindObjects(certTempl, handles);
     if (err.IsNone()) {
-        Tie(foundCert, err) = GetCertificate(handles[0]);
+        if (handles.Size() > 1) {
+            // No working-status event at this layer; warn and match by AKID/SKID.
+            LOG_WRN() << "Multiple PKCS11 issuer certificate objects found" << Log::Field("count", handles.Size());
+        }
+
+        for (auto handle : handles) {
+            SharedPtr<crypto::x509::Certificate> candidate;
+
+            Tie(candidate, err) = GetCertificate(handle);
+            if (!err.IsNone()) {
+                LOG_WRN() << "Skip certificate while searching issuer" << Log::Field(err);
+
+                continue;
+            }
+
+            if (certificate.mAuthorityKeyId.IsEmpty() || candidate->mSubjectKeyId == certificate.mAuthorityKeyId) {
+                foundCert = candidate;
+                break;
+            }
+        }
+
+        if (!foundCert && !certificate.mAuthorityKeyId.IsEmpty()) {
+            Tie(foundCert, err) = FindCertificateByKeyID(certificate.mAuthorityKeyId);
+        } else if (!foundCert) {
+            err = ErrorEnum::eNotFound;
+        } else {
+            // certificate already found, nothing to do
+        }
     } else if (err == ErrorEnum::eNotFound && !certificate.mAuthorityKeyId.IsEmpty()) {
         Tie(foundCert, err) = FindCertificateByKeyID(certificate.mAuthorityKeyId);
     } else {
@@ -1506,12 +1631,38 @@ Error Utils::FindCertificateChain(const crypto::x509::Certificate& certificate, 
     return FindCertificateChain(*foundCert, chain);
 }
 
+Error Utils::ValidateCertificateChain(const crypto::x509::CertificateChain& chain)
+{
+    for (size_t i = 1; i < chain.Size(); ++i) {
+        const auto& child  = chain[i - 1];
+        const auto& parent = chain[i];
+
+        if (!child.mAuthorityKeyId.IsEmpty() && child.mAuthorityKeyId != parent.mSubjectKeyId) {
+            StaticString<crypto::cCertDNStringSize> subject;
+
+            (void)mCryptoProvider.ASN1DecodeDN(parent.mSubject, subject);
+            LOG_ERR() << "Issuer authorityKeyIdentifier mismatch: subject=" << subject;
+
+            return AOS_ERROR_WRAP(ErrorEnum::eFailed);
+        }
+
+        if (auto validateErr = crypto::ValidateCACert(parent); !validateErr.IsNone()) {
+            return validateErr;
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
 RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::FindCertificateByKeyID(const Array<uint8_t>& keyID)
 {
-    CK_OBJECT_CLASS                                      certClass = CKO_CERTIFICATE;
+    CK_OBJECT_CLASS                                      certClass    = CKO_CERTIFICATE;
+    CK_CERTIFICATE_TYPE                                  certTypeX509 = CKC_X_509;
     StaticArray<ObjectAttribute, cObjectAttributesCount> certTempl;
 
-    certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
+    // Lookup by SKI after parse; CKC_X_509 in the find template. No expected CKA_ID / CKA_LABEL.
+    (void)certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
+    (void)certTempl.PushBack({CKA_CERTIFICATE_TYPE, ConvertToAttributeValue(certTypeX509)});
 
     StaticArray<ObjectHandle, cKeysPerToken> handles;
 
@@ -1525,7 +1676,9 @@ RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::FindCertificateByKeyID
 
         Tie(certificate, err) = GetCertificate(handle);
         if (!err.IsNone()) {
-            return {nullptr, err};
+            LOG_WRN() << "Skip certificate while searching by key id" << Log::Field(err);
+
+            continue;
         }
 
         if (certificate->mSubjectKeyId == keyID) {
@@ -1543,23 +1696,41 @@ RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::GetCertificate(ObjectH
         return {nullptr, ErrorEnum::eNoMemory};
     }
 
+    CK_OBJECT_CLASS                                     objClass = 0;
     StaticArray<Array<uint8_t>, cObjectAttributesCount> attrValues;
     StaticArray<AttributeType, cObjectAttributesCount>  attrTypes;
 
-    certificate->mRaw.Resize(certificate->mRaw.MaxSize());
+    (void)certificate->mRaw.Resize(certificate->mRaw.MaxSize());
 
-    attrTypes.PushBack(CKA_VALUE);
-    attrValues.PushBack(certificate->mRaw);
+    (void)attrTypes.PushBack(CKA_CLASS);
+    (void)attrTypes.PushBack(CKA_VALUE);
+
+    (void)attrValues.PushBack(ConvertToAttributeValue(objClass));
+    (void)attrValues.PushBack(certificate->mRaw);
 
     auto err = mSession->GetAttributeValues(handle, attrTypes, attrValues);
     if (!err.IsNone()) {
         return {nullptr, err};
     }
 
-    certificate->mRaw.Resize(attrValues[0].Size());
+    if (objClass != CKO_CERTIFICATE) {
+        LOG_ERR() << "PKCS11 object class mismatch" << Log::Field("expected", CKO_CERTIFICATE)
+                  << Log::Field("actual", objClass);
+
+        return {nullptr, AOS_ERROR_WRAP(ErrorEnum::eFailed)};
+    }
+
+    (void)certificate->mRaw.Resize(attrValues[1].Size());
+    if (certificate->mRaw.IsEmpty()) {
+        LOG_ERR() << "PKCS11 certificate CKA_VALUE is empty";
+
+        return {nullptr, AOS_ERROR_WRAP(ErrorEnum::eFailed)};
+    }
 
     err = mCryptoProvider.DERToX509Cert(certificate->mRaw, *certificate);
     if (!err.IsNone()) {
+        LOG_ERR() << "PKCS11 certificate CKA_VALUE is not a valid X.509 DER certificate" << Log::Field(err);
+
         return {nullptr, err};
     }
 

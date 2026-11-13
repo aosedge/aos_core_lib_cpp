@@ -7,10 +7,10 @@
 #ifndef AOS_CORE_CM_DATABASE_ITF_DATABASE_HPP_
 #define AOS_CORE_CM_DATABASE_ITF_DATABASE_HPP_
 
-#include <core/cm/imagemanager/itf/storage.hpp>
 #include <core/cm/launcher/itf/storage.hpp>
 #include <core/cm/storagestate/itf/storage.hpp>
 #include <core/cm/updatemanager/itf/storage.hpp>
+#include <core/common/imagemanager/itf/storage.hpp>
 
 namespace aos::cm::database {
 
@@ -22,7 +22,7 @@ namespace aos::cm::database {
  * Database interface.
  */
 class DatabaseItf : public updatemanager::StorageItf,
-                    public imagemanager::StorageItf,
+                    public virtual common::imagemanager::StorageItf,
                     public launcher::StorageItf,
                     public storagestate::StorageItf { };
 

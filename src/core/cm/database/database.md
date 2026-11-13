@@ -4,7 +4,8 @@ The database module provides persistent storage for various CM modules. It imple
 following modules:
 
 - [aos::cm::updatemanager::StorageItf](../updatemanager/itf/storage.hpp) - update manager storage interface;
-- [aos::cm::imagemanager::StorageItf](../imagemanager/itf/storage.hpp) - image manager storage interface;
+- [aos::common::imagemanager::StorageItf](../../common/imagemanager/itf/storage.hpp) - image manager storage interface,
+  inherited virtually so that the implementation may share it with a common image manager storage base class;
 - [aos::cm::launcher::StorageItf](../launcher/itf/storage.hpp) - launcher storage interface;
 - [aos::cm::storagestate::StorageItf](../storagestate/itf/storage.hpp) - storage state storage interface.
 
@@ -18,7 +19,7 @@ classDiagram
         <<interface>>
     }
 
-    class ImageManagerStorageItf ["aos::cm::imagemanager::StorageItf"] {
+    class ImageManagerStorageItf ["aos::common::imagemanager::StorageItf"] {
         <<interface>>
     }
 

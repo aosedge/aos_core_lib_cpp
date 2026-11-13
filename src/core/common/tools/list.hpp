@@ -70,7 +70,7 @@ protected:
          */
         template <bool WasConst = IsConst, typename = EnableIf<IsConst || !WasConst>>
         // cppcheck-suppress noExplicitConstructor
-        Iterator(const Iterator<WasConst>& it)
+        Iterator(const Iterator<WasConst>& it) // NOSONAR cpp:S1709
             : mCurrentNode(it.mCurrentNode)
         {
         }
@@ -80,21 +80,20 @@ protected:
          *
          * @return Reference.
          */
-        Reference operator*() const { return *reinterpret_cast<Pointer>(mCurrentNode->mBuffer); }
+        Reference operator*() const
+        {
+            return *reinterpret_cast<Pointer>(mCurrentNode->mBuffer); // NOSONAR cpp:S3630
+        }
 
         /**
          * Dereference operator.
          *
          * @return Pointer.
          */
-        Pointer operator&() const { return reinterpret_cast<Pointer>(mCurrentNode->mBuffer); }
-
-        /**
-         * Dereference operator.
-         *
-         * @return Pointer.
-         */
-        Pointer operator->() const { return reinterpret_cast<Pointer>(mCurrentNode->mBuffer); }
+        Pointer operator->() const
+        {
+            return reinterpret_cast<Pointer>(mCurrentNode->mBuffer); // NOSONAR cpp:S3630
+        }
 
         /**
          * Prefix increment operator.
@@ -117,7 +116,7 @@ protected:
         {
             Iterator it(*this);
 
-            operator++();
+            (void)operator++();
 
             return it;
         }
@@ -154,7 +153,10 @@ protected:
          * @param other iterator to compare with.
          * @return bool.
          */
-        bool operator==(const Iterator& other) const { return mCurrentNode == other.mCurrentNode; }
+        friend bool operator==(const Iterator& lhs, const Iterator& other)
+        {
+            return lhs.mCurrentNode == other.mCurrentNode;
+        };
 
         /**
          * Checks if iterators are not equal.
@@ -162,7 +164,7 @@ protected:
          * @param other iterator to compare with.
          * @return bool.
          */
-        bool operator!=(const Iterator& other) const { return !operator==(other); }
+        friend bool operator!=(const Iterator& lhs, const Iterator& other) { return !(lhs == other); };
 
     private:
         friend class List<T>;
@@ -180,7 +182,9 @@ protected:
         mTerminalNode.mPrev = &mTerminalNode;
     }
 
-    ListImpl(const ListImpl& list) = default;
+    ListImpl(const ListImpl& list) noexcept = default;
+
+    ~ListImpl() = default;
 
     virtual Node* AllocateNode() = 0;
 
@@ -192,7 +196,7 @@ protected:
             return nullptr;
         }
 
-        new (&node->mBuffer) T(args...);
+        new (&node->mBuffer) T(Forward<Args>(args)...); // NOSONAR cpp:M23_329
 
         return node;
     }
@@ -210,12 +214,12 @@ protected:
         mSize++;
     }
 
-    void ReleaseNode(Node& node)
+    void ReleaseNode(Node& node) const
     {
         assert(node.mAllocated);
 
         node.mAllocated = false;
-        reinterpret_cast<T*>(node.mBuffer)->~T();
+        reinterpret_cast<T*>(node.mBuffer)->~T(); // NOSONAR cpp:M23_329
     }
 
     void RemoveNode(Node& node)
@@ -266,7 +270,7 @@ public:
      *
      * @param list another list instance.
      */
-    List(const List& list) = default;
+    List(const List& list) noexcept = default;
 
     /**
      * Assigns existing list to the current one.
@@ -274,7 +278,7 @@ public:
      * @param list existing list.
      * @return List&.
      */
-    List& operator=(const List& list)
+    List& operator=(const List& list) noexcept
     {
         assert(mItems && list.Size() <= this->MaxSize());
 
@@ -307,7 +311,7 @@ public:
     void Clear()
     {
         while (this->mSize > 0) {
-            Remove(Iterator(this->mTerminalNode.mNext));
+            (void)Remove(Iterator(this->mTerminalNode.mNext));
         }
     }
 
@@ -338,7 +342,7 @@ public:
     template <typename... Args>
     Error EmplaceBack(Args&&... args)
     {
-        auto node = ListImpl<T>::CreateNode(args...);
+        auto node = ListImpl<T>::CreateNode(Forward<Args>(args)...); // NOSONAR cpp:M23_279
         if (!node) {
             return ErrorEnum::eNoMemory;
         }
@@ -375,7 +379,7 @@ public:
     template <typename... Args>
     Error EmplaceFront(Args&&... args)
     {
-        auto node = ListImpl<T>::CreateNode(args...);
+        auto node = ListImpl<T>::CreateNode(Forward<Args>(args)...); // NOSONAR cpp:M23_279
         if (!node) {
             return ErrorEnum::eNoMemory;
         }
@@ -395,12 +399,12 @@ public:
     template <typename... Args>
     Error Emplace(ConstIterator pos, Args&&... args)
     {
-        auto node = ListImpl<T>::CreateNode(args...);
+        auto node = ListImpl<T>::CreateNode(Forward<Args>(args)...); // NOSONAR cpp:M23_279
         if (!node) {
             return ErrorEnum::eNoMemory;
         }
 
-        ListImpl<T>::InsertNode(*const_cast<Node*>(pos.mCurrentNode), *node);
+        ListImpl<T>::InsertNode(*const_cast<Node*>(pos.mCurrentNode), *node); // NOSONAR cpp:M23_090
 
         return ErrorEnum::eNone;
     }
@@ -419,7 +423,7 @@ public:
             return ErrorEnum::eNoMemory;
         }
 
-        ListImpl<T>::InsertNode(*const_cast<Node*>(pos.mCurrentNode), *node);
+        ListImpl<T>::InsertNode(*const_cast<Node*>(pos.mCurrentNode), *node); // NOSONAR cpp:M23_090
 
         return ErrorEnum::eNone;
     }
@@ -481,10 +485,10 @@ public:
     Iterator Erase(ConstIterator first, ConstIterator last) override
     {
         for (auto it = first; it != last; ++it) {
-            ListImpl<T>::RemoveNode(*const_cast<RemoveConstType<Node>*>(it.mCurrentNode));
+            ListImpl<T>::RemoveNode(*const_cast<Node*>(it.mCurrentNode)); // NOSONAR cpp:M23_090
         }
 
-        return Iterator(const_cast<Node*>(last.mCurrentNode));
+        return Iterator(const_cast<Node*>(last.mCurrentNode)); // NOSONAR cpp:M23_090
     }
 
     /**
@@ -563,7 +567,7 @@ public:
      *
      * @param list list to create from.
      */
-    StaticList(const StaticList& list)
+    StaticList(const StaticList& list) noexcept
         : List<T>()
     {
         List<T>::SetBuffer(mBuffer);
@@ -580,7 +584,7 @@ public:
      *
      * @param list list to create from.
      */
-    StaticList& operator=(const StaticList& list)
+    StaticList& operator=(const StaticList& list) noexcept
     {
         List<T>::operator=(list);
 
@@ -593,7 +597,7 @@ public:
      *
      * @param list list to create from.
      */
-    StaticList(const List<T>& list)
+    StaticList(const List<T>& list) // NOSONAR cpp:S1709
     {
         List<T>::SetBuffer(mBuffer);
         List<T>::operator=(list);

@@ -22,7 +22,7 @@ public:
         eInstance,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sResourceLevelStrings[] = {
             "system",
@@ -49,7 +49,7 @@ public:
         ePartition,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sResourceTypeStrings[] = {
             "cpu",
@@ -83,7 +83,7 @@ struct ResourceIdentifier {
      * @param partitionName partition name.
      * @param instanceIdent instance identifier.
      */
-    ResourceIdentifier(const String& nodeId, ResourceLevel level, ResourceType type,
+    ResourceIdentifier(const String& nodeId, const ResourceLevel& level, const ResourceType& type,
         const Optional<StaticString<cPartitionNameLen>>& partitionName = {},
         const Optional<InstanceIdent>&                   instanceIdent = {})
         : mNodeID(nodeId)

@@ -96,6 +96,16 @@ public:
      * @return RetWithError<StaticString<cDeviceNameLen>>.
      */
     virtual RetWithError<StaticString<cDeviceNameLen>> GetBlockDevice(const String& path) const = 0;
+
+    /**
+     * Flushes pending changes to the storage.
+     *
+     * @param path path to file or directory.
+     * @param syncFS if true (default), flushes the whole file system containing the path, otherwise flushes the file
+     * only.
+     * @return Error.
+     */
+    virtual Error Sync(const String& path, bool syncFS = true) const = 0;
 };
 
 /**
@@ -111,7 +121,7 @@ public:
         eDelete,
     };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sStrings[] = {
             "access",
@@ -202,7 +212,7 @@ public:
      *
      * @param other iterator to move from.
      */
-    DirIterator(DirIterator&& other);
+    DirIterator(DirIterator&& other) noexcept;
 
     /**
      * Move assignment.
@@ -210,7 +220,7 @@ public:
      * @param other iterator to move from.
      * @return DirIterator&.
      */
-    DirIterator& operator=(DirIterator&& other);
+    DirIterator& operator=(DirIterator&& other) noexcept;
 
     /**
      * Destructor.
@@ -229,7 +239,7 @@ public:
      *
      * @return String.
      */
-    String GetRootPath() const { return mRoot; }
+    String GetRootPath() const { return mRoot; } // NOSONAR cpp:S5912 - String serves as a view over StaticString
 
     /**
      * Returns current entry reference.
@@ -281,7 +291,9 @@ public:
      * @param[out] info file info.
      * @return Error.
      */
-    virtual Error GetFileInfo(const String& path, FileInfo& info, crypto::Hash hashAlg = crypto::HashEnum::eSHA256) = 0;
+    virtual Error GetFileInfo(
+        const String& path, FileInfo& info, const crypto::Hash& hashAlg = crypto::HashEnum::eSHA256)
+        = 0;
 };
 
 /**
@@ -305,7 +317,8 @@ public:
      * @param[out] info file info.
      * @return Error.
      */
-    Error GetFileInfo(const String& path, FileInfo& info, crypto::Hash hashAlg = crypto::HashEnum::eSHA256) override;
+    Error GetFileInfo(
+        const String& path, FileInfo& info, const crypto::Hash& hashAlg = crypto::HashEnum::eSHA256) override;
 
 private:
     AllocatorItf*      mAllocator {};
@@ -321,16 +334,16 @@ template <typename... Args>
 String& AppendPath(String& path, const Args&... args)
 {
     auto AppendPathEntry = [](String& path, const String& item) -> String& {
-        if (path.Size() == 0 || *(path.end() - 1) == '/') {
-            path.Append(item);
+        if (path.IsEmpty() || *(path.end() - 1) == '/') {
+            (void)path.Append(item);
         } else {
-            path.Append("/").Append(item);
+            (void)path.Append("/").Append(item);
         }
 
         return path;
     };
 
-    (AppendPathEntry(path, args), ...);
+    (void)(AppendPathEntry(path, args), ...);
 
     return path;
 }
@@ -343,7 +356,7 @@ StaticString<cFilePathLen> JoinPath(const Args&... args)
 {
     StaticString<cFilePathLen> path;
 
-    AppendPath(path, args...);
+    (void)AppendPath(path, args...);
 
     return path;
 }
@@ -426,7 +439,21 @@ Error RemoveAll(const String& path);
 Error Rename(const String& oldPath, const String& newPath);
 
 /**
+ * Copies a file, including between different file systems. Removes an incomplete destination on failure.
+ * Source and destination must refer to different files. The destination is overwritten with mode 0644 for new files.
+ *
+ * @param allocator allocator for the copy buffer.
+ * @param srcPath source file path.
+ * @param dstPath destination file path.
+ * @return Error.
+ */
+Error CopyFile(AllocatorItf& allocator, const String& srcPath, const String& dstPath);
+
+/**
  * Reads content of the file named by fileName into the buffer.
+ *
+ * Open and read errors are returned as follows: EIO and EBADMSG as ErrorEnum::eIntegrity, ENOENT as
+ * ErrorEnum::eNotFound, any other errno as is. The errno is kept as the error code.
  *
  * @param fileName file name.
  * @param[out] buff destination buffer.
@@ -436,6 +463,9 @@ Error ReadFile(const String& fileName, Array<uint8_t>& buff);
 
 /**
  * Reads content of the file named by fileName into the given string.
+ *
+ * Open and read errors are returned as follows: EIO and EBADMSG as ErrorEnum::eIntegrity, ENOENT as
+ * ErrorEnum::eNotFound, any other errno as is. The errno is kept as the error code.
  *
  * @param fileName file name.
  * @param[out] text result string.
@@ -452,7 +482,7 @@ Error ReadFileToString(const String& fileName, String& text);
  * @param delimiter line delimiter.
  * @return Error.
  */
-Error ReadLine(int fd, size_t pos, String& line, const String& delimiter = "\n\0");
+Error ReadLine(int32_t fd, size_t pos, String& line, const String& delimiter = "\n\0");
 
 /**
  * Overwrites file with a specified data.
@@ -479,19 +509,42 @@ Error WriteStringToFile(const String& fileName, const String& text, uint32_t per
  *
  * @param allocator allocator to use for temporary objects.
  * @param path file or directory path.
- * @return RetWithError<size_t>.
+ * @return RetWithError<size_t>: eNotFound if the path doesn't exist, eIntegrity on EIO or EBADMSG, otherwise
+ *         errno as is. The errno is kept as the error code.
  */
 RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path);
 
 /**
+ * Returns file modification time.
+ *
+ * @param path file path.
+ * @return RetWithError<Time>.
+ */
+RetWithError<Time> GetFileMTime(const String& path);
+
+/**
+ * Sets file modification time.
+ *
+ * @param path file path.
+ * @param time modification time.
+ * @return Error.
+ */
+Error SetFileMTime(const String& path, const Time& time);
+
+/**
  * File class.
  */
-class File {
+class File : private NonCopyable {
 public:
     /**
      * File open mode.
+     *
+     * Read     - opens an existing file for reading.
+     * Write    - creates the file or truncates an existing one.
+     * WriteNew - creates a new file, fails if the path already exists. The last path component is never followed if
+     *            it is a symlink. Parent directories are resolved as usual, so they must be trusted.
      */
-    enum class Mode { Read, Write };
+    enum class Mode { Read, Write, WriteNew };
 
     /**
      * Destructor.
@@ -502,10 +555,12 @@ public:
      * Opens a file in the specified mode.
      *
      * @param path path to the file.
-     * @param mode read or write mode.
-     * @return Error.
+     * @param mode open mode.
+     * @param perm permissions of a created file (before the process umask is applied).
+     * @return Error: EIO and EBADMSG as ErrorEnum::eIntegrity, ENOENT as ErrorEnum::eNotFound, any other errno as is.
+     * The errno is kept as the error code.
      */
-    Error Open(const String& path, Mode mode);
+    Error Open(const String& path, Mode mode, uint32_t perm = 0644);
 
     /**
      * Closes the file if open.
@@ -518,9 +573,10 @@ public:
      * Reads a block from the file.
      *
      * @param[out] buffer destination buffer.
-     * @return Error.
+     * @return Error: eEOF at the end of the file, EIO and EBADMSG as ErrorEnum::eIntegrity, any other errno as is.
+     * The errno is kept as the error code.
      */
-    Error ReadBlock(Array<uint8_t>& buffer);
+    Error ReadBlock(Array<uint8_t>& buffer) const;
 
     /**
      * Writes a block to the file.
@@ -528,10 +584,10 @@ public:
      * @param[out] buffer source buffer.
      * @return Error.
      */
-    Error WriteBlock(const Array<uint8_t>& buffer);
+    Error WriteBlock(const Array<uint8_t>& buffer) const;
 
 private:
-    int mFd = -1;
+    int32_t mFd = -1;
 };
 
 /**

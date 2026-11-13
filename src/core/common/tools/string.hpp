@@ -23,7 +23,7 @@ namespace aos {
 /**
  * String instance.
  */
-class String : public Array<char> {
+class String : public Array<char> { // NOSONAR cpp:S3624 - non-owning view, nothing to release
 public:
     enum class CaseSensitivity {
         CaseInsensitive,
@@ -35,15 +35,15 @@ public:
      */
     using Array::Array;
 
-    // TODO: automatically make const String from const char*.
+    // TODO: automatically make const String from const char*. // NOSONAR cpp:S1135
     // cppcheck-suppress noExplicitConstructor
     /**
      * Constructs string from C string.
      *
      * @param str C string.
      */
-    String(const char* str)
-        : Array(const_cast<char*>(str), str ? strlen(str) : 0)
+    String(const char* str) // NOSONAR cpp:S1709
+        : Array(const_cast<char*>(str), str ? strlen(str) : 0) // NOSONAR cpp:M23_090
     {
         if (str && *end()) {
             *end() = 0;
@@ -55,7 +55,7 @@ public:
      *
      * @param str string.
      */
-    String(const String& str)
+    String(const String& str) noexcept
         : Array(str)
     {
         if (*end()) {
@@ -64,12 +64,17 @@ public:
     }
 
     /**
+     * Destructor.
+     */
+    ~String() = default;
+
+    /**
      * Assigns string to string.
      *
      * @param str string.
      * @return String&.
      */
-    String& operator=(const String& str)
+    String& operator=(const String& str) noexcept
     {
         [[maybe_unused]] auto err = Assign(str);
         assert(err.IsNone());
@@ -137,7 +142,7 @@ public:
     /**
      * Clears string.
      */
-    void Clear() { Resize(0); }
+    void Clear() { (void)Resize(0); }
 
     /**
      * Appends string.
@@ -196,7 +201,7 @@ public:
      * @param to past the end pointer of the input range to be removed.
      * @return Error.
      */
-    Error Remove(char* from, char* to)
+    Error Remove(char* from, const char* to)
     {
         if (from < begin() || from > end()) {
             return ErrorEnum::eInvalidArgument;
@@ -252,7 +257,7 @@ public:
      */
     String& RightTrim(const String& chars)
     {
-        while (Size() > 0) {
+        while (!IsEmpty()) {
             if (chars.Find(Back()) != chars.end()) {
                 [[maybe_unused]] auto err = PopBack();
                 assert(err.IsNone());
@@ -273,8 +278,8 @@ public:
      */
     String& Trim(const String& chars)
     {
-        LeftTrim(chars);
-        RightTrim(chars);
+        (void)LeftTrim(chars);
+        (void)RightTrim(chars);
 
         return *this;
     }
@@ -335,16 +340,16 @@ public:
             }
 
             if (oldSubstr.Size() > newSubstr.Size()) {
-                if (err = Remove(begin() + oldPos + newSubstr.Size(), begin() + oldPos + oldSubstr.Size());
-                    !err.IsNone()) {
+                err = Remove(begin() + oldPos + newSubstr.Size(), begin() + oldPos + oldSubstr.Size());
+                if (!err.IsNone()) {
                     return err;
                 }
             }
 
             if (oldSubstr.Size() < newSubstr.Size()) {
-                if (err = Insert(
-                        begin() + oldPos + oldSubstr.Size(), newSubstr.begin() + oldSubstr.Size(), newSubstr.end());
-                    !err.IsNone()) {
+                err = Insert(
+                    begin() + oldPos + oldSubstr.Size(), newSubstr.begin() + oldSubstr.Size(), newSubstr.end());
+                if (!err.IsNone()) {
                     return err;
                 }
             }
@@ -367,7 +372,7 @@ public:
      * @param str string to compare with.
      * @return bool.
      */
-    bool operator==(const String& str) const { return Array::operator==(str); };
+    bool operator==(const String& str) const { return Array::operator==(str); }; // NOSONAR cpp:S2807
 
     /**
      * Checks if str doesn't equal to another string.
@@ -375,7 +380,7 @@ public:
      * @param str string to compare with.
      * @return bool.
      */
-    bool operator!=(const String& str) const { return Array::operator!=(str); };
+    bool operator!=(const String& str) const { return Array::operator!=(str); }; // NOSONAR cpp:S2807
 
     /**
      * Checks if str is less than another string.
@@ -383,7 +388,7 @@ public:
      * @param str string to compare with.
      * @return bool.
      */
-    bool operator<(const String& str) const { return strcmp(CStr(), str.CStr()) < 0; }
+    bool operator<(const String& str) const { return strcmp(CStr(), str.CStr()) < 0; } // NOSONAR cpp:S2807
 
     /**
      * Checks if str is less or equal to another string.
@@ -391,7 +396,7 @@ public:
      * @param str string to compare with.
      * @return bool
      */
-    bool operator<=(const String& str) const { return strcmp(CStr(), str.CStr()) <= 0; }
+    bool operator<=(const String& str) const { return strcmp(CStr(), str.CStr()) <= 0; } // NOSONAR cpp:S2807
 
     /**
      * Checks if str is greater than another string.
@@ -399,7 +404,7 @@ public:
      * @param str string to compare with.
      * @return bool.
      */
-    bool operator>(const String& str) const { return strcmp(CStr(), str.CStr()) > 0; }
+    bool operator>(const String& str) const { return strcmp(CStr(), str.CStr()) > 0; } // NOSONAR cpp:S2807
 
     /**
      * Checks if str is greater or equal to another string.
@@ -407,7 +412,7 @@ public:
      * @param str string to compare with.
      * @return bool.
      */
-    bool operator>=(const String& str) const { return strcmp(CStr(), str.CStr()) >= 0; }
+    bool operator>=(const String& str) const { return strcmp(CStr(), str.CStr()) >= 0; } // NOSONAR cpp:S2807
 
     /**
      * Checks if C string equals to string.
@@ -432,7 +437,7 @@ public:
      *
      * @return RetWithError<int>.
      */
-    RetWithError<int> ToInt() const { return atoi(CStr()); }
+    RetWithError<int32_t> ToInt() const { return atoi(CStr()); }
 
     /**
      * Converts sting to uint64.
@@ -461,13 +466,12 @@ public:
         auto high = cDigits[val >> 4];
         auto low  = cDigits[val & 0xF];
 
-        auto err = Resize(2);
-        if (!err.IsNone()) {
+        if (auto err = Resize(2); !err.IsNone()) {
             return err;
         }
 
-        (*this)[0] = upperCase ? toupper(high) : high;
-        (*this)[1] = upperCase ? toupper(low) : low;
+        (*this)[0] = upperCase ? static_cast<char>(toupper(high)) : high;
+        (*this)[1] = upperCase ? static_cast<char>(toupper(low)) : low;
 
         return ErrorEnum::eNone;
     }
@@ -499,7 +503,7 @@ public:
             return {0, ErrorEnum::eNoMemory};
         }
 
-        if (Size() == 0) {
+        if (IsEmpty()) {
             return {0, ErrorEnum::eInvalidArgument};
         }
 
@@ -534,8 +538,8 @@ public:
         dst.Clear();
 
         for (size_t i = 0; i < Size(); i += 2) {
-            Error   err = ErrorEnum::eNone;
-            uint8_t byte;
+            Error   err;
+            uint8_t byte = 0;
 
             char hex[] = {(*this)[i], '0', '\0'};
 
@@ -548,7 +552,7 @@ public:
                 return err;
             }
 
-            dst.PushBack(byte);
+            (void)dst.PushBack(byte);
         }
 
         return ErrorEnum::eNone;
@@ -566,7 +570,7 @@ public:
         Clear();
 
         for (const auto val : src) {
-            char digits[3];
+            char digits[3] {};
 
             auto err = String(digits, 2).ByteToHex(val, upperCase);
             if (!err.IsNone()) {
@@ -601,27 +605,28 @@ public:
     {
         Clear();
 
-        auto msg = inErr.Message();
-        if (msg && *msg) {
-            Append(msg);
+        if (auto msg = inErr.Message(); msg && *msg) {
+            (void)Append(msg);
         } else {
-            Append(inErr.StrValue());
+            (void)Append(inErr.StrValue());
         }
 
-        auto strErrno = inErr.StrErrno();
-        if (strErrno && *strErrno) {
-            Append(" [").Append(strErrno).Append("]");
-        }
+        char tmpBuf[16] {};
 
-        if (inErr.FileName()) {
-            char tmpBuf[16];
-
-            auto err = String(tmpBuf, sizeof(tmpBuf) - 1).Convert(inErr.LineNumber());
-            if (!err.IsNone()) {
+        if (inErr.Code() != 0) {
+            if (auto err = String(tmpBuf, sizeof(tmpBuf) - 1).Convert(inErr.Code()); !err.IsNone()) {
                 return err;
             }
 
-            Append(" (").Append(inErr.FileName()).Append(":").Append(tmpBuf).Append(")");
+            (void)Append(" [code: ").Append(tmpBuf).Append("]");
+        }
+
+        if (inErr.FileName()) {
+            if (auto err = String(tmpBuf, sizeof(tmpBuf) - 1).Convert(inErr.LineNumber()); !err.IsNone()) {
+                return err;
+            }
+
+            (void)Append(" (").Append(inErr.FileName()).Append(":").Append(tmpBuf).Append(")");
         }
 
         return ErrorEnum::eNone;
@@ -633,7 +638,7 @@ public:
      * @param value int value.
      * @return Error.
      */
-    Error Convert(int value) { return ConvertValue(value, "%d"); }
+    Error Convert(int32_t value) { return ConvertValue(value, "%d"); }
 
     /**
      * Converts uint64_t to string.
@@ -728,7 +733,9 @@ public:
         Clear();
 
         // cppcheck-suppress wrongPrintfScanfArgNum
-        auto ret = snprintf(Get(), MaxSize() + 1, format.CStr(), args...);
+        auto ret
+            = snprintf(Get(), MaxSize() + 1, format.CStr(), args...); // NOSONAR cppsecurity:S5145 cpp:S5281 -
+                                                                      // generic Format() helper, runtime format string
         if (ret < 0) {
             return ret;
         }
@@ -746,7 +753,7 @@ public:
      */
     RetWithError<size_t> FindSubstr(size_t startPos, const String& substr) const
     {
-        if (substr.Size() == 0 || substr.Size() > Size()) {
+        if (substr.IsEmpty() || substr.Size() > Size()) {
             return {Size(), ErrorEnum::eNotFound};
         }
 
@@ -790,7 +797,7 @@ public:
      * @return int: 0 - if strings are equal, <0 - if current string is less than str,
      *              >0 - if current string is greater than str.
      */
-    int Compare(const String& str, CaseSensitivity caseSensitivity = CaseSensitivity::CaseSensitive) const
+    int32_t Compare(const String& str, CaseSensitivity caseSensitivity = CaseSensitivity::CaseSensitive) const
     {
         if (caseSensitivity == CaseSensitivity::CaseSensitive) {
             return strcmp(CStr(), str.CStr());
@@ -806,7 +813,7 @@ public:
  * @tparam cMaxSize max static string size.
  */
 template <size_t cMaxSize>
-class StaticString : public String {
+class StaticString : public String { // NOSONAR cpp:S3624 - StaticBuffer member handles its own cleanup
 public:
     /**
      * Creates static string.
@@ -823,21 +830,26 @@ public:
      *
      * @param str string to create from.
      */
-    StaticString(const StaticString& str)
+    StaticString(const StaticString& str) noexcept
         : String()
     {
         String::SetBuffer(mBuffer, cMaxSize);
-        String::operator=(str);
+        (void)String::operator=(str);
     }
+
+    /**
+     * Destructor.
+     */
+    ~StaticString() = default;
 
     /**
      * Assigns string from another static string.
      *
      * @param str string to assign from.
      */
-    StaticString& operator=(const StaticString& str)
+    StaticString& operator=(const StaticString& str) noexcept
     {
-        String::operator=(str);
+        (void)String::operator=(str);
 
         return *this;
     }
@@ -848,10 +860,10 @@ public:
      *
      * @param str string to create from.
      */
-    StaticString(const String& str)
+    StaticString(const String& str) // NOSONAR cpp:S1709
     {
         String::SetBuffer(mBuffer, cMaxSize);
-        String::operator=(str);
+        (void)String::operator=(str);
     }
 
     // cppcheck-suppress duplInheritedMember
@@ -862,7 +874,7 @@ public:
      */
     StaticString& operator=(const String& str)
     {
-        String::operator=(str);
+        (void)String::operator=(str);
 
         return *this;
     }
@@ -873,10 +885,10 @@ public:
      *
      * @param str initial value.
      */
-    StaticString(const char* str)
+    StaticString(const char* str) // NOSONAR cpp:S1709
     {
         String::SetBuffer(mBuffer, cMaxSize);
-        String::operator=(str);
+        (void)String::operator=(str);
     }
 
     /**
@@ -887,7 +899,7 @@ public:
      */
     StaticString& operator=(const char* str)
     {
-        String::operator=(str);
+        (void)String::operator=(str);
 
         return *this;
     }
@@ -899,14 +911,14 @@ private:
 /**
  * Interface used to convert derived type to string.
  */
-class Stringer {
+class Stringer { // NOSONAR cpp:S1235 - non-virtual so EnumStringer<T> stays constexpr-friendly
 public:
     /**
      * Returns string representation of derived class.
      *
      * @return string.
      */
-    virtual const String ToString() const = 0;
+    virtual String ToString() const = 0;
 };
 
 } // namespace aos

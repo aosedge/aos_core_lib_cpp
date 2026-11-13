@@ -91,7 +91,7 @@ Error OverrideEnvVarsProcessor::AddStatuses(const String& nodeID, const Array<In
 {
     LockGuard lock {mMutex};
 
-    mNodeEnvVarStatuses.RemoveIf(
+    (void)mNodeEnvVarStatuses.RemoveIf(
         [&nodeID](const EnvVarsInstanceStatusWithNode& item) { return item.mNodeID == nodeID; });
 
     for (const auto& status : statuses) {
@@ -191,12 +191,12 @@ bool OverrideEnvVarsProcessor::HasExpiredVariables(const OverrideEnvVarsRequest&
 void OverrideEnvVarsProcessor::RemoveExpiredVariables(OverrideEnvVarsRequest& envVars, const Time& now)
 {
     for (auto& item : envVars.mItems) {
-        item.mVariables.RemoveIf([&now](const EnvVarInfo& envVarInfo) {
+        (void)item.mVariables.RemoveIf([&now](const EnvVarInfo& envVarInfo) {
             return envVarInfo.mTTL.HasValue() && envVarInfo.mTTL.GetValue() < now;
         });
     }
 
-    envVars.mItems.RemoveIf([](const EnvVarsInstanceInfo& item) { return item.mVariables.IsEmpty(); });
+    (void)envVars.mItems.RemoveIf([](const EnvVarsInstanceInfo& item) { return item.mVariables.IsEmpty(); });
 }
 
 } // namespace aos::cm::launcher

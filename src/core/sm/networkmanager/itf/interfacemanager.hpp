@@ -24,7 +24,7 @@ class LinkKindType {
 public:
     enum class Enum { eUnknown, eBridge, eVlan, eVeth };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sLinkKindStrings[] = {"unknown", "bridge", "vlan", "veth"};
 

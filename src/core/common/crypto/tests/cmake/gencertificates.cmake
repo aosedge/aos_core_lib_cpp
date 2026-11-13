@@ -30,6 +30,10 @@ endfunction()
 # Generate child certificate
 function(genchildcert CERTIFICATES_DIR FILE_NAME COMMONNAME PARENT_NAME)
     set(OUTPUT_DIR "${CERTIFICATES_DIR}")
+    set(EXT_FILE "${CERTIFICATES_DIR}/extensions.conf")
+    if(ARGC GREATER 4)
+        set(EXT_FILE "${ARGV4}")
+    endif()
 
     message(
         STATUS "Generating child certificate '${FILE_NAME}' with CN='${COMMONNAME}' using parent '${PARENT_NAME}'..."
@@ -53,7 +57,7 @@ function(genchildcert CERTIFICATES_DIR FILE_NAME COMMONNAME PARENT_NAME)
         -days
         365
         -extfile
-        "${CERTIFICATES_DIR}/extensions.conf"
+        "${EXT_FILE}"
         -in
         "${CERTIFICATES_DIR}/${FILE_NAME}.csr"
         -CA
@@ -70,6 +74,14 @@ function(gencertificates TARGET CERTIFICATES_DIR)
     set(OUTPUT_DIR "${CERTIFICATES_DIR}")
     file(MAKE_DIRECTORY "${CERTIFICATES_DIR}")
     write_file("${CERTIFICATES_DIR}/extensions.conf" "basicConstraints = CA:TRUE\n")
+    write_file(
+        "${CERTIFICATES_DIR}/leaf_extensions.conf"
+        "basicConstraints = CA:FALSE\nkeyUsage = digitalSignature,keyEncipherment\n"
+    )
+    write_file(
+        "${CERTIFICATES_DIR}/ca_extensions.conf"
+        "basicConstraints = critical,CA:TRUE\nkeyUsage = critical,keyCertSign,cRLSign\nsubjectKeyIdentifier = hash\n"
+    )
 
     message(STATUS "Generating PKCS11 test certificates in: ${CERTIFICATES_DIR}")
 
@@ -94,7 +106,7 @@ function(gencertificates TARGET CERTIFICATES_DIR)
     run_openssl(
         x509
         -extfile
-        "${CERTIFICATES_DIR}/extensions.conf"
+        "${CERTIFICATES_DIR}/ca_extensions.conf"
         -signkey
         "${CERTIFICATES_DIR}/ca.key"
         -days
@@ -108,11 +120,11 @@ function(gencertificates TARGET CERTIFICATES_DIR)
 
     message(STATUS "Issuing client certificates...")
     genchildcert("${CERTIFICATES_DIR}" "client_int" "client_int" "ca")
-    genchildcert("${CERTIFICATES_DIR}" "client" "client" "client_int")
+    genchildcert("${CERTIFICATES_DIR}" "client" "client" "client_int" "${CERTIFICATES_DIR}/leaf_extensions.conf")
 
     message(STATUS "Issuing server certificates...")
     genchildcert("${CERTIFICATES_DIR}" "server_int" "server_int" "ca")
-    genchildcert("${CERTIFICATES_DIR}" "server" "localhost" "server_int")
+    genchildcert("${CERTIFICATES_DIR}" "server" "localhost" "server_int" "${CERTIFICATES_DIR}/leaf_extensions.conf")
 
     target_compile_definitions(${TARGET} PUBLIC TEST_CERTIFICATES_DIR="${CERTIFICATES_DIR}")
 endfunction()
@@ -125,12 +137,36 @@ extendedKeyUsage=serverAuth,clientAuth
 subjectAltName=DNS:localhost,DNS:wwwaosum,DNS:*.kyiv.epam.com,DNS:*.aos-dev.test,IP:127.0.0.1,IP:::1"
     )
 
+    # Same pattern as offline CNs ({id}-offline): id is the part before the -online suffix.
+    set(ONLINE_SYSTEM_ID "c183de63-e2b7-4776-90e0-b7c9b8f740e8")
+
     set(ONLINE_CERT_EXT
         "basicConstraints=CA:FALSE
 keyUsage=digitalSignature,keyEncipherment
 extendedKeyUsage=serverAuth,clientAuth
-subjectAltName=DNS:localhost,DNS:wwwaosum,DNS:*.kyiv.epam.com,DNS:*.aos-dev.test,IP:127.0.0.1,IP:::1
+subjectAltName=DNS:localhost,DNS:wwwaosum,DNS:*.kyiv.epam.com,DNS:*.aos-dev.test,IP:127.0.0.1,IP:::1,URI:urn:aos:unit:${ONLINE_SYSTEM_ID}
 issuerAltName=URI:https://www.mytest.com"
+    )
+
+    # cMaxNumURLs + 1 SAN URIs to check URI array overflow.
+    set(SAN_URIS "URI:urn:aos:unit:1")
+    foreach(i RANGE 2 9)
+        string(APPEND SAN_URIS ",URI:urn:aos:unit:${i}")
+    endforeach()
+
+    set(SAN_TOO_MANY_URIS_EXT
+        "basicConstraints=CA:FALSE
+keyUsage=digitalSignature,keyEncipherment
+subjectAltName=${SAN_URIS}"
+    )
+
+    # SAN URI longer than cURLLen to check URI length overflow.
+    string(REPEAT "a" 600 SAN_LONG_URI_VALUE)
+
+    set(SAN_LONG_URI_EXT
+        "basicConstraints=CA:FALSE
+keyUsage=digitalSignature,keyEncipherment
+subjectAltName=URI:urn:aos:unit:${SAN_LONG_URI_VALUE}"
     )
 
     function(write_ext_file NAME CONTENT)
@@ -201,6 +237,8 @@ issuerAltName=URI:https://www.mytest.com"
         "basicConstraints=CA:TRUE"
         -addext
         "keyUsage=digitalSignature,keyEncipherment,keyCertSign,cRLSign"
+        -addext
+        "subjectKeyIdentifier=hash"
         -addext
         "extendedKeyUsage=serverAuth,clientAuth"
         -addext
@@ -299,11 +337,13 @@ subjectAltName=DNS:localhost,DNS:wwwaosum,DNS:*.kyiv.epam.com,DNS:*.aos-dev.test
     )
     make_leaf(
         online
-        "/C=UA/O=staging-fusion.westeurope.cloudapp.azure.com/OU=OEM Test unit model/CN=c183de63-e2b7-4776-90e0-b7c9b8f740e8-online/L=Kyiv"
+        "/C=UA/O=staging-fusion.westeurope.cloudapp.azure.com/OU=OEM Test unit model/CN=${ONLINE_SYSTEM_ID}-online/L=Kyiv"
         ${ONLINE_CERT_EXT}
     )
     make_leaf(onlineTest1 "/C=UA/O=Test1/OU=OEM Test1/CN=test1/L=Kyiv" ${DEFAULT_EXT})
     make_leaf(onlineTest2 "/C=UA/OU=OEM Test2/CN=test2/L=Kyiv" ${DEFAULT_EXT})
+    make_leaf(onlineSanTooManyURIs "/C=UA/O=Test/CN=onlineSanTooManyURIs" ${SAN_TOO_MANY_URIS_EXT})
+    make_leaf(onlineSanLongURI "/C=UA/O=Test/CN=onlineSanLongURI" ${SAN_LONG_URI_EXT})
 
     message(STATUS "All certificates and keys generated successfully in ${OUTPUT_DIR}")
 

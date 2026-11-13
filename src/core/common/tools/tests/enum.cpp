@@ -15,7 +15,7 @@ class TestType {
 public:
     enum class Enum { eTestDefault, eTestType1, eTestType2, eTestTypeSize };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const cTestTypeStrings[] = {"default", "type1", "type2"};
 

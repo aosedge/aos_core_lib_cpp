@@ -30,7 +30,7 @@ const char* ConsumeChars(const char* s, char* dest, size_t cnt)
         return nullptr;
     }
 
-    memcpy(dest, s, cnt);
+    (void)memcpy(dest, s, cnt);
     dest[cnt] = '\0';
 
     return s + cnt;
@@ -47,9 +47,9 @@ const char* ConsumeChar(const char* s, char ch)
 
 const char* ConsumeDate(const char* s, struct tm* tm_time)
 {
-    char year[4 + 1];
-    char month[2 + 1];
-    char day[2 + 1];
+    char year[4 + 1] {};
+    char month[2 + 1] {};
+    char day[2 + 1] {};
 
     s = ConsumeChars(s, year, 4);
     if (!s) {
@@ -85,9 +85,9 @@ const char* ConsumeDate(const char* s, struct tm* tm_time)
 
 const char* ConsumeTime(const char* s, struct tm* tm_time, int64_t* nsec)
 {
-    char hour[2 + 1];
-    char minute[2 + 1];
-    char second[2 + 1];
+    char hour[2 + 1] {};
+    char minute[2 + 1] {};
+    char second[2 + 1] {};
 
     s = ConsumeChars(s, hour, 2);
     if (!s) {
@@ -182,35 +182,35 @@ StaticString<cTimeStrLen> Duration::ToISO8601String() const
     StaticString<cTimeStrLen> result = (mDuration < 0) ? "-P" : "P";
 
     auto total = llabs(mDuration);
-    char buffer[16];
+    char buffer[16] {};
 
     if (auto years = total / Time::cYear.Nanoseconds(); years > 0) {
-        snprintf(buffer, sizeof(buffer), "%lldY", years);
+        (void)snprintf(buffer, sizeof(buffer), "%lldY", years);
 
-        result.Append(buffer);
+        (void)result.Append(buffer);
 
         total %= Time::cYear.Nanoseconds();
     }
 
     if (auto months = total / Time::cMonth.Nanoseconds(); months > 0) {
-        snprintf(buffer, sizeof(buffer), "%lldM", months);
+        (void)snprintf(buffer, sizeof(buffer), "%lldM", months);
 
-        result.Append(buffer);
+        (void)result.Append(buffer);
         total %= Time::cMonth.Nanoseconds();
     }
 
     if (auto weeks = total / Time::cWeek.Nanoseconds(); weeks > 0) {
-        snprintf(buffer, sizeof(buffer), "%lldW", weeks);
+        (void)snprintf(buffer, sizeof(buffer), "%lldW", weeks);
 
-        result.Append(buffer);
+        (void)result.Append(buffer);
 
         total %= Time::cWeek.Nanoseconds();
     }
 
     if (auto days = total / Time::cDay.Nanoseconds(); days > 0) {
-        snprintf(buffer, sizeof(buffer), "%lldD", days);
+        (void)snprintf(buffer, sizeof(buffer), "%lldD", days);
 
-        result.Append(buffer);
+        (void)result.Append(buffer);
 
         total %= Time::cDay.Nanoseconds();
     }
@@ -225,28 +225,29 @@ StaticString<cTimeStrLen> Duration::ToISO8601String() const
     total %= Time::cSeconds.Nanoseconds();
 
     if (hours || minutes || seconds || total) {
-        result.Append("T");
+        (void)result.Append("T");
 
         if (hours) {
-            snprintf(buffer, sizeof(buffer), "%lldH", hours);
-            result.Append(buffer);
+            (void)snprintf(buffer, sizeof(buffer), "%lldH", hours);
+            (void)result.Append(buffer);
         }
 
         if (minutes) {
-            snprintf(buffer, sizeof(buffer), "%lldM", minutes);
-            result.Append(buffer);
+            (void)snprintf(buffer, sizeof(buffer), "%lldM", minutes);
+            (void)result.Append(buffer);
         }
 
         if (total == 0 && seconds > 0) {
-            snprintf(buffer, sizeof(buffer), "%lldS", seconds);
-            result.Append(buffer);
+            (void)snprintf(buffer, sizeof(buffer), "%lldS", seconds);
+            (void)result.Append(buffer);
         }
 
         if (total > 0) {
-            const auto rest = static_cast<double>(total) / Time::cSeconds.Nanoseconds() + static_cast<double>(seconds);
+            const auto rest = static_cast<double>(total) / static_cast<double>(Time::cSeconds.Nanoseconds())
+                + static_cast<double>(seconds);
 
-            snprintf(buffer, sizeof(buffer), "%0.9lfS", rest);
-            result.Append(buffer);
+            (void)snprintf(buffer, sizeof(buffer), "%0.9lfS", rest);
+            (void)result.Append(buffer);
         }
     }
 
@@ -288,7 +289,7 @@ RetWithError<StaticString<cTimeStrLen>> Time::ToUTCString() const
 
     auto time = gmtime_r(&unixTime.tv_sec, &buf);
 
-    utcTimeStr.Resize(utcTimeStr.MaxSize());
+    (void)utcTimeStr.Resize(utcTimeStr.MaxSize());
 
     size_t size = strftime(utcTimeStr.Get(), utcTimeStr.Size(), "%FT%T", time);
     if (size == 0) {

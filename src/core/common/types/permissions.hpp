@@ -49,10 +49,10 @@ struct FunctionPermissions {
      * @param rhs permissions to compare.
      * @return bool.
      */
-    bool operator==(const FunctionPermissions& rhs)
+    friend bool operator==(const FunctionPermissions& lhs, const FunctionPermissions& rhs)
     {
-        return (mFunction == rhs.mFunction) && (mPermissions == rhs.mPermissions);
-    }
+        return (lhs.mFunction == rhs.mFunction) && (lhs.mPermissions == rhs.mPermissions);
+    };
 
     /**
      * Compares function permissions.
@@ -60,7 +60,7 @@ struct FunctionPermissions {
      * @param rhs permissions to compare.
      * @return bool.
      */
-    bool operator!=(const FunctionPermissions& rhs) { return !operator==(rhs); }
+    friend bool operator!=(const FunctionPermissions& lhs, const FunctionPermissions& rhs) { return !(lhs == rhs); };
 };
 
 /**
@@ -76,10 +76,10 @@ struct FunctionServicePermissions {
      * @param rhs permissions to compare.
      * @return bool.
      */
-    bool operator==(const FunctionServicePermissions& rhs) const
+    friend bool operator==(const FunctionServicePermissions& lhs, const FunctionServicePermissions& rhs)
     {
-        return (mName == rhs.mName) && (mPermissions == rhs.mPermissions);
-    }
+        return (lhs.mName == rhs.mName) && (lhs.mPermissions == rhs.mPermissions);
+    };
 
     /**
      * Compares function service permissions.
@@ -87,7 +87,10 @@ struct FunctionServicePermissions {
      * @param rhs permissions to compare.
      * @return bool.
      */
-    bool operator!=(const FunctionServicePermissions& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const FunctionServicePermissions& lhs, const FunctionServicePermissions& rhs)
+    {
+        return !(lhs == rhs);
+    };
 };
 
 /**

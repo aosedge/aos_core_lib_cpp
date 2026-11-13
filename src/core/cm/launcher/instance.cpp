@@ -22,7 +22,8 @@ Instance::Instance(
     , mImageInfoProvider(imageInfoProvider)
     , mAllocator(allocator)
 {
-    static_cast<InstanceIdent&>(mStatus) = info.mInstanceIdent;
+    static_cast<InstanceIdent&>(mStatus) = info.mInstanceIdent; // NOSONAR cpp:S3230 - needs Clear() calls below, not
+                                                                // just an init-list
 
     mStatus.mVersion        = info.mVersion;
     mStatus.mPreinstalled   = false;
@@ -47,7 +48,7 @@ Error Instance::LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor)
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    auto releaseConfigs = DeferRelease(reinterpret_cast<int*>(1), [&](int*) { ResetConfigs(); });
+    auto releaseConfigs = DeferRelease([this]() { ResetConfigs(); });
     if (auto err = mImageInfoProvider.GetItemConfig(imageDescriptor, *mItemConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(Error(err, "get item config failed"));
     }
@@ -60,7 +61,7 @@ Error Instance::LoadConfigs(const oci::IndexContentDescriptor& imageDescriptor)
         return AOS_ERROR_WRAP(Error(err, "get image config failed"));
     }
 
-    releaseConfigs.Release();
+    (void)releaseConfigs.Release();
 
     mInfo.mManifestDigest = imageDescriptor.mDigest;
 
@@ -87,8 +88,7 @@ bool Instance::IsImageValid()
         return false;
     }
 
-    auto err = mImageInfoProvider.GetImageIndex(mInfo.mInstanceIdent.mItemID, mInfo.mVersion, *imageIndex);
-    if (!err.IsNone()) {
+    if (auto err = mImageInfoProvider.GetImageIndex(mInfo.mIndexDigest, *imageIndex); !err.IsNone()) {
         return false;
     }
 
@@ -133,7 +133,8 @@ void Instance::UpdateMonitoringData(const MonitoringData& monitoringData)
     mMonitoringData = monitoringData;
 }
 
-bool Instance::IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType, const StaticString<cIDLen>& runtimeID)
+bool Instance::IsRuntimeTypeOk(
+    const StaticString<cRuntimeTypeLen>& runtimeType, const StaticString<cIDLen>& runtimeID) const
 {
     assert(mItemConfig);
 
@@ -141,7 +142,7 @@ bool Instance::IsRuntimeTypeOk(const StaticString<cRuntimeTypeLen>& runtimeType,
         || (!mInfo.mDisableRebalancing && mItemConfig->mRuntimes.Contains(runtimeType));
 }
 
-bool Instance::IsPlatformOk(const PlatformInfo& platformInfo)
+bool Instance::IsPlatformOk(const PlatformInfo& platformInfo) const
 {
     assert(mImageConfig);
 
@@ -152,22 +153,16 @@ bool Instance::IsPlatformOk(const PlatformInfo& platformInfo)
 
     // Optional params: architecture variant, OS, OS version, OS features
 
-    if (!mImageConfig->mOS.IsEmpty()) {
-        if (platformInfo.mOSInfo.mOS != mImageConfig->mOS) {
-            return false;
-        }
+    if (!mImageConfig->mOS.IsEmpty() && platformInfo.mOSInfo.mOS != mImageConfig->mOS) {
+        return false;
     }
 
-    if (!mImageConfig->mVariant.IsEmpty()) {
-        if (platformInfo.mArchInfo.mVariant != mImageConfig->mVariant) {
-            return false;
-        }
+    if (!mImageConfig->mVariant.IsEmpty() && platformInfo.mArchInfo.mVariant != mImageConfig->mVariant) {
+        return false;
     }
 
-    if (!mImageConfig->mOSVersion.IsEmpty()) {
-        if (platformInfo.mOSInfo.mVersion != mImageConfig->mOSVersion) {
-            return false;
-        }
+    if (!mImageConfig->mOSVersion.IsEmpty() && platformInfo.mOSInfo.mVersion != mImageConfig->mOSVersion) {
+        return false;
     }
 
     if (!mImageConfig->mOSFeatures.IsEmpty()) {
@@ -189,12 +184,12 @@ bool Instance::IsPlatformOk(const PlatformInfo& platformInfo)
     return true;
 }
 
-bool Instance::IsNodeIDOk(const String& nodeID)
+bool Instance::IsNodeIDOk(const String& nodeID) const
 {
     return !mInfo.mDisableRebalancing || mInfo.mNodeID == nodeID;
 }
 
-bool Instance::AreNodeLabelsOk(const LabelsArray& nodeLabels)
+bool Instance::AreNodeLabelsOk(const LabelsArray& nodeLabels) const
 {
     for (const auto& label : mInfo.mLabels) {
         if (!nodeLabels.Contains(label)) {
@@ -268,10 +263,8 @@ Error Instance::SetDefaultRuntimes()
         return AOS_ERROR_WRAP(ErrorEnum::eWrongState);
     }
 
-    auto& runtimes = mItemConfig->mRuntimes;
-
-    if (runtimes.IsEmpty()) {
-        static const char* cDefaultRuntimes[] = {
+    if (auto& runtimes = mItemConfig->mRuntimes; runtimes.IsEmpty()) {
+        static constexpr const char* const cDefaultRuntimes[] = {
             "crun",
             "runc",
         };
@@ -423,29 +416,24 @@ Error ServiceInstance::Remove()
 {
     LOG_DBG() << "Remove instance" << Log::Field("instanceID", mInfo.mInstanceIdent);
 
-    Error firstErr = ErrorEnum::eNone;
-
+    Error firstErr;
     if (auto err = mStorageState.Remove(mInfo.mInstanceIdent); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         firstErr = AOS_ERROR_WRAP(err);
     }
 
     if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent, mInfo.mVersion);
-        !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
-        if (firstErr.IsNone()) {
-            firstErr = AOS_ERROR_WRAP(err);
-        }
+        !err.IsNone() && !err.Is(ErrorEnum::eNotFound) && firstErr.IsNone()) {
+        firstErr = AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mUIDPool.Release(mInfo.mInstanceIdent); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
-        if (firstErr.IsNone()) {
-            firstErr = AOS_ERROR_WRAP(err);
-        }
+    if (auto err = mUIDPool.Release(mInfo.mInstanceIdent);
+        !err.IsNone() && !err.Is(ErrorEnum::eNotFound) && firstErr.IsNone()) {
+        firstErr = AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mGIDPool.Release(mInfo.mInstanceIdent.mItemID); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
-        if (firstErr.IsNone()) {
-            firstErr = AOS_ERROR_WRAP(err);
-        }
+    if (auto err = mGIDPool.Release(mInfo.mInstanceIdent.mItemID);
+        !err.IsNone() && !err.Is(ErrorEnum::eNotFound) && firstErr.IsNone()) {
+        firstErr = AOS_ERROR_WRAP(err);
     }
 
     return firstErr;
@@ -583,10 +571,8 @@ size_t ServiceInstance::GetRequestedCPU(const NodeItf& node)
         requestedCPU = GetReqCPUFromNodeConfig(quota, nodeConfig.mResourceRatios);
     }
 
-    if (node.NeedBalancing()) {
-        if (mMonitoringData.mCPU > requestedCPU) {
-            return mMonitoringData.mCPU;
-        }
+    if (node.NeedBalancing() && mMonitoringData.mCPU > static_cast<double>(requestedCPU)) {
+        return static_cast<size_t>(mMonitoringData.mCPU);
     }
 
     return requestedCPU;
@@ -611,10 +597,8 @@ size_t ServiceInstance::GetRequestedRAM(const NodeItf& node)
         requestedRAM = GetReqRAMFromNodeConfig(quota, nodeConfig.mResourceRatios);
     }
 
-    if (node.NeedBalancing()) {
-        if (mMonitoringData.mRAM > requestedRAM) {
-            return mMonitoringData.mRAM;
-        }
+    if (node.NeedBalancing() && mMonitoringData.mRAM > requestedRAM) {
+        return mMonitoringData.mRAM;
     }
 
     return requestedRAM;
@@ -648,7 +632,7 @@ size_t ServiceInstance::GetReqStorageSize(const NodeConfig& nodeConfig)
     return requestedStorage;
 }
 
-size_t ServiceInstance::ClampResource(size_t value, const Optional<size_t>& quota)
+size_t ServiceInstance::ClampResource(size_t value, const Optional<size_t>& quota) const
 {
     if (quota.HasValue() && value > quota.GetValue()) {
         return quota.GetValue();
@@ -658,7 +642,7 @@ size_t ServiceInstance::ClampResource(size_t value, const Optional<size_t>& quot
 }
 
 size_t ServiceInstance::GetReqCPUFromNodeConfig(
-    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios)
+    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios) const
 {
     auto ratio = cDefaultResourceRation / 100.0;
 
@@ -671,14 +655,14 @@ size_t ServiceInstance::GetReqCPUFromNodeConfig(
     }
 
     if (quota.HasValue()) {
-        return static_cast<size_t>(*quota * ratio + 0.5);
+        return static_cast<size_t>(static_cast<double>(*quota) * ratio + 0.5);
     }
 
     return 0;
 }
 
 size_t ServiceInstance::GetReqRAMFromNodeConfig(
-    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios)
+    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios) const
 {
     auto ratio = cDefaultResourceRation / 100.0;
 
@@ -691,14 +675,14 @@ size_t ServiceInstance::GetReqRAMFromNodeConfig(
     }
 
     if (quota.HasValue()) {
-        return static_cast<size_t>(*quota * ratio + 0.5);
+        return static_cast<size_t>(static_cast<double>(*quota) * ratio + 0.5);
     }
 
     return 0;
 }
 
 size_t ServiceInstance::GetReqStateFromNodeConfig(
-    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios)
+    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios) const
 {
     auto ratio = cDefaultResourceRation / 100.0;
 
@@ -711,14 +695,14 @@ size_t ServiceInstance::GetReqStateFromNodeConfig(
     }
 
     if (quota.HasValue()) {
-        return static_cast<size_t>(*quota * ratio + 0.5);
+        return static_cast<size_t>(static_cast<double>(*quota) * ratio + 0.5);
     }
 
     return 0;
 }
 
 size_t ServiceInstance::GetReqStorageFromNodeConfig(
-    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios)
+    const Optional<size_t>& quota, const Optional<ResourceRatios>& nodeRatios) const
 {
     auto ratio = cDefaultResourceRation / 100.0;
 
@@ -731,7 +715,7 @@ size_t ServiceInstance::GetReqStorageFromNodeConfig(
     }
 
     if (quota.HasValue()) {
-        return static_cast<size_t>(*quota * ratio + 0.5);
+        return static_cast<size_t>(static_cast<double>(*quota) * ratio + 0.5);
     }
 
     return 0;
@@ -760,9 +744,9 @@ Error ServiceInstance::SetupStateStorage(const NodeConfig& nodeConfig, String& s
         reqStorage = 0;
     }
 
-    auto err
+    if (auto err
         = mStorageState.SetupStateStorage(mInfo.mInstanceIdent, params, reqStorage, reqState, storagePath, statePath);
-    if (!err.IsNone()) {
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -771,14 +755,15 @@ Error ServiceInstance::SetupStateStorage(const NodeConfig& nodeConfig, String& s
 
 Error ServiceInstance::ReserveRuntimeResources(NodeItf& node, const String& runtimeID)
 {
-    auto                     requestedCPU = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedCPU(node);
-    auto                     requestedRAM = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedRAM(node);
-    Array<oci::ResourceInfo> requestedResources
-        = mItemConfig->mSkipResourceLimits ? Array<oci::ResourceInfo>() : mItemConfig->mResources;
+    auto                     requestedCPU       = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedCPU(node);
+    auto                     requestedRAM       = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedRAM(node);
+    Array<oci::ResourceInfo> requestedResources = mItemConfig->mSkipResourceLimits
+        ? Array<oci::ResourceInfo>()
+        : mItemConfig->mResources; // NOSONAR cpp:S5912 - Array serves as a view over StaticArray
 
-    auto reserveErr
+    if (auto reserveErr
         = node.ReserveResources(mInfo.mInstanceIdent, runtimeID, requestedCPU, requestedRAM, requestedResources);
-    if (!reserveErr.IsNone()) {
+        !reserveErr.IsNone()) {
         return AOS_ERROR_WRAP(reserveErr);
     }
 

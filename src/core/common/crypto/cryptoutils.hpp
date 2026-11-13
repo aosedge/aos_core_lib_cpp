@@ -8,8 +8,14 @@
 #define AOS_AOS_COMMON_CRYPTO_CRYPTOUTILS_HPP_
 
 #include "itf/hash.hpp"
+#include "itf/x509.hpp"
 
 namespace aos::crypto {
+
+/**
+ * URN prefix used by AosCloud for System ID in online certificate SAN.
+ */
+constexpr auto cSystemIDURNPrefix = "urn:aos:unit:";
 
 /**
  * Calculates file hash.
@@ -21,6 +27,23 @@ namespace aos::crypto {
  * @return Error.
  */
 Error CalculateFileHash(const String& path, const Hash& algorithm, HasherItf& hashProvider, Array<uint8_t>& hash);
+
+/**
+ * Validates that a certificate can be used as a CA (root or intermediate issuer).
+ *
+ * @param cert certificate to validate.
+ * @return Error.
+ */
+Error ValidateCACert(const x509::Certificate& cert);
+
+/**
+ * Extracts System ID from a SAN URI starting with urn:aos:unit:.
+ *
+ * @param uri SAN URI.
+ * @param[out] systemID extracted system ID.
+ * @return Error.
+ */
+Error GetSystemIDFromCert(const String& uri, String& systemID);
 
 } // namespace aos::crypto
 

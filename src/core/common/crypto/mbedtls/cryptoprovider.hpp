@@ -14,6 +14,8 @@
 #include <mbedtls/x509_csr.h>
 #include <psa/crypto_types.h>
 
+#include <core/common/tools/noncopyable.hpp>
+
 #include "../itf/crypto.hpp"
 #include "driverwrapper.hpp"
 
@@ -171,7 +173,7 @@ public:
      * @param algorithm hash algorithm.
      * @return RetWithError<UniquePtr<HashItf>>.
      */
-    RetWithError<UniquePtr<HashItf>> CreateHash(Hash algorithm) override;
+    RetWithError<UniquePtr<HashItf>> CreateHash(const Hash& algorithm) override;
 
     /**
      * Generates random integer value in range [0..maxValue].
@@ -209,9 +211,9 @@ public:
     /**
      * Creates a new AES encoder.
      *
-     * @param mode AES mode: "CBC" supported only.
+     * @param mode AES mode: "CBC" (PKCS7 padded) or "GCM" (no padding, authenticated).
      * @param key encryption key.
-     * @param iv initialization vector: must be 16 bytes for CBC mode.
+     * @param iv initialization vector: 16 bytes for CBC mode, 12 bytes for GCM mode.
      * @return RetWithError<UniquePtr<AESCipherItf>>.
      */
     RetWithError<UniquePtr<AESCipherItf>> CreateAESEncoder(
@@ -220,9 +222,9 @@ public:
     /**
      * Creates a new AES decoder.
      *
-     * @param mode AES mode: "CBC" supported only.
+     * @param mode AES mode: "CBC" (PKCS7 padded) or "GCM" (no padding, authenticated).
      * @param key decryption key.
-     * @param iv initialization vector: must be 16 bytes for CBC mode.
+     * @param iv initialization vector: 16 bytes for CBC mode, 12 bytes for GCM mode.
      * @return RetWithError<UniquePtr<AESCipherItf>>.
      */
     RetWithError<UniquePtr<AESCipherItf>> CreateAESDecoder(
@@ -238,8 +240,8 @@ public:
      * @param signature signature to verify against the digest.
      * @return Error.
      */
-    Error Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, Hash hashFunc, x509::Padding padding,
-        const Array<uint8_t>& digest, const Array<uint8_t>& signature) override;
+    Error Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, const Hash& hashFunc,
+        const x509::Padding& padding, const Array<uint8_t>& digest, const Array<uint8_t>& signature) override;
 
     /**
      * Verifies the certificate against a chain of intermediate and root certificates.
@@ -295,7 +297,7 @@ public:
      * @return ASN1ParseResult.
      */
     asn1::ASN1ParseResult ReadInteger(
-        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, int& value) override;
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, int32_t& value) override;
 
     /**
      * Reads a large ASN.1 INTEGER (BigInt) as a byte array.
@@ -366,22 +368,89 @@ private:
         psa_algorithm_t      mAlgorithm = PSA_ALG_SHA3_256;
     };
 
+    /**
+     * Common mbedTLS cipher API based AES streaming. Everything that depends on the cipher mode (IV size, padding,
+     * input restrictions, GCM tag) is provided by the derived classes.
+     */
     class MbedTLSAESCipher : public crypto::AESCipherItf, private NonCopyable {
     public:
-        Error Init(const Array<uint8_t>& key, const Array<uint8_t>& iv, bool encrypt = true);
+        Error Init(const Array<uint8_t>& key, const Array<uint8_t>& iv, bool encrypt);
         Error EncryptBlock(const Array<uint8_t>& input, Array<uint8_t>& output) override;
         Error DecryptBlock(const Array<uint8_t>& input, Array<uint8_t>& output) override;
         Error Finalize(Array<uint8_t>& output) override;
-        ~MbedTLSAESCipher();
+        ~MbedTLSAESCipher() override;
+
+    protected:
+        virtual mbedtls_cipher_mode_t GetMode() const   = 0;
+        virtual size_t                GetIVSize() const = 0;
+
+        /**
+         * Applies mode specific settings to the context, after it is set up and before the key is set.
+         */
+        virtual int32_t ConfigureContext(mbedtls_cipher_context_t& ctx);
+
+        /**
+         * Checks data passed to DecryptBlock.
+         */
+        virtual Error CheckDecryptInput(const Array<uint8_t>& input) const;
+
+        /**
+         * Called by Finalize after the cipher is finished, while the context is still alive.
+         */
+        virtual Error OnFinished(mbedtls_cipher_context_t& ctx, bool encrypt);
+
+        /**
+         * Whether Init has succeeded and the cipher hasn't been finalized yet.
+         */
+        bool IsInitialized() const { return mInitialized; }
+
+        /**
+         * Whether the cipher encrypts (true) or decrypts (false), as given to Init. Used by GCM's SetTag/GetTag,
+         * which are only valid on one side.
+         */
+        bool IsEncrypt() const { return mEncrypt; }
 
     private:
-        bool                         mEncrypt = false;
-        mbedtls_cipher_context_t     mCtx;
-        const mbedtls_cipher_info_t* mInfo        = nullptr;
-        bool                         mInitialized = false;
+        Error Update(const Array<uint8_t>& input, Array<uint8_t>& output);
+        void  Release();
+
+        bool                     mEncrypt = false;
+        mbedtls_cipher_context_t mCtx;
+        bool                     mInitialized = false;
     };
 
-    class MbedTLSRSAPrivKey : public crypto::PrivateKeyItf {
+    /**
+     * AES CBC with PKCS7 padding.
+     */
+    class MbedTLSAESCBCCipher : public MbedTLSAESCipher {
+    protected:
+        mbedtls_cipher_mode_t GetMode() const override { return MBEDTLS_MODE_CBC; }
+        size_t                GetIVSize() const override { return AESCipherItf::cBlockSize; }
+
+        int32_t ConfigureContext(mbedtls_cipher_context_t& ctx) override;
+        Error   CheckDecryptInput(const Array<uint8_t>& input) const override;
+    };
+
+    /**
+     * AES GCM: authenticated stream mode without padding.
+     */
+    class MbedTLSAESGCMCipher : public MbedTLSAESCipher {
+    public:
+        Error SetTag(const Array<uint8_t>& tag) override;
+        Error GetTag(Array<uint8_t>& tag) override;
+
+    protected:
+        mbedtls_cipher_mode_t GetMode() const override { return MBEDTLS_MODE_GCM; }
+        size_t                GetIVSize() const override { return AESCipherItf::cGCMIVSize; }
+
+        Error OnFinished(mbedtls_cipher_context_t& ctx, bool encrypt) override;
+
+    private:
+        bool                                            mTagSet = false;
+        StaticArray<uint8_t, AESCipherItf::cGCMTagSize> mTag;
+    };
+
+    class MbedTLSRSAPrivKey : public crypto::PrivateKeyItf, private NonCopyable {
     public:
         MbedTLSRSAPrivKey();
 
@@ -397,36 +466,43 @@ private:
         mutable mbedtls_pk_context mPrivKey;
     };
 
-    static int                             VerifyTime(void* data, mbedtls_x509_crt* crt, int depth, uint32_t* flags);
-    static RetWithError<Time>              ConvertTime(const mbedtls_x509_time& src);
+    template <typename Cipher>
+    RetWithError<UniquePtr<AESCipherItf>> CreateAESCipher(
+        const Array<uint8_t>& key, const Array<uint8_t>& iv, bool encrypt);
+    RetWithError<UniquePtr<AESCipherItf>> CreateAESCipher(
+        const String& mode, const Array<uint8_t>& key, const Array<uint8_t>& iv, bool encrypt);
+
+    static int32_t            VerifyTime(void* data, mbedtls_x509_crt* crt, int32_t depth, uint32_t* flags);
+    static RetWithError<Time> ConvertTime(const mbedtls_x509_time& src);
     static RetWithError<mbedtls_x509_time> ConvertTime(const Time& src);
 
-    Error ParseX509Certs(mbedtls_x509_crt* currentCrt, x509::Certificate& cert);
-    Error GetX509CertExtensions(x509::Certificate& cert, mbedtls_x509_crt* crt);
-    Error GetX509CertData(x509::Certificate& cert, mbedtls_x509_crt* crt);
-    Error ParseX509CertPublicKey(const mbedtls_pk_context* pk, x509::Certificate& cert);
-    Error ParseRSAKey(const mbedtls_rsa_context* rsa, x509::Certificate& cert);
-    Error ParseECKey(const mbedtls_ecp_keypair* eckey, x509::Certificate& cert);
+    Error ParseX509Certs(const mbedtls_x509_crt* currentCrt, x509::Certificate& cert) const;
+    Error GetX509CertSubjectAltNameURIs(x509::Certificate& cert, const mbedtls_x509_crt* crt) const;
+    Error GetX509CertExtensions(x509::Certificate& cert, const mbedtls_x509_crt* crt) const;
+    Error GetX509CertData(x509::Certificate& cert, const mbedtls_x509_crt* crt) const;
+    Error ParseX509CertPublicKey(const mbedtls_pk_context* pk, x509::Certificate& cert) const;
+    Error ParseRSAKey(const mbedtls_rsa_context* rsa, x509::Certificate& cert) const;
+    Error ParseECKey(const mbedtls_ecp_keypair* eckey, x509::Certificate& cert) const;
 
-    void  InitializeCSR(mbedtls_x509write_csr& csr, mbedtls_pk_context& pk);
+    void  InitializeCSR(mbedtls_x509write_csr& csr, mbedtls_pk_context& pk) const;
     Error SetCSRProperties(mbedtls_x509write_csr& csr, mbedtls_pk_context& pk, const x509::CSR& templ);
-    Error SetCSRAlternativeNames(mbedtls_x509write_csr& csr, const x509::CSR& templ);
-    Error SetCSRExtraExtensions(mbedtls_x509write_csr& csr, const x509::CSR& templ);
-    Error WriteCSRPem(mbedtls_x509write_csr& csr, String& pemCSR);
+    Error SetCSRAlternativeNames(mbedtls_x509write_csr& csr, const x509::CSR& templ) const;
+    Error SetCSRExtraExtensions(mbedtls_x509write_csr& csr, const x509::CSR& templ) const;
+    Error WriteCSRPem(mbedtls_x509write_csr& csr, String& pemCSR) const;
 
-    RetWithError<KeyInfo> SetupOpaqueKey(mbedtls_pk_context& pk, const PrivateKeyItf& privKey);
+    RetWithError<KeyInfo> SetupOpaqueKey(mbedtls_pk_context& pk, const PrivateKeyItf& privKey) const;
 
     Error InitializeCertificate(mbedtls_x509write_cert& cert, mbedtls_pk_context& pk,
-        mbedtls_ctr_drbg_context& ctr_drbg, mbedtls_entropy_context& entropy);
+        mbedtls_ctr_drbg_context& ctr_drbg, mbedtls_entropy_context& entropy) const;
     Error SetCertificateProperties(mbedtls_x509write_cert& cert, mbedtls_pk_context& pk,
         mbedtls_ctr_drbg_context& ctrDrbg, const x509::Certificate& templ, const x509::Certificate& parent);
-    Error WriteCertificatePem(mbedtls_x509write_cert& cert, String& pemCert);
+    Error WriteCertificatePem(mbedtls_x509write_cert& cert, String& pemCert) const;
     Error SetCertificateSerialNumber(
-        mbedtls_x509write_cert& cert, mbedtls_ctr_drbg_context& ctrDrbg, const x509::Certificate& templ);
-    Error SetCertificateSubjectKeyIdentifier(mbedtls_x509write_cert& cert, const x509::Certificate& templ);
+        mbedtls_x509write_cert& cert, mbedtls_ctr_drbg_context& ctrDrbg, const x509::Certificate& templ) const;
+    Error SetCertificateSubjectKeyIdentifier(mbedtls_x509write_cert& cert, const x509::Certificate& templ) const;
     Error SetCertificateAuthorityKeyIdentifier(
-        mbedtls_x509write_cert& cert, const x509::Certificate& templ, const x509::Certificate& parent);
-    Error SetCertificateValidityPeriod(mbedtls_x509write_cert& cert, const x509::Certificate& templ);
+        mbedtls_x509write_cert& cert, const x509::Certificate& templ, const x509::Certificate& parent) const;
+    Error SetCertificateValidityPeriod(mbedtls_x509write_cert& cert, const x509::Certificate& templ) const;
 
     AllocatorItf* mAllocator {};
 };

@@ -83,7 +83,7 @@ public:
             return err;
         }
 
-        pthread_attr_t attr;
+        pthread_attr_t attr {};
 
         if (auto ret = pthread_attr_init(&attr); ret != 0) {
             return ret;
@@ -173,7 +173,7 @@ private:
 
     static void* ThreadFunction(void* arg)
     {
-        static_cast<Thread*>(arg)->mFunction();
+        (void)static_cast<Thread*>(arg)->mFunction();
         static_cast<Thread*>(arg)->mFunction.Reset();
 
         return nullptr;
@@ -183,31 +183,31 @@ private:
 /**
  * Aos mutex.
  */
-class Mutex {
+class Mutex { // NOSONAR cpp:S3624 - kept copyable: some containers embed a Mutex by value before sharing it
 public:
     /**
      * Constructs Aos mutex.
      */
-    Mutex() { pthread_mutex_init(&mPMutex, nullptr); }
+    Mutex() { (void)pthread_mutex_init(&mPMutex, nullptr); }
 
     /**
      * Destroys Aos mutex.
      */
-    ~Mutex() { pthread_mutex_destroy(&mPMutex); }
+    ~Mutex() { (void)pthread_mutex_destroy(&mPMutex); }
 
     /**
      * Locks Aos mutex.
      *
      * @return Error.
      */
-    Error Lock() { return pthread_mutex_lock(&mPMutex); }
+    Error Lock() { return pthread_mutex_lock(&mPMutex); } // NOSONAR cpp:S5486 - false positive; Mutex primitive
 
     /**
      * Unlocks Aos mutex.
      *
      * @return Error.
      */
-    Error Unlock() { return pthread_mutex_unlock(&mPMutex); }
+    Error Unlock() { return pthread_mutex_unlock(&mPMutex); } // NOSONAR cpp:S5489 - false positive; Mutex primitive
 
     /**
      * Converts mutex to pthread_mutex_t pointer.
@@ -224,19 +224,19 @@ private:
 /**
  * Aos semaphore.
  */
-class Semaphore {
+class Semaphore : private NonCopyable {
 public:
     /**
      * Constructs Aos semaphore.
      *
      * @param initial initial semaphore value.
      */
-    explicit Semaphore(unsigned int initial = 1) { sem_init(&mSem, 0, initial); }
+    explicit Semaphore(uint32_t initial = 1) { (void)sem_init(&mSem, 0, initial); }
 
     /**
      * Destroys Aos semaphore.
      */
-    ~Semaphore() { sem_destroy(&mSem); }
+    ~Semaphore() { (void)sem_destroy(&mSem); }
 
     /**
      * Locks semaphore.
@@ -278,14 +278,14 @@ public:
     /**
      * Destroys lock guard instance.
      */
-    ~LockGuard() { mLocker.Unlock(); }
+    ~LockGuard() { (void)mLocker.Unlock(); }
 
     /**
      * Returns current lock guard error.
      *
      * @return Error.
      */
-    Error GetError() { return mError; }
+    Error GetError() const { return mError; }
 
 private:
     Locker& mLocker;
@@ -306,7 +306,6 @@ public:
      */
     explicit UniqueLock(Locker& lock)
         : mLocker(lock)
-        , mIsLocked(false)
     {
         mError = Lock();
     }
@@ -317,7 +316,7 @@ public:
     ~UniqueLock()
     {
         if (mIsLocked) {
-            Unlock();
+            (void)Unlock();
         }
     }
 
@@ -326,7 +325,8 @@ public:
      */
     Error Lock()
     {
-        if (mError = mLocker.Lock(); !mError.IsNone()) {
+        mError = mLocker.Lock();
+        if (!mError.IsNone()) {
             return mError;
         }
 
@@ -340,7 +340,8 @@ public:
      */
     Error Unlock()
     {
-        if (mError = mLocker.Unlock(); !mError.IsNone()) {
+        mError = mLocker.Unlock();
+        if (!mError.IsNone()) {
             return mError;
         }
 
@@ -365,7 +366,7 @@ public:
 
 private:
     Locker& mLocker;
-    bool    mIsLocked;
+    bool    mIsLocked = false;
     Error   mError;
 };
 
@@ -382,7 +383,7 @@ public:
     /**
      * Destroys conditional variable.
      */
-    ~ConditionalVariable() { pthread_cond_destroy(&mCondVar); }
+    ~ConditionalVariable() { (void)pthread_cond_destroy(&mCondVar); }
 
     /**
      * Blocks the current thread until the condition variable is awakened.
@@ -500,7 +501,7 @@ public:
      *
      * @return Error.
      */
-    Error GetError() { return mError; }
+    Error GetError() const { return mError; }
 
 private:
     static constexpr auto cClockID = AOS_CONFIG_THREAD_CLOCK_ID;
@@ -524,7 +525,7 @@ public:
     /**
      * Creates thread pool instance.
      */
-    ThreadPool() { }
+    ThreadPool() = default;
 
     /**
      * Adds task to task queue.
@@ -593,18 +594,18 @@ public:
     }
 
     /**
-     * Runs thread pool.
+     * Runs thread pool. If some thread fails to start, the already started threads are stopped.
      *
      * @return Error.
      */
     Error Run()
     {
-        LockGuard lock {mMutex};
+        UniqueLock lock {mMutex};
 
         mShutdown = false;
 
         for (auto& thread : mThreads) {
-            auto err = thread.Run([this](void*) {
+            auto err = thread.Run([this](void*) { // NOSONAR cpp:S1188 - complexity rule, left as-is like cpp:S3776
                 StaticFunction<cMaxTaskSize> task;
 
                 while (true) {
@@ -625,27 +626,31 @@ public:
                     err = mQueue.Pop();
                     assert(err.IsNone());
 
-                    lock.Unlock();
+                    (void)lock.Unlock();
 
                     if (task) {
-                        task();
+                        (void)task();
                         task.Reset();
                     }
 
                     err = mTaskCondVar.NotifyOne();
                     assert(err.IsNone());
 
-                    lock.Lock();
+                    (void)lock.Lock();
 
                     mPendingTaskCount--;
 
-                    lock.Unlock();
+                    (void)lock.Unlock();
 
                     err = mWaitCondVar.NotifyAll();
                     assert(err.IsNone());
                 }
             });
             if (!err.IsNone()) {
+                (void)lock.Unlock();
+
+                (void)Shutdown();
+
                 return err;
             }
         }
@@ -660,8 +665,7 @@ public:
     {
         UniqueLock lock(mMutex);
 
-        auto err = mWaitCondVar.Wait(lock, [this]() { return mPendingTaskCount == 0; });
-        if (!err.IsNone()) {
+        if (auto err = mWaitCondVar.Wait(lock, [this]() { return mPendingTaskCount == 0; }); !err.IsNone()) {
             return err;
         }
 
@@ -680,7 +684,7 @@ public:
 
         mShutdown = true;
 
-        lock.Unlock();
+        (void)lock.Unlock();
 
         auto err = mTaskCondVar.NotifyAll();
         if (!err.IsNone()) {
@@ -723,7 +727,7 @@ private:
     ConditionalVariable                                   mWaitCondVar;
     StaticQueue<StaticFunction<cMaxTaskSize>, cQueueSize> mQueue;
     bool                                                  mShutdown         = false;
-    int                                                   mPendingTaskCount = 0;
+    int32_t                                               mPendingTaskCount = 0;
 };
 
 } // namespace aos

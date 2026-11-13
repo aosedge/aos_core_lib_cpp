@@ -7,7 +7,7 @@
 #ifndef AOS_CORE_COMMON_IAMCLIENT_ITF_CERTHANDLER_HPP_
 #define AOS_CORE_COMMON_IAMCLIENT_ITF_CERTHANDLER_HPP_
 
-#include <core/common/types/common.hpp>
+#include <core/common/types/certificates.hpp>
 
 namespace aos::iamclient {
 
@@ -25,27 +25,45 @@ public:
      * Creates key.
      *
      * @param nodeID node ID.
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param subject subject.
      * @param password password.
      * @param[out] csr certificate signing request.
      * @returns Error.
      */
     virtual Error CreateKey(
-        const String& nodeID, const String& certType, const String& subject, const String& password, String& csr)
+        const String& nodeID, const String& storageID, const String& subject, const String& password, String& csr)
         = 0;
 
     /**
      * Applies certificate.
      *
      * @param nodeID node ID.
-     * @param certType certificate type.
+     * @param storageID certificate storage ID.
      * @param pemCert certificate in PEM.
      * @param certInfo certificate info.
      * @returns Error.
      */
-    virtual Error ApplyCert(const String& nodeID, const String& certType, const String& pemCert, CertInfo& certInfo)
+    virtual Error ApplyCert(const String& nodeID, const String& storageID, const String& pemCert, CertInfo& certInfo)
         = 0;
+
+    /**
+     * Updates root certificates.
+     *
+     * @param nodeID node ID.
+     * @param pemCerts root certificates in PEM format.
+     * @returns Error.
+     */
+    virtual Error UpdateRootCerts(const String& nodeID, const Array<StaticString<crypto::cCertPEMLen>>& pemCerts) = 0;
+
+    /**
+     * Gets root certificate SHA-256 fingerprints.
+     *
+     * @param nodeID node ID.
+     * @param[out] fingerprints root certificate SHA-256 fingerprints.
+     * @returns Error.
+     */
+    virtual Error GetRootCerts(const String& nodeID, Array<SHA256Fingerprint>& fingerprints) = 0;
 };
 
 } // namespace aos::iamclient

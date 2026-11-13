@@ -64,26 +64,38 @@ static aos::StaticArray<KeyDescription, MBEDTLS_PSA_KEY_SLOT_COUNT> sBuiltinKeys
 
 static aos::Mutex sMutex;
 
-static int ExportRSAPublicKeyToDER(
+static int32_t ExportRSAPublicKeyToDER(
     const aos::crypto::RSAPublicKey& rsaKey, uint8_t* data, size_t dataSize, size_t* dataLength)
 {
-    mbedtls_mpi n, e;
+    mbedtls_mpi n;
+    mbedtls_mpi e;
 
     mbedtls_mpi_init(&n);
     mbedtls_mpi_init(&e);
 
-    mbedtls_mpi_read_binary(&n, rsaKey.GetN().Get(), rsaKey.GetN().Size());
-    mbedtls_mpi_read_binary(&e, rsaKey.GetE().Get(), rsaKey.GetE().Size());
-
-    auto cleanup = [&]() {
+    auto cleanup = [&n, &e]() {
         mbedtls_mpi_free(&n);
         mbedtls_mpi_free(&e);
     };
 
-    // Write from the end of the buffer
-    unsigned char* c = data + dataSize;
+    auto ret = mbedtls_mpi_read_binary(&n, rsaKey.GetN().Get(), rsaKey.GetN().Size());
+    if (ret != 0) {
+        cleanup();
 
-    auto ret = mbedtls_asn1_write_mpi(&c, data, &e);
+        return ret;
+    }
+
+    ret = mbedtls_mpi_read_binary(&e, rsaKey.GetE().Get(), rsaKey.GetE().Size());
+    if (ret != 0) {
+        cleanup();
+
+        return ret;
+    }
+
+    // Write from the end of the buffer
+    uint8_t* c = data + dataSize;
+
+    ret = mbedtls_asn1_write_mpi(&c, data, &e);
     if (ret < 0) {
         cleanup();
 
@@ -103,7 +115,7 @@ static int ExportRSAPublicKeyToDER(
     MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_len(&c, data, len));
     MBEDTLS_ASN1_CHK_ADD(len, mbedtls_asn1_write_tag(&c, data, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE));
 
-    memmove(data, c, len);
+    (void)memmove(data, c, len);
     *dataLength = len;
 
     cleanup();
@@ -113,9 +125,9 @@ static int ExportRSAPublicKeyToDER(
 
 static aos::Pair<psa_ecc_family_t, size_t> FindPsaECGroupByOID(const aos::Array<uint8_t>& oid)
 {
-    for (int i = MBEDTLS_ECP_DP_NONE; i < MBEDTLS_ECP_DP_MAX; ++i) {
-        const char* groupOID;
-        size_t      groupOIDSize;
+    for (int32_t i = MBEDTLS_ECP_DP_NONE; i < MBEDTLS_ECP_DP_MAX; ++i) {
+        const char* groupOID     = nullptr;
+        size_t      groupOIDSize = 0;
 
         if (mbedtls_oid_get_oid_by_ec_grp(static_cast<mbedtls_ecp_group_id>(i), &groupOID, &groupOIDSize) == 0) {
             aos::Array<uint8_t> knownOIDBuf(reinterpret_cast<const uint8_t*>(groupOID), groupOIDSize);
@@ -161,9 +173,9 @@ static aos::Pair<psa_ecc_family_t, size_t> FindPsaECGroupByOID(const aos::Array<
 
 static aos::Pair<aos::Error, mbedtls_ecp_group_id> FindECPGroupByOID(const aos::Array<uint8_t>& oid)
 {
-    for (int i = MBEDTLS_ECP_DP_NONE; i < MBEDTLS_ECP_DP_MAX; ++i) {
-        const char* groupOID;
-        size_t      groupOIDSize;
+    for (int32_t i = MBEDTLS_ECP_DP_NONE; i < MBEDTLS_ECP_DP_MAX; ++i) {
+        const char* groupOID     = nullptr;
+        size_t      groupOIDSize = 0;
 
         if (mbedtls_oid_get_oid_by_ec_grp(static_cast<mbedtls_ecp_group_id>(i), &groupOID, &groupOIDSize) == 0) {
             aos::Array<uint8_t> knownOIDBuf(reinterpret_cast<const uint8_t*>(groupOID), groupOIDSize);
@@ -177,7 +189,7 @@ static aos::Pair<aos::Error, mbedtls_ecp_group_id> FindECPGroupByOID(const aos::
     return {aos::ErrorEnum::eNotFound, MBEDTLS_ECP_DP_NONE};
 }
 
-static int ExportECPublicKeyToDER(
+static int32_t ExportECPublicKeyToDER(
     const aos::crypto::ECDSAPublicKey& ecKey, uint8_t* data, size_t dataSize, size_t* dataLength)
 {
     auto curveParameters = FindECPGroupByOID(ecKey.GetECParamsOID());
@@ -190,7 +202,7 @@ static int ExportECPublicKeyToDER(
     mbedtls_ecp_point q;
     mbedtls_ecp_point_init(&q);
 
-    auto cleanup = [&]() {
+    auto cleanup = [&grp, &q]() {
         mbedtls_ecp_group_free(&grp);
         mbedtls_ecp_point_free(&q);
     };
@@ -202,9 +214,8 @@ static int ExportECPublicKeyToDER(
         return ret;
     }
 
-    const aos::Array<uint8_t>& point = ecKey.GetECPoint();
-
-    if ((ret = mbedtls_ecp_point_read_binary(&grp, &q, point.Get(), point.Size())) != 0) {
+    if (const aos::Array<uint8_t>& point = ecKey.GetECPoint();
+        (ret = mbedtls_ecp_point_read_binary(&grp, &q, point.Get(), point.Size())) != 0) {
         cleanup();
 
         return ret;
@@ -283,8 +294,7 @@ aos::RetWithError<aos::crypto::HashEnum> GetRSAAlgFromPubKey(const aos::crypto::
     mbedtls_mpi n;
     mbedtls_mpi_init(&n);
 
-    auto ret = mbedtls_mpi_read_binary(&n, pubKey.GetN().Get(), pubKey.GetN().Size());
-    if (ret != 0) {
+    if (auto ret = mbedtls_mpi_read_binary(&n, pubKey.GetN().Get(), pubKey.GetN().Size()); ret != 0) {
         mbedtls_mpi_free(&n);
 
         return aos::RetWithError<aos::crypto::HashEnum>(aos::crypto::HashEnum::eNone, ret);
@@ -315,7 +325,7 @@ aos::RetWithError<KeyInfo> AosPsaAddKey(const aos::crypto::PrivateKeyItf& privKe
 {
     aos::LockGuard lock(sMutex);
 
-    for (psa_key_id_t keyID = MBEDTLS_PSA_KEY_ID_BUILTIN_MIN; keyID <= MBEDTLS_PSA_KEY_ID_BUILTIN_MAX; ++keyID) {
+    for (auto keyID = MBEDTLS_PSA_KEY_ID_BUILTIN_MIN; keyID <= MBEDTLS_PSA_KEY_ID_BUILTIN_MAX; ++keyID) {
         if (IsKeyInBuiltinList(keyID)) {
             continue;
         }
@@ -331,7 +341,7 @@ aos::RetWithError<KeyInfo> AosPsaAddKey(const aos::crypto::PrivateKeyItf& privKe
             PSA_KEY_PERSISTENCE_DEFAULT, PSA_CRYPTO_AOS_DRIVER_LOCATION);
         keyDescription->mPrivKey = &privKey;
 
-        aos::crypto::HashEnum hashAlg;
+        aos::crypto::HashEnum hashAlg {};
 
         switch (privKey.GetPublic().GetKeyType().GetValue()) {
         case aos::crypto::KeyTypeEnum::eRSA: {
@@ -373,9 +383,10 @@ aos::RetWithError<KeyInfo> AosPsaAddKey(const aos::crypto::PrivateKeyItf& privKe
         keyDescription->mHashAlg = hashAlg;
 
         LOG_DBG() << "Add Aos PSA key: keyType=" << privKey.GetPublic().GetKeyType() << ", keyID=" << keyID
-                  << ", slotNumber=" << keyDescription - sBuiltinKeys.begin();
+                  << ", slotNumber=" << static_cast<int32_t>(keyDescription - sBuiltinKeys.begin());
 
-        return aos::RetWithError<KeyInfo>(KeyInfo {keyID, sMDTypes[static_cast<int>(hashAlg)]}, aos::ErrorEnum::eNone);
+        return aos::RetWithError<KeyInfo>(
+            KeyInfo {keyID, sMDTypes[static_cast<int32_t>(hashAlg)]}, aos::ErrorEnum::eNone);
     }
 
     return aos::RetWithError<KeyInfo>(
@@ -388,14 +399,14 @@ void AosPsaRemoveKey(psa_key_id_t keyID)
 
     LOG_DBG() << "Remove Aos PSA key: keyID = " << keyID;
 
-    auto key = sBuiltinKeys.FindIf([&](const KeyDescription& key) { return key.mKeyID == keyID; });
+    auto key = sBuiltinKeys.FindIf([&](const KeyDescription& candidate) { return candidate.mKeyID == keyID; });
     if (key == sBuiltinKeys.end()) {
         return;
     }
 
     key->mAllocated = false;
 
-    psa_destroy_key(MBEDTLS_SVC_KEY_ID_GET_KEY_ID(keyID));
+    (void)psa_destroy_key(MBEDTLS_SVC_KEY_ID_GET_KEY_ID(keyID));
 }
 
 /***********************************************************************************************************************
@@ -413,7 +424,7 @@ psa_status_t mbedtls_psa_platform_get_builtin_key(
 
     aos::LockGuard lock(sMutex);
 
-    auto key = sBuiltinKeys.FindIf([&](const KeyDescription& key) { return key.mKeyID == appKeyID; });
+    auto key = sBuiltinKeys.FindIf([&](const KeyDescription& candidate) { return candidate.mKeyID == appKeyID; });
     if (key == sBuiltinKeys.end()) {
         LOG_ERR() << "Built-in key not found: keyID = " << keyID;
 
@@ -426,20 +437,21 @@ psa_status_t mbedtls_psa_platform_get_builtin_key(
     return PSA_SUCCESS;
 }
 
-psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attributes_t* attributes, uint8_t* keyBuffer,
-    size_t keyBufferSize, size_t* keyBufferLength)
+psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attributes_t* attributes,
+    uint8_t* keyBuffer, // NOSONAR cpp:S995 - fixed external API signature
+    size_t keyBufferSize, size_t* keyBufferLength) // NOSONAR cpp:S995 - fixed external API signature
 {
     (void)keyBuffer;
     (void)keyBufferLength;
 
     if (!keyBuffer) {
-        LOG_DBG() << "Get Aos built-in key size: slotNumber=" << slotNumber;
+        LOG_DBG() << "Get Aos built-in key size: slotNumber=" << static_cast<int32_t>(slotNumber);
     } else {
-        LOG_DBG() << "Get Aos built-in key: slotNumber=" << slotNumber;
+        LOG_DBG() << "Get Aos built-in key: slotNumber=" << static_cast<int32_t>(slotNumber);
     }
 
     if (slotNumber >= sBuiltinKeys.Size()) {
-        LOG_ERR() << "Slot number out of range: slotNumber = " << slotNumber;
+        LOG_ERR() << "Slot number out of range: slotNumber = " << static_cast<int32_t>(slotNumber);
 
         return PSA_ERROR_INVALID_ARGUMENT;
     }
@@ -458,7 +470,7 @@ psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attri
                        .GetECParamsOID();
         auto curveParameters = FindPsaECGroupByOID(oid);
         if (curveParameters.mSecond == 0) {
-            LOG_ERR() << "EC group not found: slotNumber = " << slotNumber;
+            LOG_ERR() << "EC group not found: slotNumber = " << static_cast<int32_t>(slotNumber);
 
             return PSA_ERROR_NOT_SUPPORTED;
         }
@@ -484,7 +496,8 @@ psa_status_t aos_get_builtin_key(psa_drv_slot_number_t slotNumber, psa_key_attri
 }
 
 psa_status_t aos_signature_sign_hash(const psa_key_attributes_t* attributes, const uint8_t* key_buffer,
-    size_t key_buffer_size, psa_algorithm_t alg, const uint8_t* hash, size_t hash_length, uint8_t* signature,
+    size_t key_buffer_size, psa_algorithm_t alg, const uint8_t* hash, size_t hash_length,
+    uint8_t* signature, // NOSONAR cpp:S995 - fixed external API signature
     size_t signature_size, size_t* signature_length)
 {
     (void)key_buffer;
@@ -493,7 +506,7 @@ psa_status_t aos_signature_sign_hash(const psa_key_attributes_t* attributes, con
 
     LOG_DBG() << "Sign hash";
 
-    for (auto& key : sBuiltinKeys) {
+    for (const auto& key : sBuiltinKeys) {
         if (key.mKeyID == psa_get_key_id(attributes)) {
             switch (key.mPrivKey->GetPublic().GetKeyType().GetValue()) {
             case aos::crypto::KeyTypeEnum::eRSA:
@@ -504,8 +517,7 @@ psa_status_t aos_signature_sign_hash(const psa_key_attributes_t* attributes, con
                 aos::Array<uint8_t> digest(hash, hash_length);
                 aos::Array<uint8_t> signatureArray(signature, signature_size);
 
-                auto err = key.mPrivKey->Sign(digest, options, signatureArray);
-                if (!err.IsNone()) {
+                if (auto err = key.mPrivKey->Sign(digest, options, signatureArray); !err.IsNone()) {
                     LOG_ERR() << "Sign failed: " << err;
 
                     return PSA_ERROR_GENERIC_ERROR;
@@ -535,14 +547,14 @@ psa_status_t aos_export_public_key(const psa_key_attributes_t* attributes, const
 
     LOG_DBG() << "Export public key";
 
-    for (auto& key : sBuiltinKeys) {
+    for (const auto& key : sBuiltinKeys) {
         if (key.mKeyID == psa_get_key_id(attributes)) {
             switch (key.mPrivKey->GetPublic().GetKeyType().GetValue()) {
             case aos::crypto::KeyTypeEnum::eRSA: {
-                auto ret
+                if (auto ret
                     = ExportRSAPublicKeyToDER(static_cast<const aos::crypto::RSAPublicKey&>(key.mPrivKey->GetPublic()),
                         data, data_size, data_length);
-                if (ret != 0) {
+                    ret != 0) {
                     LOG_ERR() << "Error exporting RSA public key: " << ret;
 
                     return PSA_ERROR_GENERIC_ERROR;
@@ -552,10 +564,10 @@ psa_status_t aos_export_public_key(const psa_key_attributes_t* attributes, const
             }
 
             case aos::crypto::KeyTypeEnum::eECDSA: {
-                auto ret
+                if (auto ret
                     = ExportECPublicKeyToDER(static_cast<const aos::crypto::ECDSAPublicKey&>(key.mPrivKey->GetPublic()),
                         data, data_size, data_length);
-                if (ret != 0) {
+                    ret != 0) {
                     LOG_ERR() << "Error exporting EC public key: " << ret;
 
                     return PSA_ERROR_GENERIC_ERROR;

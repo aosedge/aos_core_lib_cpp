@@ -48,8 +48,8 @@ public:
         return tmp;
     }
 
-    bool operator==(const FilterIterator& other) const { return mIt == other.mIt; }
-    bool operator!=(const FilterIterator& other) const { return mIt != other.mIt; }
+    friend bool operator==(const FilterIterator& lhs, const FilterIterator& other) { return lhs.mIt == other.mIt; };
+    friend bool operator!=(const FilterIterator& lhs, const FilterIterator& other) { return lhs.mIt != other.mIt; };
 
     auto& operator*() const { return *mIt; }
     auto  operator->() const { return mIt; }

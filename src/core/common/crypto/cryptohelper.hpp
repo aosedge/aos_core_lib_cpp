@@ -7,6 +7,7 @@
 #ifndef AOS_AOS_COMMON_CRYPTO_CRYPTOHELPER_HPP_
 #define AOS_AOS_COMMON_CRYPTO_CRYPTOHELPER_HPP_
 
+#include <core/common/consts.hpp>
 #include <core/common/iamclient/itf/certprovider.hpp>
 #include <core/common/tools/thread.hpp>
 
@@ -28,7 +29,7 @@ struct RecipientID {
  * CMS transport information.
  */
 struct TransRecipientInfo {
-    int                                mVersion;
+    int32_t                            mVersion;
     RecipientID                        mRID;
     asn1::AlgorithmIdentifier          mKeyEncryptionAlgorithm;
     StaticArray<uint8_t, cCertDERSize> mEncryptedKey;
@@ -47,7 +48,7 @@ struct EncryptedContentInfo {
  * CMS envelope data.
  */
 struct EnvelopeData {
-    int mVersion;
+    int32_t mVersion;
     // skip OriginatorInfo originatorInfo `asn1:"optional,implicit,tag:0"`
     StaticArray<TransRecipientInfo, cRecipientsInEnvelopeData> mRecipientInfos; // `asn1:"set"`
     EncryptedContentInfo                                       mEncryptedContent;
@@ -103,11 +104,10 @@ public:
      * @param cryptoProvider      cryptographic provider interface.
      * @param certLoader          certificate loader interface.
      * @param serviceDiscoveryURL URL for the service discovery endpoint.
-     * @param caCert              root certificate path.
      * @return Error.
      */
     Error Init(AllocatorItf& allocator, iamclient::CertProviderItf& certProvider, CryptoProviderItf& cryptoProvider,
-        CertLoaderItf& certLoader, const String& serviceDiscoveryURL, const String& caCert);
+        CertLoaderItf& certLoader, const String& serviceDiscoveryURL);
 
     /**
      * Retrieves available service discovery URLs.
@@ -118,7 +118,8 @@ public:
     Error GetServiceDiscoveryURLs(Array<StaticString<cURLLen>>& urls);
 
     /**
-     * Decrypts a file using provided decryption information.
+     * Decrypts a file using provided decryption information. The decrypted file is created only if the decryption
+     * (including the authentication tag check for authenticated modes) succeeds.
      *
      * @param encryptedPath   path to the encrypted file.
      * @param decryptedPath   path where the decrypted file will be written.
@@ -159,26 +160,29 @@ private:
     static constexpr auto cRSAEncryptionOid = "1.2.840.113549.1.1.1";
     static constexpr auto cAES256CBCOid     = "2.16.840.1.101.3.4.1.42";
 
+    Error LoadRootCerts();
+
     RetWithError<SharedPtr<x509::CertificateChain>> GetOnlineCert();
-    Error                                           SetDefaultServiceDiscoveryURL(Array<StaticString<cURLLen>>& urls);
-    Error GetServiceDiscoveryFromExtensions(const x509::Certificate& cert, Array<StaticString<cURLLen>>& urls);
+    Error SetDefaultServiceDiscoveryURL(Array<StaticString<cURLLen>>& urls) const;
+    Error GetServiceDiscoveryFromExtensions(const x509::Certificate& cert, Array<StaticString<cURLLen>>& urls) const;
     Error GetServiceDiscoveryFromOrganization(const x509::Certificate& cert, Array<StaticString<cURLLen>>& urls);
 
-    Error DecodeSymAlgNames(const String& algString, String& algName, String& modeName, String& paddingName);
-    Error GetSymmetricAlgInfo(const String& algName, size_t& keySize, size_t& ivSize);
-    Error CheckSessionKey(const String& symAlgName, const Array<uint8_t>& sessionIV, const Array<uint8_t>& sessionKey);
-    Error DecodeFile(const String& encryptedFile, const String& decryptedFile, AESCipherItf& decoder);
+    Error DecodeSymAlgNames(const String& algString, String& algName, String& modeName, String& paddingName) const;
+    Error GetSymmetricAlgInfo(const String& algName, const String& modeName, size_t& keySize, size_t& ivSize) const;
+    Error CheckSessionKey(const String& symAlgName, const String& modeName, const Array<uint8_t>& sessionIV,
+        const Array<uint8_t>& sessionKey) const;
 
     Error AddCertificates(const Array<CertificateInfo>& cert, SignContext& ctx);
-    Error AddCertChains(const Array<CertificateChainInfo>& chains, SignContext& ctx);
+    Error AddCertChains(const Array<CertificateChainInfo>& chains, SignContext& ctx) const;
     Error VerifySigns(const String& file, const SignInfo& signs, SignContext& signCtx);
 
-    RetWithError<x509::Certificate*> GetCert(SignContext& signCtx, const String& fingerprint);
-    Error                            GetSignCert(
-                                   SignContext& signCtx, const String& chainName, x509::Certificate*& signCert, CertificateChainInfo*& chain);
-    Error DecodeSignAlgNames(const String& algString, String& algName, String& hashName, String& paddingName);
-    RetWithError<Hash> DecodeHash(const String& hashName);
-    Error CreateIntermCertPool(SignContext& signCtx, const CertificateChainInfo& chain, Array<x509::Certificate>& pool);
+    RetWithError<x509::Certificate*> GetCert(SignContext& signCtx, const String& fingerprint) const;
+    Error GetSignCert(SignContext& signCtx, const String& chainName, x509::Certificate*& signCert,
+        CertificateChainInfo*& chain) const;
+    Error DecodeSignAlgNames(const String& algString, String& algName, String& hashName, String& paddingName) const;
+    RetWithError<Hash> DecodeHash(const String& hashName) const;
+    Error              CreateIntermCertPool(
+                     SignContext& signCtx, const CertificateChainInfo& chain, Array<x509::Certificate>& pool) const;
 
     Error UnmarshalCMS(const Array<uint8_t>& der, ContentInfo& content);
     Error ParseContentInfo(const Array<uint8_t>& data, ContentInfo& content);
@@ -187,7 +191,8 @@ private:
     Error ParseRID(const Array<uint8_t>& data, RecipientID& content);
     Error ParseEncryptedContentInfo(const Array<uint8_t>& data, EncryptedContentInfo& content);
     Error GetKeyForEnvelope(const TransRecipientInfo& info, Array<uint8_t>& symmetricKey);
-    Error DecryptCMSKey(const TransRecipientInfo& ktri, const PrivateKeyItf& privKey, Array<uint8_t>& symmetricKey);
+    Error DecryptCMSKey(
+        const TransRecipientInfo& ktri, const PrivateKeyItf& privKey, Array<uint8_t>& symmetricKey) const;
     Error DecryptMessage(const EncryptedContentInfo& content, const Array<uint8_t>& symKey, Array<uint8_t>& message);
     Error DecodeMessage(AESCipherItf& decoder, const Array<uint8_t>& input, Array<uint8_t>& message);
 
@@ -195,10 +200,10 @@ private:
     CryptoProviderItf*          mCryptoProvider {};
     CertLoaderItf*              mCertLoader {};
 
-    StaticString<cURLLen>  mServiceDiscoveryURL;
-    x509::CertificateChain mCACerts;
+    StaticString<cURLLen>                            mServiceDiscoveryURL;
+    StaticArray<x509::Certificate, cMaxNumRootCerts> mCACerts;
 
-    Semaphore     mSemaphore;
+    Semaphore     mSemaphore {cMaxNumConcurrentItems};
     AllocatorItf* mAllocator {};
 };
 

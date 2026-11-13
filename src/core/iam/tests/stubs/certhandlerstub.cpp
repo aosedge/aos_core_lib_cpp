@@ -2,18 +2,18 @@
 
 namespace aos::iam::certhandler {
 
-Error StorageStub::AddCertInfo(const String& certType, const CertInfo& certInfo)
+Error StorageStub::AddCertInfo(const String& storageID, const CertInfo& certInfo)
 {
-    auto cell = FindCell(certType);
+    auto cell = FindCell(storageID);
 
     if (cell == mStorage.end()) {
-        Error err = mStorage.EmplaceBack();
+        auto err = mStorage.EmplaceBack();
         if (!err.IsNone()) {
             return err;
         }
 
-        cell            = &mStorage.Back();
-        cell->mCertType = certType;
+        cell             = &mStorage.Back();
+        cell->mStorageID = storageID;
     }
 
     for (const auto& cert : cell->mCertificates) {
@@ -39,9 +39,9 @@ Error StorageStub::GetCertInfo(const Array<uint8_t>& issuer, const Array<uint8_t
     return ErrorEnum::eNotFound;
 }
 
-Error StorageStub::GetCertsInfo(const String& certType, Array<CertInfo>& certsInfo)
+Error StorageStub::GetCertsInfo(const String& storageID, Array<CertInfo>& certsInfo)
 {
-    const auto* cell = FindCell(certType);
+    const auto* cell = FindCell(storageID);
     if (cell == mStorage.end()) {
         return ErrorEnum::eNotFound;
     }
@@ -49,7 +49,7 @@ Error StorageStub::GetCertsInfo(const String& certType, Array<CertInfo>& certsIn
     certsInfo.Clear();
 
     for (const auto& cert : cell->mCertificates) {
-        Error err = certsInfo.PushBack(cert);
+        auto err = certsInfo.PushBack(cert);
         if (!err.IsNone()) {
             return err;
         }
@@ -58,9 +58,9 @@ Error StorageStub::GetCertsInfo(const String& certType, Array<CertInfo>& certsIn
     return ErrorEnum::eNone;
 }
 
-Error StorageStub::RemoveCertInfo(const String& certType, const String& certURL)
+Error StorageStub::RemoveCertInfo(const String& storageID, const String& certURL)
 {
-    auto* cell = FindCell(certType);
+    auto* cell = FindCell(storageID);
     if (cell == mStorage.end()) {
         return ErrorEnum::eNotFound;
     }
@@ -76,9 +76,9 @@ Error StorageStub::RemoveCertInfo(const String& certType, const String& certURL)
     return ErrorEnum::eNotFound;
 }
 
-Error StorageStub::RemoveAllCertsInfo(const String& certType)
+Error StorageStub::RemoveAllCertsInfo(const String& storageID)
 {
-    const auto* cell = FindCell(certType);
+    const auto* cell = FindCell(storageID);
     if (cell == mStorage.end()) {
         return ErrorEnum::eNotFound;
     }
@@ -88,10 +88,10 @@ Error StorageStub::RemoveAllCertsInfo(const String& certType)
     return ErrorEnum::eNone;
 }
 
-StorageStub::StorageCell* StorageStub::FindCell(const String& certType)
+StorageStub::StorageCell* StorageStub::FindCell(const String& storageID)
 {
     for (auto& cell : mStorage) {
-        if (cell.mCertType == certType) {
+        if (cell.mStorageID == storageID) {
             return &cell;
         }
     }

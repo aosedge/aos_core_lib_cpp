@@ -68,7 +68,7 @@ public:
      * Move constructor for a DefaultDeleter of a derived class.
      */
     template <typename P>
-    explicit DefaultDeleter(DefaultDeleter<P>&& other)
+    explicit DefaultDeleter(DefaultDeleter<P>&& other) noexcept
     {
         *this = Move(other);
     }
@@ -77,7 +77,7 @@ public:
      * Move assignment operator for a DefaultDeleter of a derived class.
      */
     template <typename P>
-    DefaultDeleter& operator=(DefaultDeleter<P>&& other)
+    DefaultDeleter& operator=(DefaultDeleter<P>&& other) noexcept // NOSONAR cpp:S5500
     {
         mAllocator = other.GetAllocator();
 
@@ -99,7 +99,7 @@ public:
     void operator()(T* ptr)
     {
         if (mAllocator) {
-            ptr->~T();
+            ptr->~T(); // NOSONAR cpp:M23_329
             mAllocator->Free(ptr);
         }
     }
@@ -115,7 +115,7 @@ template <typename T>
 inline void SmartPtrDeleter(void* ptr, AllocatorItf* allocator)
 {
     if (ptr) {
-        static_cast<T*>(ptr)->~T();
+        static_cast<T*>(ptr)->~T(); // NOSONAR cpp:M23_329
 
         if (allocator) {
             allocator->Free(ptr);
@@ -138,7 +138,7 @@ public:
      * @param deleter functor destroying the object.
      *
      */
-    UniquePtr(T* ptr, Deleter&& deleter)
+    UniquePtr(T* ptr, Deleter&& deleter) // NOSONAR cpp:S5500
         : mObject(ptr)
         , mDeleter(Move(deleter))
     {
@@ -152,7 +152,8 @@ public:
      * @param allocator allocator that object was allocated with.
      *
      */
-    UniquePtr(T* ptr = nullptr, AllocatorItf* allocator = nullptr)
+    UniquePtr(T*      ptr       = nullptr, // NOSONAR cpp:S1709
+        AllocatorItf* allocator = nullptr)
         : mObject(ptr)
         , mDeleter(DefaultDeleter<T>(allocator))
     {
@@ -163,7 +164,7 @@ public:
      *
      * @param ptr unique pointer to move from.
      */
-    UniquePtr(UniquePtr&& ptr)
+    UniquePtr(UniquePtr&& ptr) noexcept
         : UniquePtr()
     {
         *this = Move(ptr);
@@ -174,7 +175,7 @@ public:
      *
      * @param ptr unique pointer to assign from.
      */
-    UniquePtr& operator=(UniquePtr&& ptr)
+    UniquePtr& operator=(UniquePtr&& ptr) noexcept
     {
         Reset();
 
@@ -191,7 +192,7 @@ public:
      */
     template <typename P, typename D, typename = EnableIf<IsBaseOf<T, P>::value>>
     // cppcheck-suppress noExplicitConstructor
-    UniquePtr(UniquePtr<P, D>&& ptr)
+    UniquePtr(UniquePtr<P, D>&& ptr) noexcept // NOSONAR cpp:S1709
         : UniquePtr()
     {
         *this = Move(ptr);
@@ -203,7 +204,7 @@ public:
      * @param ptr unique pointer to assign from.
      */
     template <typename P, typename D, typename = EnableIf<IsBaseOf<T, P>::value>>
-    UniquePtr& operator=(UniquePtr<P, D>&& ptr)
+    UniquePtr& operator=(UniquePtr<P, D>&& ptr) noexcept // NOSONAR cpp:S5500
     {
         Reset();
 
@@ -221,7 +222,7 @@ public:
     void Reset(T* object = nullptr)
     {
         if (mObject) {
-            mDeleter(mObject);
+            (void)mDeleter(mObject);
             mObject = nullptr;
         }
 
@@ -291,7 +292,7 @@ public:
      *
      * @return T& holding object value.
      */
-    T& operator*() const { return *(mObject); }
+    T& operator*() const { return *mObject; }
 
     /**
      * Destroys object.
@@ -315,7 +316,40 @@ private:
 template <typename T, typename Deleter>
 inline UniquePtr<T, Deleter> DeferRelease(T* ptr, Deleter&& deleter)
 {
-    return UniquePtr<T, Deleter>(ptr, Move(deleter));
+    return UniquePtr<T, Deleter>(ptr, Forward<Deleter>(deleter)); // NOSONAR cpp:M23_279
+}
+
+/**
+ * Adapts a no-argument callback to UniquePtr's Deleter(T*) calling convention.
+ */
+template <typename Deleter>
+class NoArgDeleterAdapter {
+public:
+    explicit NoArgDeleterAdapter(Deleter&& deleter) // NOSONAR cpp:S5500
+        : mDeleter(Move(deleter))
+    {
+    }
+
+    void operator()(int32_t*) { mDeleter(); }
+
+private:
+    Deleter mDeleter;
+};
+
+/**
+ * Defers a no-argument cleanup callback till the end of the current scope.
+ *
+ * @tparam Deleter type of the deleter.
+ * @param deleter functor to be invoked at scope exit.
+ * @return UniquePtr<int32_t, NoArgDeleterAdapter<Deleter>>.
+ */
+template <typename Deleter>
+inline UniquePtr<int32_t, NoArgDeleterAdapter<Deleter>> DeferRelease(Deleter&& deleter)
+{
+    static int32_t sSentinel; // NOSONAR cpp:M23_233 - used as a non-null placeholder
+
+    return UniquePtr<int32_t, NoArgDeleterAdapter<Deleter>>(&sSentinel,
+        NoArgDeleterAdapter<Deleter>(Forward<Deleter>(deleter))); // NOSONAR cpp:M23_279
 }
 
 /**
@@ -360,13 +394,13 @@ public:
      */
     size_t Give()
     {
-        UniqueLock<Mutex> lock(mMutex);
+        UniqueLock lock(mMutex);
 
         auto count = --mRefCount;
 
         if (count == 0) {
             // Unlock before disposing as disposal destroys this object (and its mutex).
-            lock.Unlock();
+            (void)lock.Unlock();
 
             Dispose();
         }
@@ -409,7 +443,7 @@ public:
     template <typename... Args>
     explicit SharedObjectControlBlock(AllocatorItf& allocator, Args&&... args)
         : SharedControlBlock(allocator)
-        , mObject(args...)
+        , mObject(Forward<Args>(args)...) // NOSONAR cpp:M23_279
     {
     }
 
@@ -425,7 +459,7 @@ private:
     {
         auto& allocator = mAllocator;
 
-        this->~SharedObjectControlBlock();
+        this->~SharedObjectControlBlock(); // NOSONAR cpp:M23_329
         allocator.Free(this);
     }
 
@@ -468,7 +502,7 @@ private:
             mDeleter(mObject, &allocator);
         }
 
-        this->~SharedAdoptControlBlock();
+        this->~SharedAdoptControlBlock(); // NOSONAR cpp:M23_329
         allocator.Free(this);
     }
 
@@ -497,7 +531,8 @@ public:
      * @param object object to adopt.
      * @param deleter functor destroying the object.
      */
-    SharedPtr(AllocatorItf* allocator = nullptr, T* object = nullptr, Deleter deleter = SmartPtrDeleter<T>)
+    SharedPtr(AllocatorItf* allocator = nullptr, T* object = nullptr, // NOSONAR cpp:S1709
+        Deleter deleter = SmartPtrDeleter<T>)
     {
         Adopt(allocator, object, deleter);
     }
@@ -507,12 +542,12 @@ public:
      *
      * @param ptr pointer to create from.
      */
-    SharedPtr(const SharedPtr& ptr)
+    SharedPtr(const SharedPtr& ptr) noexcept
         : mObject(ptr.mObject)
         , mControlBlock(ptr.mControlBlock)
     {
         if (mControlBlock) {
-            mControlBlock->Take();
+            (void)mControlBlock->Take();
         }
     }
 
@@ -521,7 +556,7 @@ public:
      *
      * @param ptr shared pointer to assign from.
      */
-    SharedPtr& operator=(const SharedPtr& ptr)
+    SharedPtr& operator=(const SharedPtr& ptr) noexcept
     {
         if (this == &ptr) {
             return *this;
@@ -533,7 +568,7 @@ public:
         mControlBlock = ptr.mControlBlock;
 
         if (mControlBlock) {
-            mControlBlock->Take();
+            (void)mControlBlock->Take();
         }
 
         return *this;
@@ -546,12 +581,12 @@ public:
      */
     template <typename P>
     // cppcheck-suppress noExplicitConstructor
-    SharedPtr(const SharedPtr<P>& ptr)
+    SharedPtr(const SharedPtr<P>& ptr) // NOSONAR cpp:S1709
         : mObject(ptr.mObject)
         , mControlBlock(ptr.mControlBlock)
     {
         if (mControlBlock) {
-            mControlBlock->Take();
+            (void)mControlBlock->Take();
         }
     }
 
@@ -569,7 +604,7 @@ public:
         mControlBlock = ptr.mControlBlock;
 
         if (mControlBlock) {
-            mControlBlock->Take();
+            (void)mControlBlock->Take();
         }
 
         return *this;
@@ -585,7 +620,7 @@ public:
     void Reset(AllocatorItf* allocator = nullptr, T* object = nullptr, Deleter deleter = SmartPtrDeleter<T>)
     {
         if (mControlBlock) {
-            mControlBlock->Give();
+            (void)mControlBlock->Give();
         }
 
         mObject       = nullptr;
@@ -629,7 +664,7 @@ public:
      *
      * @return T& holding object value.
      */
-    T& operator*() const { return *(mObject); }
+    T& operator*() const { return *mObject; }
 
     /**
      * Destroys shared pointer.
@@ -664,7 +699,7 @@ private:
             return;
         }
 
-        mControlBlock = new (data) SharedAdoptControlBlock<T>(*allocator, object, deleter);
+        mControlBlock = new (data) SharedAdoptControlBlock<T>(*allocator, object, deleter); // NOSONAR cpp:M23_329
         mObject       = object;
     }
 
@@ -691,7 +726,7 @@ inline UniquePtr<T> MakeUnique(AllocatorItf* allocator, Args&&... args)
         return UniquePtr<T>();
     }
 
-    return UniquePtr<T>(new (data) T(args...), DefaultDeleter<T>(allocator));
+    return UniquePtr<T>(new (data) T(Forward<Args>(args)...), DefaultDeleter<T>(allocator)); // NOSONAR cpp:M23_329
 }
 
 /**
@@ -713,7 +748,8 @@ inline SharedPtr<T> MakeShared(AllocatorItf* allocator, Args&&... args)
         return SharedPtr<T>();
     }
 
-    auto* controlBlock = new (data) SharedObjectControlBlock<T>(*allocator, args...);
+    auto* controlBlock
+        = new (data) SharedObjectControlBlock<T>(*allocator, Forward<Args>(args)...); // NOSONAR cpp:M23_329
 
     return SharedPtr<T>(controlBlock, controlBlock->GetObject());
 }

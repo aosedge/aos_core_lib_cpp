@@ -5,10 +5,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cerrno>
 #include <fcntl.h>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
 #include <gtest/gtest.h>
 
@@ -20,6 +25,42 @@
 using namespace testing;
 
 using namespace aos;
+
+static int         sCloseCount         = 0;
+static int         sReadErrno          = 0;
+static const char* sTruncateOnReadPath = nullptr;
+static off_t       sTruncateOnReadSize = 0;
+
+// File read is intercepted to inject read errors of the integrity checked storage and to truncate the file after
+// ReadFile has taken its size. Both can't be reproduced reliably with a regular file.
+extern "C" ssize_t read(int fd, void* buf, size_t count)
+{
+    if (sReadErrno != 0) {
+        errno = sReadErrno;
+
+        return -1;
+    }
+
+    if (sTruncateOnReadPath != nullptr) {
+        const auto* path = sTruncateOnReadPath;
+
+        sTruncateOnReadPath = nullptr;
+
+        if (truncate(path, sTruncateOnReadSize) != 0) {
+            return -1;
+        }
+    }
+
+    return static_cast<ssize_t>(syscall(SYS_read, fd, buf, count));
+}
+
+// File close is intercepted to count the close calls: closing a descriptor twice can't be detected otherwise.
+extern "C" int close(int fd)
+{
+    sCloseCount++;
+
+    return static_cast<int>(syscall(SYS_close, fd));
+}
 
 static const auto cBaseTestDir = std::filesystem::current_path() / "fs_test";
 
@@ -282,6 +323,98 @@ TEST_F(FSTest, RenameFolder)
     EXPECT_TRUE(std::filesystem::exists(newDir / "child/test.txt"));
 }
 
+TEST_F(FSTest, CopyFile)
+{
+    const auto source      = cBaseTestDir / "copy-source";
+    const auto destination = cBaseTestDir / "copy-destination";
+
+    for (const auto size : {0U, 16384U, 32769U}) {
+        const std::string content(size, 'x');
+        CreateFile(source.c_str(), content.c_str());
+        CreateFile(destination.c_str(), "old content that must be truncated");
+
+        ASSERT_TRUE(fs::CopyFile(mAllocator, source.c_str(), destination.c_str()).IsNone());
+        EXPECT_TRUE(std::filesystem::exists(source));
+        std::ifstream     stream(destination, std::ios::binary);
+        const std::string actual((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+        EXPECT_EQ(actual, content);
+    }
+}
+
+TEST_F(FSTest, CopyFileAcrossFileSystems)
+{
+    struct stat sourceStat { };
+    struct stat destinationStat { };
+    if (stat(cBaseTestDir.c_str(), &sourceStat) != 0 || stat("/dev/shm", &destinationStat) != 0
+        || sourceStat.st_dev == destinationStat.st_dev || access("/dev/shm", W_OK) != 0) {
+        GTEST_SKIP() << "A writable /dev/shm on a different file system is required";
+    }
+
+    char directory[] = "/dev/shm/aos-copy-test-XXXXXX";
+    ASSERT_NE(mkdtemp(directory), nullptr);
+    auto       cleanup     = DeferRelease(directory, [](char* path) { fs::RemoveAll(path); });
+    const auto source      = cBaseTestDir / "cross-device-source";
+    const auto destination = std::filesystem::path(directory) / "destination";
+    CreateFile(source.c_str(), "cross-device contents");
+
+    ASSERT_TRUE(fs::CopyFile(mAllocator, source.c_str(), destination.c_str()).IsNone());
+    EXPECT_TRUE(std::filesystem::exists(source));
+    StaticString<100> content;
+    ASSERT_TRUE(fs::ReadFileToString(destination.c_str(), content).IsNone());
+    EXPECT_EQ(content, "cross-device contents");
+}
+
+TEST_F(FSTest, CopyFileMissingSource)
+{
+    const auto destination = cBaseTestDir / "copy-destination";
+    CreateFile(destination.c_str(), "keep destination");
+
+    EXPECT_FALSE(fs::CopyFile(mAllocator, (cBaseTestDir / "missing").c_str(), destination.c_str()).IsNone());
+    CheckFile(destination.c_str(), "keep destination", 0666U);
+}
+
+TEST_F(FSTest, CopyFileReadFailureRemovesDestination)
+{
+    const auto source      = cBaseTestDir / "source-directory";
+    const auto destination = cBaseTestDir / "copy-destination";
+    ASSERT_TRUE(std::filesystem::create_directory(source));
+
+    EXPECT_FALSE(fs::CopyFile(mAllocator, source.c_str(), destination.c_str()).IsNone());
+    EXPECT_FALSE(std::filesystem::exists(destination));
+    EXPECT_TRUE(std::filesystem::exists(source));
+}
+
+TEST_F(FSTest, FileOpenWriteNew)
+{
+    const auto newFile      = cBaseTestDir / "file-write-new.txt";
+    const auto existingFile = cBaseTestDir / "file-write-new-existing.txt";
+    const auto symlink      = cBaseTestDir / "file-write-new-symlink.txt";
+    const auto symlinkDst   = cBaseTestDir / "file-write-new-symlink-dst.txt";
+
+    CreateFile(existingFile.c_str(), "existing");
+    std::filesystem::create_symlink(symlinkDst, symlink);
+
+    fs::File file;
+
+    // creates a new file with the requested permissions
+    const auto oldUmask = umask(0);
+
+    EXPECT_TRUE(file.Open(newFile.c_str(), fs::File::Mode::WriteNew, 0600).IsNone());
+    EXPECT_TRUE(file.Close().IsNone());
+    EXPECT_EQ(std::filesystem::status(newFile).permissions(), std::filesystem::perms(0600));
+
+    umask(oldUmask);
+
+    // never reuses an existing file
+    EXPECT_EQ(file.Open(newFile.c_str(), fs::File::Mode::WriteNew).Code(), EEXIST);
+    EXPECT_EQ(file.Open(existingFile.c_str(), fs::File::Mode::WriteNew).Code(), EEXIST);
+    CheckFile(existingFile.c_str(), "existing", 0666);
+
+    // never follows a symlink as the last path component, even a dangling one
+    EXPECT_FALSE(file.Open(symlink.c_str(), fs::File::Mode::WriteNew).IsNone());
+    EXPECT_FALSE(std::filesystem::exists(symlinkDst));
+}
+
 TEST_F(FSTest, ReadFile)
 {
     const auto testFile      = cBaseTestDir / "read-file-test.txt";
@@ -303,6 +436,134 @@ TEST_F(FSTest, ReadFile)
     EXPECT_FALSE(fs::ReadFile(wrongFileName.c_str(), bigBuff).IsNone());
 
     fs::RemoveAll(testFile.c_str());
+}
+
+TEST_F(FSTest, ReadFileTruncatedDuringRead)
+{
+    const auto testFile = cBaseTestDir / "truncated_file";
+
+    CreateFile(testFile.c_str(), "test file");
+
+    StaticArray<uint8_t, 100> buff;
+    const char*               expected = "test";
+
+    sTruncateOnReadPath = testFile.c_str();
+    sTruncateOnReadSize = strlen(expected);
+
+    EXPECT_TRUE(fs::ReadFile(testFile.c_str(), buff).IsNone());
+    EXPECT_EQ(buff, Array<uint8_t>(reinterpret_cast<const uint8_t*>(expected), strlen(expected)));
+}
+
+TEST_F(FSTest, ReadFileErrors)
+{
+    const auto testFile = cBaseTestDir / "read_errors_file";
+
+    CreateFile(testFile.c_str());
+
+    struct TestData {
+        int   mErrno;
+        Error mExpected;
+    };
+
+    const TestData testData[] = {
+        {EIO, ErrorEnum::eIntegrity},
+        {EBADMSG, ErrorEnum::eIntegrity},
+        {EPERM, Error(EPERM)},
+    };
+
+    for (const auto& data : testData) {
+        StaticArray<uint8_t, 100> buff;
+        StaticString<100>         text;
+
+        sReadErrno = data.mErrno;
+
+        const auto readFileErr   = fs::ReadFile(testFile.c_str(), buff);
+        const auto readStringErr = fs::ReadFileToString(testFile.c_str(), text);
+
+        sReadErrno = 0;
+
+        EXPECT_TRUE(readFileErr.Is(data.mExpected)) << "errno: " << data.mErrno;
+        EXPECT_TRUE(readStringErr.Is(data.mExpected)) << "errno: " << data.mErrno;
+
+        // The errno is kept as the error code.
+        EXPECT_EQ(readFileErr.Code(), data.mErrno);
+        EXPECT_EQ(readStringErr.Code(), data.mErrno);
+    }
+}
+
+TEST_F(FSTest, FileErrors)
+{
+    const auto testFile = cBaseTestDir / "file_errors_file";
+
+    CreateFile(testFile.c_str());
+
+    struct TestData {
+        int   mErrno;
+        Error mExpected;
+    };
+
+    const TestData testData[] = {
+        {EIO, ErrorEnum::eIntegrity},
+        {EBADMSG, ErrorEnum::eIntegrity},
+        {EPERM, Error(EPERM)},
+    };
+
+    for (const auto& data : testData) {
+        fs::File                  file;
+        StaticArray<uint8_t, 100> buff;
+
+        ASSERT_TRUE(file.Open(testFile.c_str(), fs::File::Mode::Read).IsNone());
+
+        sReadErrno = data.mErrno;
+
+        const auto err = file.ReadBlock(buff);
+
+        sReadErrno = 0;
+
+        EXPECT_TRUE(err.Is(data.mExpected)) << "errno: " << data.mErrno;
+        EXPECT_EQ(err.Code(), data.mErrno);
+    }
+
+    fs::File file;
+
+    const auto err = file.Open((cBaseTestDir / "missing_file").c_str(), fs::File::Mode::Read);
+
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound));
+    EXPECT_EQ(err.Code(), ENOENT);
+}
+
+TEST_F(FSTest, ReadFileMissingIsNotFound)
+{
+    const auto testFile = cBaseTestDir / "missing_file";
+
+    StaticArray<uint8_t, 100> buff;
+    StaticString<100>         text;
+
+    EXPECT_TRUE(fs::ReadFile(testFile.c_str(), buff).Is(ErrorEnum::eNotFound));
+    EXPECT_TRUE(fs::ReadFileToString(testFile.c_str(), text).Is(ErrorEnum::eNotFound));
+    EXPECT_EQ(fs::ReadFile(testFile.c_str(), buff).Code(), ENOENT);
+}
+
+TEST_F(FSTest, ReadFileClosesFileOnce)
+{
+    const auto testFile = cBaseTestDir / "close_once_file";
+
+    CreateFile(testFile.c_str());
+
+    StaticArray<uint8_t, 100> buff;
+
+    sCloseCount = 0;
+
+    EXPECT_TRUE(fs::ReadFile(testFile.c_str(), buff).IsNone());
+    EXPECT_EQ(sCloseCount, 1);
+
+    sReadErrno  = EIO;
+    sCloseCount = 0;
+
+    EXPECT_TRUE(fs::ReadFile(testFile.c_str(), buff).Is(ErrorEnum::eIntegrity));
+    EXPECT_EQ(sCloseCount, 1);
+
+    sReadErrno = 0;
 }
 
 TEST_F(FSTest, ReadFileToString)
@@ -390,6 +651,26 @@ TEST_F(FSTest, WriteFile)
     fs::RemoveAll(existingFile.c_str());
 }
 
+TEST_F(FSTest, WriteFileUpdatesFileInPlace)
+{
+    const auto existingFile = cBaseTestDir / "write-file-in-place.txt";
+
+    CreateFile(existingFile.c_str(), "long existing file content", 0600);
+
+    // Reader that keeps the file opened (e.g. bind mount) should see new content.
+    std::ifstream openedFile {existingFile};
+
+    const char           text[] = "Hello World";
+    const Array<uint8_t> data {reinterpret_cast<const uint8_t*>(text), strlen(text)};
+
+    EXPECT_TRUE(fs::WriteFile(existingFile.c_str(), data, 0600).IsNone());
+    CheckFile(existingFile.c_str(), text, 0600);
+
+    EXPECT_EQ(std::string(std::istreambuf_iterator<char>(openedFile), {}), text);
+
+    fs::RemoveAll(existingFile.c_str());
+}
+
 TEST_F(FSTest, WriteStringToFile)
 {
     const auto newFile      = cBaseTestDir / "write-file-to-string-new.txt";
@@ -472,8 +753,74 @@ TEST_F(FSTest, CalculateSize)
     EXPECT_EQ(fs::CalculateSize(mAllocator, singleFile.c_str()), RetWithError<size_t>(512));
 
     auto [size, err] = fs::CalculateSize(mAllocator, "does-not-exists");
-    EXPECT_FALSE(err.IsNone());
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound));
+    EXPECT_EQ(err.Code(), ENOENT);
     EXPECT_EQ(size, 0);
+}
+
+TEST_F(FSTest, CalculateSizeDoesNotFollowSymlinks)
+{
+    const auto walkDirRoot = cBaseTestDir / "calculate-symlinks-test";
+    const auto outsideDir  = cBaseTestDir / "calculate-symlinks-outside";
+
+    ASSERT_TRUE(fs::MakeDirAll(walkDirRoot.c_str()).IsNone());
+    ASSERT_TRUE(fs::MakeDirAll(outsideDir.c_str()).IsNone());
+
+    CreateFile((walkDirRoot / "f.txt").c_str(), std::string(1024, 'a').c_str(), 0444);
+    CreateFile((outsideDir / "big.txt").c_str(), std::string(4096, 'b').c_str(), 0444);
+
+    const std::vector<std::pair<std::string, std::filesystem::path>> links = {
+        {outsideDir.string(), walkDirRoot / "dir-link"},
+        {(outsideDir / "big.txt").string(), walkDirRoot / "file-link"},
+        {"/not-existing-target", walkDirRoot / "dangling-link"},
+    };
+
+    size_t expectedSize = 1024;
+
+    for (const auto& [target, link] : links) {
+        std::filesystem::create_symlink(target, link);
+
+        expectedSize += target.size();
+    }
+
+    EXPECT_EQ(fs::CalculateSize(mAllocator, walkDirRoot.c_str()), RetWithError<size_t>(expectedSize));
+}
+
+TEST_F(FSTest, GetFileMTime)
+{
+    const auto testFile = cBaseTestDir / "modify-time-test.txt";
+
+    CreateFile(testFile.c_str());
+
+    auto [modifyTime, err] = fs::GetFileMTime(testFile.c_str());
+    ASSERT_TRUE(err.IsNone());
+
+    const auto now = Time::Now();
+
+    EXPECT_LE(modifyTime.Sub(now), Time::cSeconds);
+    EXPECT_LE(now.Sub(modifyTime), 5 * Time::cSeconds);
+
+    auto missing = fs::GetFileMTime((cBaseTestDir / "not-existing-file").c_str());
+    EXPECT_EQ(missing.mError.Code(), ENOENT);
+}
+
+TEST_F(FSTest, SetFileMTime)
+{
+    const auto testFile   = cBaseTestDir / "set-modify-time-test.txt";
+    const auto modifyTime = Time::Unix(1000000000, 500);
+
+    CreateFile(testFile.c_str());
+
+    auto err = fs::SetFileMTime(testFile.c_str(), modifyTime);
+    ASSERT_TRUE(err.IsNone());
+
+    auto [readTime, readErr] = fs::GetFileMTime(testFile.c_str());
+    ASSERT_TRUE(readErr.IsNone());
+
+    EXPECT_EQ(readTime.UnixTime().tv_sec, modifyTime.UnixTime().tv_sec);
+
+    err = fs::SetFileMTime((cBaseTestDir / "not-existing-file").c_str(), modifyTime);
+    EXPECT_EQ(err.Code(), ENOENT);
 }
 
 TEST_F(FSTest, CalculateNoMemory)

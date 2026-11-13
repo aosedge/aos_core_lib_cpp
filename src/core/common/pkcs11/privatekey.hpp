@@ -74,7 +74,7 @@ private:
     static constexpr auto cMaxPrefixSize = Max(sizeof(cSHA1Prefix), sizeof(cSHA224Prefix), sizeof(cSHA256Prefix),
         sizeof(cSHA384Prefix), sizeof(cSHA512Prefix));
 
-    Array<uint8_t> GetPrefix(crypto::Hash hash) const;
+    Array<uint8_t> GetPrefix(const crypto::Hash& hash) const;
 
     AllocatorItf& mAllocator;
 
@@ -121,7 +121,7 @@ public:
      * @param privKeyHandle private key handle.
      * @param pubKey public key.
      */
-    PKCS11ECDSAPrivateKey(const SharedPtr<SessionContext>& session, crypto::x509::ProviderItf& cryptoProvider,
+    PKCS11ECDSAPrivateKey(const SharedPtr<SessionContext>& session, const crypto::x509::ProviderItf& cryptoProvider,
         ObjectHandle privKeyHandle, const crypto::ECDSAPublicKey& pubKey);
 
     /**
@@ -163,10 +163,9 @@ public:
     }
 
 private:
-    SharedPtr<SessionContext>  mSession;
-    crypto::x509::ProviderItf& mCryptoProvider;
-    ObjectHandle               mPrivKeyHandle;
-    crypto::ECDSAPublicKey     mPublicKey;
+    SharedPtr<SessionContext> mSession;
+    ObjectHandle              mPrivKeyHandle;
+    crypto::ECDSAPublicKey    mPublicKey;
 };
 
 } // namespace aos::pkcs11

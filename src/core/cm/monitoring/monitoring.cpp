@@ -43,9 +43,17 @@ Error Monitoring::Start()
 
     auto unsubscribeOnError = DeferRelease(&err, [this](const Error* err) {
         if (!err->IsNone()) {
-            mInstanceStatusProvider->UnsubscribeListener(*this);
-            mNodeInfoProvider->UnsubscribeListener(*this);
-            mCloudConnection->UnsubscribeListener(*this);
+            if (auto unsubErr = mInstanceStatusProvider->UnsubscribeListener(*this); !unsubErr.IsNone()) {
+                LOG_ERR() << "Can't unsubscribe instance status listener" << Log::Field(AOS_ERROR_WRAP(unsubErr));
+            }
+
+            if (auto unsubErr = mNodeInfoProvider->UnsubscribeListener(*this); !unsubErr.IsNone()) {
+                LOG_ERR() << "Can't unsubscribe node info listener" << Log::Field(AOS_ERROR_WRAP(unsubErr));
+            }
+
+            if (auto unsubErr = mCloudConnection->UnsubscribeListener(*this); !unsubErr.IsNone()) {
+                LOG_ERR() << "Can't unsubscribe cloud connection listener" << Log::Field(AOS_ERROR_WRAP(unsubErr));
+            }
         }
     });
 
@@ -91,9 +99,17 @@ Error Monitoring::Stop()
         return ErrorEnum::eWrongState;
     }
 
-    mInstanceStatusProvider->UnsubscribeListener(*this);
-    mNodeInfoProvider->UnsubscribeListener(*this);
-    mCloudConnection->UnsubscribeListener(*this);
+    if (auto err = mInstanceStatusProvider->UnsubscribeListener(*this); !err.IsNone()) {
+        LOG_ERR() << "Can't unsubscribe instance status listener" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    if (auto err = mNodeInfoProvider->UnsubscribeListener(*this); !err.IsNone()) {
+        LOG_ERR() << "Can't unsubscribe node info listener" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    if (auto err = mCloudConnection->UnsubscribeListener(*this); !err.IsNone()) {
+        LOG_ERR() << "Can't unsubscribe cloud connection listener" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 
     mIsRunning = false;
 
@@ -135,7 +151,7 @@ void Monitoring::OnNodeInfoChanged(const UnitNodeInfo& info)
     }
 
     if (it->mStates.IsEmpty()) {
-        it->mStates.PushBack(stateInfo);
+        (void)it->mStates.PushBack(stateInfo);
 
         return;
     }
@@ -145,10 +161,10 @@ void Monitoring::OnNodeInfoChanged(const UnitNodeInfo& info)
     }
 
     if (it->mStates.IsFull()) {
-        it->mStates.Erase(it->mStates.begin());
+        (void)it->mStates.Erase(it->mStates.begin());
     }
 
-    it->mStates.PushBack(stateInfo);
+    (void)it->mStates.PushBack(stateInfo);
 }
 
 void Monitoring::OnInstancesStatusesChanged(const Array<InstanceStatus>& statuses)
@@ -182,10 +198,10 @@ void Monitoring::OnInstancesStatusesChanged(const Array<InstanceStatus>& statuse
         }
 
         if (it->mStates.IsFull()) {
-            it->mStates.Erase(it->mStates.begin());
+            (void)it->mStates.Erase(it->mStates.begin());
         }
 
-        it->mStates.PushBack({now, status.mState});
+        (void)it->mStates.PushBack({now, status.mState});
     }
 }
 
@@ -225,7 +241,7 @@ Error Monitoring::FillNodeMonitoring(const String& nodeID, const aos::monitoring
     }
 
     if (it->mItems.IsFull()) {
-        it->mItems.Erase(it->mItems.begin());
+        (void)it->mItems.Erase(it->mItems.begin());
     }
 
     return it->mItems.EmplaceBack(nodeMonitoring.mMonitoringData);
@@ -250,7 +266,7 @@ Error Monitoring::FillInstanceMonitoring(
     }
 
     if (it->mItems.IsFull()) {
-        it->mItems.Erase(it->mItems.begin());
+        (void)it->mItems.Erase(it->mItems.begin());
     }
 
     return it->mItems.EmplaceBack(instanceMonitoring.mMonitoringData);

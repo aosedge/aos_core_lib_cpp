@@ -75,6 +75,8 @@ RetWithError<SharedPtr<x509::CertificateChain>> CertLoader::LoadCertsChainByURL(
         }
 
         return pkcs11::Utils(*mAllocator, session, *mCryptoProvider).FindCertificateChain(id, label);
+    } else {
+        // unsupported scheme, handled below
     }
 
     return {nullptr, ErrorEnum::eInvalidArgument};
@@ -122,6 +124,8 @@ RetWithError<SharedPtr<PrivateKeyItf>> CertLoader::LoadPrivKeyByURL(const String
         auto key = pkcs11::Utils(*mAllocator, session, *mCryptoProvider).FindPrivateKey(id, label);
 
         return {key.mValue.GetPrivKey(), key.mError};
+    } else {
+        // unsupported scheme, handled below
     }
 
     return {nullptr, ErrorEnum::eInvalidArgument};
@@ -139,8 +143,8 @@ RetWithError<SharedPtr<pkcs11::SessionContext>> CertLoader::OpenSession(
         return {nullptr, ErrorEnum::eFailed};
     }
 
-    pkcs11::SlotID                    slotID;
-    Error                             err = ErrorEnum::eNone;
+    pkcs11::SlotID                    slotID {};
+    Error                             err;
     SharedPtr<pkcs11::SessionContext> session;
 
     Tie(slotID, err) = FindToken(*library, token);
@@ -224,8 +228,7 @@ RetWithError<SharedPtr<PrivateKeyItf>> CertLoader::LoadPrivKeyFromFile(const Str
         return {nullptr, ErrorEnum::eNoMemory};
     }
 
-    auto err = fs::ReadFileToString(fileName, *buff);
-    if (!err.IsNone()) {
+    if (auto err = fs::ReadFileToString(fileName, *buff); !err.IsNone()) {
         return {nullptr, err};
     }
 
@@ -240,8 +243,9 @@ namespace {
 
 Error FindUrlParam(const String& url, const String& paramName, String& paramValue)
 {
-    Error  err   = ErrorEnum::eNone;
-    size_t start = 0, end = 0;
+    Error  err;
+    size_t start = 0;
+    size_t end   = 0;
 
     Tie(start, err) = url.FindSubstr(0, paramName);
 
@@ -304,7 +308,7 @@ Error ParsePIN(const String& url, String& pin)
 
 Error ParseURLScheme(const String& url, String& scheme)
 {
-    Error  err = ErrorEnum::eNone;
+    Error  err;
     size_t pos = 0;
 
     Tie(pos, err) = url.FindSubstr(0, ":");
@@ -326,8 +330,7 @@ Error ParseFileURL(const String& url, String& path)
 {
     StaticString<cSchemeMaxLength> scheme;
 
-    auto err = ParseURLScheme(url, scheme);
-    if (!err.IsNone() || scheme != cSchemeFile) {
+    if (auto err = ParseURLScheme(url, scheme); !err.IsNone() || scheme != cSchemeFile) {
         return ErrorEnum::eFailed;
     }
 
@@ -350,7 +353,7 @@ Error EncodePKCS11ID(const Array<uint8_t>& id, String& idStr)
 
         StaticString<2> byteStr;
 
-        byteStr.ByteToHex(byte, true);
+        (void)byteStr.ByteToHex(byte, true);
 
         err = idStr.Insert(idStr.end(), byteStr.begin(), byteStr.end());
         if (!err.IsNone()) {
@@ -385,7 +388,7 @@ Error DecodeToPKCS11ID(const String& idStr, Array<uint8_t>& id)
             return err;
         }
 
-        uint8_t byte;
+        uint8_t byte = 0;
 
         aos::Tie(byte, err) = hexByte.HexToByte();
         if (!err.IsNone()) {

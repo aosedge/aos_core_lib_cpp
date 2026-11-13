@@ -11,6 +11,7 @@
 #include <core/common/crypto/itf/crypto.hpp>
 #include <core/common/tools/log.hpp>
 #include <core/common/tools/memory.hpp>
+#include <core/common/tools/noncopyable.hpp>
 #include <core/common/tools/thread.hpp>
 #include <core/common/tools/utils.hpp>
 #include <core/common/tools/uuid.hpp>
@@ -134,10 +135,11 @@ using SlotID = CK_SLOT_ID;
 /**
  * Generates random unique PIN.
  *
+ * @param random random generator.
  * @param[out] pin result pin.
  * @return Error.
  */
-Error GenPIN(String& pin);
+Error GenPIN(crypto::RandomItf& random, String& pin);
 
 /**
  * Any version information related to PKCS11 library.
@@ -155,7 +157,7 @@ struct Version {
      */
     friend Log& operator<<(Log& log, const Version& version)
     {
-        log << static_cast<int>(version.mMajor) << "." << static_cast<int>(version.mMinor);
+        log << static_cast<int32_t>(version.mMajor) << "." << static_cast<int32_t>(version.mMinor);
         return log;
     }
 };
@@ -235,7 +237,7 @@ struct SlotInfo {
     {
         log << "{manufacturer = " << slotInfo.mManufacturerID << ", description = " << slotInfo.mSlotDescription
             << ", hwVersion = " << slotInfo.mHardwareVersion << ", fwVersion = " << slotInfo.mFirmwareVersion
-            << ", flags = " << slotInfo.mFlags << "}";
+            << ", flags = " << static_cast<int32_t>(slotInfo.mFlags) << "}";
         return log;
     }
 };
@@ -306,10 +308,11 @@ struct TokenInfo {
         log << "{label = " << tokenInfo.mLabel << ", manufacturer = " << tokenInfo.mManufacturerID
             << ", model = " << tokenInfo.mModel << ", serial = " << tokenInfo.mSerialNumber
             << ", hwVersion = " << tokenInfo.mHardwareVersion << ", fwVersion = " << tokenInfo.mFirmwareVersion
-            << ", publicMemory = " << tokenInfo.mTotalPublicMemory - tokenInfo.mFreePublicMemory << "/"
-            << tokenInfo.mTotalPublicMemory
-            << ", privateMemory = " << tokenInfo.mTotalPrivateMemory - tokenInfo.mFreePrivateMemory << "/"
-            << tokenInfo.mTotalPrivateMemory << ", flags = " << tokenInfo.mFlags << "}";
+            << ", publicMemory = " << static_cast<int32_t>(tokenInfo.mTotalPublicMemory - tokenInfo.mFreePublicMemory)
+            << "/" << static_cast<int32_t>(tokenInfo.mTotalPublicMemory) << ", privateMemory = "
+            << static_cast<int32_t>(tokenInfo.mTotalPrivateMemory - tokenInfo.mFreePrivateMemory) << "/"
+            << static_cast<int32_t>(tokenInfo.mTotalPrivateMemory)
+            << ", flags = " << static_cast<int32_t>(tokenInfo.mFlags) << "}";
         return log;
     }
 };
@@ -341,7 +344,7 @@ struct ObjectAttribute {
 /**
  * Encapsulates session-related routines of Cryptoki API.
  */
-class SessionContext {
+class SessionContext : private NonCopyable {
 public:
     /**
      * Constructs object instance.
@@ -483,7 +486,7 @@ private:
 /**
  * Static PKCS11 library context.
  */
-class StaticLibraryContext {
+class StaticLibraryContext : private NonCopyable {
 protected:
     /**
      * Initializes object instance.
@@ -503,7 +506,7 @@ using PKCS11LibraryContext = StaticLibraryContext;
 /**
  * Dynamic PKCS11 library context.
  */
-class DynamicLibraryContext {
+class DynamicLibraryContext : private NonCopyable {
 public:
     /**
      * Sets dynamic library handle.
@@ -558,7 +561,7 @@ public:
      * @param label token label.
      * @return Error.
      */
-    Error InitToken(SlotID slotID, const String& pin, const String& label);
+    Error InitToken(SlotID slotID, const String& pin, const String& label) const;
 
     /**
      * Returns list of slots in the system.
@@ -616,12 +619,15 @@ public:
      * @param slotID slot identifier.
      * @return Error.
      */
-    Error CloseAllSessions(SlotID slotID);
+    Error CloseAllSessions(SlotID slotID) const;
 
     /**
      * Destroys object instance.
      */
-    ~LibraryContext();
+    virtual ~LibraryContext();
+
+protected:
+    using PKCS11LibraryContext::Init; // NOSONAR cpp:S1242 - unhides base Init() without widening its access
 
 private:
     static constexpr auto cSessionsMaxCount = AOS_CONFIG_PKCS11_SESSION_POOL_MAX_SIZE;
@@ -630,7 +636,10 @@ private:
         SlotID mSlotID = 0;
         Flags  mFlags  = 0;
 
-        bool operator==(const SessionParams& other) const { return mSlotID == other.mSlotID && mFlags == other.mFlags; }
+        friend bool operator==(const SessionParams& lhs, const SessionParams& other)
+        {
+            return lhs.mSlotID == other.mSlotID && lhs.mFlags == other.mFlags;
+        };
     };
 
     RetWithError<SharedPtr<SessionContext>> PKCS11OpenSession(SlotID slotID, Flags flags);
@@ -665,8 +674,8 @@ public:
      * @param privHandle private key handle.
      * @param pubHandle public key handle.
      */
-    PrivateKey(ObjectHandle privHandle = 0, ObjectHandle pubHandle = 0,
-        const SharedPtr<crypto::PrivateKeyItf>& privKey = nullptr)
+    PrivateKey(ObjectHandle privHandle = 0, // NOSONAR cpp:S1709
+        ObjectHandle pubHandle = 0, const SharedPtr<crypto::PrivateKeyItf>& privKey = nullptr)
         : mPrivHandle(privHandle)
         , mPubHandle(pubHandle)
         , mPrivKey(privKey)
@@ -689,7 +698,8 @@ public:
     SharedPtr<crypto::PrivateKeyItf> GetPrivKey() { return mPrivKey; }
 
 private:
-    ObjectHandle                     mPrivHandle, mPubHandle;
+    ObjectHandle                     mPrivHandle;
+    ObjectHandle                     mPubHandle;
     SharedPtr<crypto::PrivateKeyItf> mPrivKey;
 };
 
@@ -807,10 +817,16 @@ public:
 private:
     RetWithError<PrivateKey> ExportPrivateKey(ObjectHandle privKey, ObjectHandle pubKey, CK_KEY_TYPE keyType);
 
-    Error FindCertificates(const Array<uint8_t>& id, const String& label, Array<ObjectHandle>& handles);
+    Error FindCertificates(const Array<uint8_t>& id, const String& label, Array<ObjectHandle>& handles) const;
     Error FindCertificateChain(const crypto::x509::Certificate& certificate, crypto::x509::CertificateChain& chain);
+    Error ValidateCertificateChain(const crypto::x509::CertificateChain& chain);
     RetWithError<SharedPtr<crypto::x509::Certificate>> FindCertificateByKeyID(const Array<uint8_t>& keyID);
 
+    /**
+     * Reads CKA_VALUE and parses DER. Verifies CKA_CLASS is CKO_CERTIFICATE.
+     * CKA_CERTIFICATE_TYPE / CKA_ID / CKA_LABEL: no need to recheck after get, the caller already selected
+     * the object (find template or subject/SKI search) and the handle uniquely identifies it.
+     */
     RetWithError<SharedPtr<crypto::x509::Certificate>> GetCertificate(ObjectHandle handle);
 
     SharedPtr<SessionContext>  mSession;

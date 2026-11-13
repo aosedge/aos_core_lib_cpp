@@ -21,11 +21,6 @@ namespace aos::iam::identhandler {
  */
 struct FileIdentifierConfig {
     /**
-     * System ID path.
-     */
-    StaticString<cFilePathLen> mSystemIDPath;
-
-    /**
      * Unit model path.
      */
     StaticString<cFilePathLen> mUnitModelPath;

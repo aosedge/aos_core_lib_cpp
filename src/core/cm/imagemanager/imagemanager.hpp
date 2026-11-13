@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 EPAM Systems, Inc.
+ * Copyright (C) 2026 EPAM Systems, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -8,19 +8,13 @@
 #define AOS_CORE_CM_IMAGEMANAGER_IMAGEMANAGER_HPP_
 
 #include <core/cm/fileserver/itf/fileserver.hpp>
-#include <core/common/crypto/cryptohelper.hpp>
+#include <core/common/consts.hpp>
+#include <core/common/crypto/itf/cryptohelper.hpp>
 #include <core/common/downloader/itf/downloader.hpp>
-#include <core/common/ocispec/itf/ocispec.hpp>
-#include <core/common/spaceallocator/itf/spaceallocator.hpp>
-#include <core/common/tools/fs.hpp>
-#include <core/common/tools/thread.hpp>
-#include <core/common/tools/timer.hpp>
+#include <core/common/imagemanager/imagemanager.hpp>
 
 #include "config.hpp"
-#include "itf/blobinfoprovider.hpp"
 #include "itf/imagemanager.hpp"
-#include "itf/iteminfoprovider.hpp"
-#include "itf/storage.hpp"
 
 namespace aos::cm::imagemanager {
 
@@ -29,244 +23,145 @@ namespace aos::cm::imagemanager {
  */
 
 /**
- * Image manager.
+ * CM image manager.
  */
-class ImageManager : public ImageManagerItf, public ItemInfoProviderItf, public spaceallocator::ItemRemoverItf {
+class ImageManager : public common::imagemanager::ImageManager,
+                     public ImageManagerItf,
+                     public common::imagemanager::BlobInfoProviderItf {
 public:
     /**
      * Initializes image manager.
      *
-     * @param allocator allocator to use for temporary objects.
      * @param config image manager config.
-     * @param storage stores internal persistent data.
-     * @param blobInfoProvider retrieves blobs info.
-     * @param downloadingSpaceAllocator allocates temporary space for downloading.
-     * @param installSpaceAllocator allocates disk space for install.
+     * @param cloudBlobInfoProvider provides download info of the blobs from the cloud.
+     * @param storage image manager storage.
+     * @param spaceAllocator space allocator of the blobs.
+     * @param downloadSpaceAllocator space allocator of the temporary download files.
      * @param downloader downloads blobs.
-     * @param fileserver translates local file paths to remote URLs.
-     * @param cryptoHelper decrypts and verifies update images.
-     * @param fileInfoProvider gets file info.
-     * @param ociSpec parses OCI spec files.
+     * @param cryptoHelper decrypts blobs and verifies their signatures.
+     * @param fileServer translates local blob paths to URLs.
+     * @param fileInfoProvider file info provider.
+     * @param ociSpec OCI spec interface.
+     * @param fsPlatform file system platform interface.
+     * @param allocator allocator for temporary objects.
      * @return Error.
      */
-    Error Init(AllocatorItf& allocator, const Config& config, StorageItf& storage,
-        BlobInfoProviderItf& blobInfoProvider, spaceallocator::SpaceAllocatorItf& downloadingSpaceAllocator,
-        spaceallocator::SpaceAllocatorItf& installSpaceAllocator, downloader::DownloaderItf& downloader,
-        fileserver::FileServerItf& fileserver, crypto::CryptoHelperItf& cryptoHelper,
-        fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec);
+    Error Init(const Config& config, common::imagemanager::BlobInfoProviderItf& cloudBlobInfoProvider,
+        common::imagemanager::StorageItf& storage, spaceallocator::SpaceAllocatorItf& spaceAllocator,
+        spaceallocator::SpaceAllocatorItf& downloadSpaceAllocator, downloader::DownloaderItf& downloader,
+        crypto::CryptoHelperItf& cryptoHelper, fileserver::FileServerItf& fileServer,
+        fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec, fs::FSPlatformItf& fsPlatform,
+        AllocatorItf& allocator);
 
     /**
-     * Starts image manager.
+     * Sets certificates and certificate chains used to verify blob signatures.
      *
-     * @return Error.
-     */
-    Error Start();
-
-    /**
-     * Stops image manager.
-     *
-     * @return Error.
-     */
-    Error Stop();
-
-    /**
-     * Downloads update items.
-     *
-     * @param itemsInfo update items info.
      * @param certificates list of certificates.
      * @param certificateChains list of certificate chains.
-     * @param[out] statuses update items statuses.
      * @return Error.
      */
-    Error DownloadUpdateItems(const Array<UpdateItemInfo>& itemsInfo,
-        const Array<crypto::CertificateInfo>&              certificates,
-        const Array<crypto::CertificateChainInfo>& certificateChains, Array<UpdateItemStatus>& statuses) override;
+    Error SetCerts(const Array<crypto::CertificateInfo>& certificates,
+        const Array<crypto::CertificateChainInfo>&       certificateChains) override;
 
     /**
-     * Installs update items.
+     * Installs update item.
      *
-     * @param itemsInfo update items info.
-     * @param[out] statuses update items statuses.
+     * @param itemInfo update item info.
      * @return Error.
      */
-    Error InstallUpdateItems(const Array<UpdateItemInfo>& itemsInfo, Array<UpdateItemStatus>& statuses) override;
+    Error InstallItem(const UpdateItemInfo& itemInfo) override;
 
     /**
-     * Cancels ongoing operations: download or install.
+     * Removes update item.
+     *
+     * @param itemID item ID.
+     * @param version item version.
+     * @return Error.
+     */
+    Error RemoveItem(const String& itemID, const String& version) override;
+
+    /**
+     * Cancels all items being installed. Waits until all InstallItem and RemoveItem calls in progress return.
      *
      * @return Error.
      */
     Error Cancel() override;
 
     /**
-     * Retrieves update items statuses.
-     *
-     * @param[out] statuses list of update items statuses.
-     * @return Error.
-     */
-    Error GetUpdateItemsStatuses(Array<UpdateItemStatus>& statuses) override;
-
-    /**
-     * Subscribes status notifications.
-     *
-     * @param listener status listener.
-     * @return Error.
-     */
-    Error SubscribeListener(ItemStatusListenerItf& listener) override;
-
-    /**
-     * Unsubscribes from status notifications.
-     *
-     * @param listener status listener.
-     * @return Error.
-     */
-    Error UnsubscribeListener(ItemStatusListenerItf& listener) override;
-
-    /**
-     * Returns update item index digest.
-     *
-     * @param itemID update item ID.
-     * @param version update item version.
-     * @param[out] digest result item digest.
-     * @return Error.
-     */
-    Error GetIndexDigest(const String& itemID, const String& version, String& digest) const override;
-
-    /**
-     * Returns blob path by its digest.
+     * Returns download info of a blob stored on the CM.
      *
      * @param digest blob digest.
-     * @param[out] path result blob path.
+     * @param[out] blobInfo blob info.
      * @return Error.
      */
-    Error GetBlobPath(const String& digest, String& path) const override;
+    Error GetBlobInfo(const String& digest, BlobInfo& blobInfo) override;
 
     /**
-     * Returns blob URL by its digest.
+     * Returns item remover which should be passed to the download space allocator to remove outdated temporary
+     * download files.
      *
-     * @param digest blob digest.
-     * @param[out] url result blob URL.
-     * @return Error.
+     * @return spaceallocator::ItemRemoverItf&.
      */
-    Error GetBlobURL(const String& digest, String& url) const override;
-
-    /**
-     * Returns item current version.
-     *
-     * @param itemID update item ID.
-     * @param[out] version result item version.
-     * @return Error.
-     */
-    Error GetItemCurrentVersion(const String& itemID, String& version) const override;
-
-    /**
-     * Removes item.
-     *
-     * @param id item id.
-     * @param version item version.
-     * @return RetWithError<size_t>.
-     */
-    RetWithError<size_t> RemoveItem(const String& id, const String& version) override;
+    spaceallocator::ItemRemoverItf& GetDownloadItemRemover() { return mDownloadItemRemover; }
 
 private:
-    static constexpr auto cBlobsDirName = "blobs";
+    class DownloadItemRemover : public spaceallocator::ItemRemoverItf {
+    public:
+        explicit DownloadItemRemover(ImageManager& imageManager)
+            : mImageManager(imageManager)
+        {
+        }
 
-    static constexpr auto cMaxNumListeners    = 1;
-    static constexpr auto cRetryTimeout       = Time::cSeconds * 2;
-    static constexpr auto cDigestAlgorithmLen = 16;
-    static constexpr auto cMaxNumItemVersions = 2;
-    static constexpr auto cMaxNumStoredItems  = cMaxNumUpdateItems * cMaxNumItemVersions;
+        RetWithError<size_t> RemoveItem(const String& itemID, const String& version) override
+        {
+            (void)version;
 
-    /**
-     * Downloading space of a single blob. mSpace reserves only bytes to be written: mTotalSize - mExistingSize.
-     */
-    struct DownloadSpace {
-        UniquePtr<spaceallocator::SpaceItf> mSpace;
-        size_t                              mExistingSize {};
-        size_t                              mTotalSize {};
+            return mImageManager.RemoveDownloadedBlob(itemID);
+        }
+
+    private:
+        ImageManager& mImageManager;
     };
 
-    Error RemoveOutdatedItems();
-    Error RemoveOldItemVersions(const String& itemID, Array<ItemInfo>& storedItems);
-    Error WaitForStop();
-    Error RemovePendingItems(const Array<ItemInfo>& storedItems, Array<UpdateItemStatus>& statuses);
-    Error CleanupDownloadingItems(const Array<UpdateItemInfo>& currentItems, const Array<ItemInfo>& storedItems);
-    Error VerifyStoredItems(const Array<UpdateItemInfo>& itemsInfo, Array<ItemInfo>& storedItems,
-        const Array<crypto::CertificateInfo>&      certificates,
-        const Array<crypto::CertificateChainInfo>& certificateChains, Array<UpdateItemStatus>& statuses);
-    Error ProcessDownloadRequest(const Array<UpdateItemInfo>& itemsInfo, Array<ItemInfo>& storedItems,
-        const Array<crypto::CertificateInfo>&      certificates,
-        const Array<crypto::CertificateChainInfo>& certificateChains, Array<UpdateItemStatus>& statuses);
-    RetWithError<size_t> CleanupOrphanedBlobs();
-    Error RemoveDifferentVersions(const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems);
-    Error VerifyBlobsIntegrity(
-        const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems, Array<UpdateItemStatus>& statuses);
-    Error SetItemsToInstalled(const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems);
-    Error SetItemsToRemoved(const Array<UpdateItemInfo>& itemsInfo, const Array<ItemInfo>& storedItems);
-    Error DownloadItem(const UpdateItemInfo& itemInfo, const Array<crypto::CertificateInfo>& certificates,
-        const Array<crypto::CertificateChainInfo>& certificateChains);
-    Error LoadIndex(const String& digest, const String& downloadPath, const String& installPath,
-        const Array<crypto::CertificateInfo>&      certificates,
-        const Array<crypto::CertificateChainInfo>& certificateChains, oci::ImageIndex& imageIndex);
-    Error LoadManifest(const String& digest, const Array<crypto::CertificateInfo>& certificates,
-        const Array<crypto::CertificateChainInfo>& certificateChains, oci::ImageManifest& manifest);
-    Error LoadBlob(const oci::ContentDescriptor& descriptor, const Array<crypto::CertificateInfo>& certificates,
-        const Array<crypto::CertificateChainInfo>& certificateChains);
-    Error LoadLayers(const Array<oci::ContentDescriptor>& layers, const Array<crypto::CertificateInfo>& certificates,
-        const Array<crypto::CertificateChainInfo>& certificateChains);
-    Error EnsureBlob(const String& digest, const String& downloadPath, const String& installPath,
-        const Array<crypto::CertificateInfo>&      certificates,
-        const Array<crypto::CertificateChainInfo>& certificateChains, UniquePtr<spaceallocator::SpaceItf>& space);
-    Error DownloadBlob(const String& digest, const String& downloadPath, const String& installPath, BlobInfo& blobInfo,
-        DownloadSpace& downloadSpace);
-    Error GetBlobInfo(const String& digest, BlobInfo& blobInfo);
-    Error CheckExistingBlob(const String& installPath);
-    Error PrepareDownloadSpace(const String& downloadPath, const BlobInfo& blobInfo, DownloadSpace& downloadSpace);
-    Error PerformDownload(const BlobInfo& blobInfo, const String& downloadPath, DownloadSpace& downloadSpace);
-    void  DiscardDownload(const String& downloadPath, DownloadSpace& downloadSpace);
-    void  AcceptDownloadSpace(DownloadSpace& downloadSpace, size_t bytesOnDisk);
-    Error DecryptAndValidateBlob(const String& downloadPath, const String& installPath, const BlobInfo& blobInfo,
-        const Array<crypto::CertificateInfo>&      certificates,
-        const Array<crypto::CertificateChainInfo>& certificateChains,
-        UniquePtr<spaceallocator::SpaceItf>&       installSpace);
-    Error VerifyItemBlobs(const String& indexDigest);
-    Error VerifyBlobIntegrity(const String& digest);
-    Error VerifyBlobChecksum(const String& digest, const fs::FileInfo& fileInfo);
-    bool  IsBlobUsedByItems(const String& blobDigest, const Array<ItemInfo>& items);
-    void  NotifyItemsStatusesChanged(const Array<UpdateItemStatus>& statuses);
-    void  NotifyItemStatusChanged(const String& itemID, const UpdateItemType& type, const String& version,
-         ItemStateEnum state, const Error& error);
-    void  RegisterOutdatedItems(const Array<ItemInfo>& items);
-    bool  StartAction();
-    void  StopAction();
-    Error GetBlobFilePath(const String& basePath, const String& digest, StaticString<cFilePathLen>& path) const;
+    Error                DownloadBlob(CancelContext& ctx, const String& path, const BlobInfo& blobInfo) override;
+    RetWithError<size_t> RemoveDownloadedBlob(const String& digest);
 
-    StorageItf*                        mStorage {};
-    BlobInfoProviderItf*               mBlobInfoProvider {};
-    spaceallocator::SpaceAllocatorItf* mDownloadingSpaceAllocator {};
-    spaceallocator::SpaceAllocatorItf* mInstallSpaceAllocator {};
+    void StartDownload(const String& digest);
+    void FinishDownload(const String& digest, const String& downloadPath);
+    void RegisterDownloadFiles(const String& currentDigest);
+    void RemoveInvalidDownloadFile(const String& path);
+
+    Error                GetDownloadPath(const String& digest, String& downloadPath) const;
+    RetWithError<size_t> GetFileSize(const String& path) const;
+    RetWithError<size_t> PrepareDownloadFile(const String& downloadPath, size_t size);
+    Error                DownloadFile(CancelContext& ctx, const String& downloadPath, const BlobInfo& blobInfo);
+    void  AcceptDownloadedSpace(spaceallocator::SpaceItf& space, const String& downloadPath, size_t existingSize);
+    void  RemoveDownloadFile(const String& downloadPath, size_t size);
+    Error ProcessDownloadFile(const String& downloadPath, const String& path, const BlobInfo& blobInfo);
+    Error ValidateDownloadFile(const String& downloadPath, const BlobInfo& blobInfo);
+    Error DecryptBlob(const String& downloadPath, const String& path, const BlobInfo& blobInfo);
+    Error ValidateBlobSigns(const String& downloadPath, const String& path, const BlobInfo& blobInfo);
+
+    Config                             mConfig;
+    common::imagemanager::StorageItf*  mStorage {};
+    spaceallocator::SpaceAllocatorItf* mDownloadSpaceAllocator {};
     downloader::DownloaderItf*         mDownloader {};
-    fileserver::FileServerItf*         mFileServer {};
     crypto::CryptoHelperItf*           mCryptoHelper {};
+    fileserver::FileServerItf*         mFileServer {};
     fs::FileInfoProviderItf*           mFileInfoProvider {};
-    oci::OCISpecItf*                   mOCISpec {};
+    AllocatorItf*                      mAllocator {};
 
-    StaticArray<ItemStatusListenerItf*, cMaxNumListeners> mListeners;
+    Mutex                             mCertsMutex;
+    crypto::CertificateInfoArray      mCertificates;
+    crypto::CertificateChainInfoArray mCertificateChains;
 
-    Timer                         mTimer;
-    mutable Mutex                 mMutex;
-    Config                        mConfig {};
-    StaticString<cFilePathLen>    mBlobsDownloadPath {};
-    StaticString<cFilePathLen>    mBlobsInstallPath {};
-    StaticString<oci::cDigestLen> mCurrentDownloadDigest {};
-    StaticString<cIDLen>          mCurrentItemID {};
-    StaticString<cVersionLen>     mCurrentItemVersion {};
-    ConditionalVariable           mCondVar;
-    bool                          mCancel {};
-    bool                          mInProgress {};
+    Mutex  mDownloadSpaceMutex;
+    size_t mNumDownloads {};
 
-    AllocatorItf* mAllocator {};
+    DownloadItemRemover mDownloadItemRemover {*this};
 };
+
+/** @}*/
 
 } // namespace aos::cm::imagemanager
 

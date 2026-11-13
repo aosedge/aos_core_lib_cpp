@@ -327,7 +327,7 @@
  * Max number of partitions.
  */
 #ifndef AOS_CONFIG_TYPES_MAX_NUM_PARTITIONS
-#define AOS_CONFIG_TYPES_MAX_NUM_PARTITIONS 4
+#define AOS_CONFIG_TYPES_MAX_NUM_PARTITIONS 6
 #endif
 
 /**
@@ -597,20 +597,6 @@
 #endif
 
 /**
- * Monitoring poll period.
- */
-#ifndef AOS_CONFIG_MONITORING_POLL_PERIOD_SEC
-#define AOS_CONFIG_MONITORING_POLL_PERIOD_SEC 10
-#endif
-
-/**
- * Monitoring average window.
- */
-#ifndef AOS_CONFIG_MONITORING_AVERAGE_WINDOW_SEC
-#define AOS_CONFIG_MONITORING_AVERAGE_WINDOW_SEC 60
-#endif
-
-/**
  * Certificate issuer max size is not specified in general.
  * (RelativeDistinguishedName ::= SET SIZE (1..MAX) OF AttributeTypeAndValue)
  */
@@ -762,7 +748,7 @@
  * Maximum size of input data for SHA1 hash calculation.
  */
 #ifndef AOS_CONFIG_CRYPTO_SHA1_INPUT_SIZE
-#define AOS_CONFIG_CRYPTO_SHA1_INPUT_SIZE 42
+#define AOS_CONFIG_CRYPTO_SHA1_INPUT_SIZE (AOS_CONFIG_TOOLS_UUID_SIZE + AOS_CONFIG_TYPES_ID_LEN)
 #endif
 
 /**
@@ -777,6 +763,13 @@
  */
 #ifndef AOS_CONFIG_CRYPTO_CERTS_CHAIN_SIZE
 #define AOS_CONFIG_CRYPTO_CERTS_CHAIN_SIZE 4
+#endif
+
+/**
+ * Max number of trusted root certificates.
+ */
+#ifndef AOS_CONFIG_CRYPTO_MAX_NUM_ROOT_CERTS
+#define AOS_CONFIG_CRYPTO_MAX_NUM_ROOT_CERTS 8
 #endif
 
 /**

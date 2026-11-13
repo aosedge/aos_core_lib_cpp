@@ -43,7 +43,7 @@ class KeyAlgorithm {
 public:
     enum class Enum { eRSA, eECDSA };
 
-    static const Array<const char* const> GetStrings()
+    static Array<const char* const> GetStrings()
     {
         static const char* const sContentTypeStrings[] = {"RSA", "ECDSA"};
         return Array<const char* const>(sContentTypeStrings, ArraySize(sContentTypeStrings));
@@ -67,7 +67,7 @@ struct SignOptions {
  * PKCS1v15 decryption options.
  */
 struct PKCS1v15DecryptionOptions {
-    int mKeySize = 0;
+    int32_t mKeySize = 0;
 };
 
 /**

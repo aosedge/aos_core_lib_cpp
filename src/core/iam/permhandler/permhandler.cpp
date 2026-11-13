@@ -88,7 +88,9 @@ Error PermHandler::GetPermissions(const String& secret, const String& funcServer
                 return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
             }
 
-            servicePermissions = it.mPermissions;
+            if (auto err = servicePermissions.Assign(it.mPermissions); !err.IsNone()) {
+                return AOS_ERROR_WRAP(err);
+            }
 
             return ErrorEnum::eNone;
         }
@@ -104,8 +106,7 @@ Error PermHandler::GetPermissions(const String& secret, const String& funcServer
 Error PermHandler::AddSecret(const String& secret, const InstanceIdent& instanceIdent,
     const Array<FunctionServicePermissions>& instancePermissions)
 {
-    const auto err = mInstancesPerms.EmplaceBack(instanceIdent, secret, instancePermissions);
-    if (!err.IsNone()) {
+    if (const auto err = mInstancesPerms.EmplaceBack(instanceIdent, secret, instancePermissions); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -135,7 +136,7 @@ RetWithError<StaticString<cSecretLen>> PermHandler::GenerateSecret()
             return {secret, err};
         }
 
-        secret.Assign(uuid::UUIDToString(uuid));
+        (void)secret.Assign(uuid::UUIDToString(uuid));
 
     } while (FindBySecret(secret) != mInstancesPerms.end());
 

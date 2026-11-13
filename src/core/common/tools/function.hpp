@@ -24,7 +24,7 @@ constexpr auto cDefaultFunctionMaxSize = AOS_CONFIG_FUNCTION_MAX_SIZE;
 /**
  * Function instance.
  */
-class Function {
+class Function { // NOSONAR cpp:S3624 - copy ctor deleted, operator= kept for StaticFunction's converting ctor
 public:
     /**
      * Creates function.
@@ -36,7 +36,10 @@ public:
      *
      * @param function function to create from.
      */
-    Function(const Function& function) = default;
+    // Deleted: the defaulted copy would copy mCallable/mBuffer as raw pointers, aliasing the
+    // source's storage instead of this object's own buffer. Copy via StaticFunction<N> instead,
+    // which never invokes this constructor.
+    Function(const Function& function) = delete;
 
     // cppcheck-suppress operatorEqVarError
     /**
@@ -45,7 +48,7 @@ public:
      * @param function function to assign from.
      * @return Function&.
      */
-    Function& operator=(const Function& function)
+    Function& operator=(const Function& function) noexcept
     {
         if (!function.mCallable) {
             return *this;
@@ -53,7 +56,7 @@ public:
 
         assert(mBuffer);
 
-        memcpy(mBuffer, static_cast<void*>(function.mCallable), function.mCallable->Size());
+        (void)memcpy(mBuffer, static_cast<void*>(function.mCallable), function.mCallable->Size());
 
         mCallable = static_cast<CallableItf*>(mBuffer);
 
@@ -66,7 +69,7 @@ public:
     void Reset()
     {
         if (mCallable) {
-            mCallable->~CallableItf();
+            mCallable->~CallableItf(); // NOSONAR cpp:M23_329
             mCallable = nullptr;
         }
     }
@@ -91,7 +94,7 @@ public:
             return ErrorEnum::eNoMemory;
         }
 
-        mCallable = new (mBuffer) Capturer<T>(functor, arg);
+        mCallable = new (mBuffer) Capturer<T>(functor, arg); // NOSONAR cpp:M23_329
 
         return ErrorEnum::eNone;
     }
@@ -156,7 +159,6 @@ private:
         Capturer(T& functor, void* arg)
             : mFunctor(functor)
             , mArg(arg)
-            , mSize(sizeof(Capturer<T>))
         {
         }
 
@@ -169,7 +171,7 @@ private:
     private:
         T      mFunctor;
         void*  mArg;
-        size_t mSize;
+        size_t mSize = sizeof(Capturer<T>);
     };
 
     void*        mBuffer   = nullptr;
@@ -183,7 +185,7 @@ private:
  * @tparam cFunctionMaxSize max function size.
  */
 template <size_t cFunctionMaxSize = cDefaultFunctionMaxSize>
-class StaticFunction : public Function {
+class StaticFunction : public Function { // NOSONAR cpp:S3624 - base dtor already destroys the placed object
 public:
     /**
      * Creates static function.
@@ -195,11 +197,16 @@ public:
      *
      * @param function static function to create from.
      */
-    StaticFunction(const StaticFunction& function)
+    StaticFunction(const StaticFunction& function) noexcept
     {
         Function::SetBuffer(mBuffer);
-        Function::operator=(function);
+        (void)Function::operator=(function);
     }
+
+    /**
+     * Destroys static function.
+     */
+    ~StaticFunction() = default;
 
     /**
      * Assigns one static function to another.
@@ -207,9 +214,9 @@ public:
      * @param function static function to assign from.
      * @return StaticFunction&.
      */
-    StaticFunction& operator=(const StaticFunction& function)
+    StaticFunction& operator=(const StaticFunction& function) noexcept
     {
-        Function::operator=(function);
+        (void)Function::operator=(function);
 
         return *this;
     }
@@ -220,10 +227,10 @@ public:
      *
      * @param function function to create from.
      */
-    StaticFunction(const Function& function)
+    StaticFunction(const Function& function) // NOSONAR cpp:S1709
     {
         Function::SetBuffer(mBuffer);
-        Function::operator=(function);
+        (void)Function::operator=(function);
     }
 
     // cppcheck-suppress duplInheritedMember
@@ -249,7 +256,8 @@ public:
      */
     template <typename T>
     // cppcheck-suppress noExplicitConstructor
-    StaticFunction(T functor, void* arg = nullptr)
+    StaticFunction( // NOSONAR cpp:S1709
+        T functor, void* arg = nullptr)
     {
         Function::SetBuffer(mBuffer);
         Function::Capture(functor, arg);

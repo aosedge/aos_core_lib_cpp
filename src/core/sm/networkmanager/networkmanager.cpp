@@ -46,7 +46,9 @@ Error NetworkManager::Init(AllocatorItf& allocator, StorageItf& storage, BridgeN
     }
 
     for (const auto& instanceNetworkInfo : *instanceNetworkInfos) {
-        mInstanceNetworkInfos.Set(instanceNetworkInfo.mInstanceID, instanceNetworkInfo);
+        if (auto err = mInstanceNetworkInfos.Set(instanceNetworkInfo.mInstanceID, instanceNetworkInfo); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     auto networkInfos = MakeUnique<StaticArray<NetworkInfo, cMaxNumOwners>>(mAllocator);
@@ -59,7 +61,9 @@ Error NetworkManager::Init(AllocatorItf& allocator, StorageItf& storage, BridgeN
     }
 
     for (const auto& networkInfo : *networkInfos) {
-        mNetworkProviders.Set(networkInfo.mNetworkID, networkInfo);
+        if (auto err = mNetworkProviders.Set(networkInfo.mNetworkID, networkInfo); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     return ErrorEnum::eNone;
@@ -87,7 +91,8 @@ Error NetworkManager::Start()
 
     Error err;
 
-    if (err = mFirewall->Start(); !err.IsNone()) {
+    err = mFirewall->Start();
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -99,7 +104,8 @@ Error NetworkManager::Start()
         }
     });
 
-    if (err = mNetMonitor->Start(); !err.IsNone()) {
+    err = mNetMonitor->Start();
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -111,23 +117,28 @@ Error NetworkManager::Start()
         }
     });
 
-    if (err = RefreshUplinkInterface(); !err.IsNone()) {
+    err = RefreshUplinkInterface();
+    if (!err.IsNone()) {
         return err;
     }
 
-    if (err = RemoveFirewallOrphans(); !err.IsNone()) {
+    err = RemoveFirewallOrphans();
+    if (!err.IsNone()) {
         return err;
     }
 
-    if (err = ReassertMasquerades(); !err.IsNone()) {
+    err = ReassertMasquerades();
+    if (!err.IsNone()) {
         return err;
     }
 
-    if (err = RemoveDNSOrphans(); !err.IsNone()) {
+    err = RemoveDNSOrphans();
+    if (!err.IsNone()) {
         return err;
     }
 
-    if (err = ReconcileInstances(); !err.IsNone()) {
+    err = ReconcileInstances();
+    if (!err.IsNone()) {
         return err;
     }
 
@@ -177,7 +188,7 @@ Error NetworkManager::GetInstanceTraffic(
     return AOS_ERROR_WRAP(err);
 }
 
-Error NetworkManager::SetTrafficPeriod(TrafficPeriod period)
+Error NetworkManager::SetTrafficPeriod(const TrafficPeriod& period)
 {
     LOG_DBG() << "Set traffic period" << Log::Field("period", period);
 
@@ -210,12 +221,13 @@ Error NetworkManager::CreateInstanceNetwork(
         if (!err.IsNone()) {
             LockGuard lock {mMutex};
 
-            mInstanceNetworkInfos.Remove(*id);
+            (void)mInstanceNetworkInfos.Remove(*id);
             TakeDeferredFirewallRules(instanceNetworkParameters.mInstanceIdent, nullptr);
         }
     });
 
-    if (err = EnsureNodeNetwork(networkID); !err.IsNone()) {
+    err = EnsureNodeNetwork(networkID);
+    if (!err.IsNone()) {
         return err;
     }
 
@@ -226,7 +238,8 @@ Error NetworkManager::CreateInstanceNetwork(
         return err;
     }
 
-    if (err = PrepareUpdateItemNetworkParams(instanceNetworkParameters, networkID, *serviceData); !err.IsNone()) {
+    err = PrepareUpdateItemNetworkParams(instanceNetworkParameters, networkID, *serviceData);
+    if (!err.IsNone()) {
         return err;
     }
 
@@ -237,9 +250,9 @@ Error NetworkManager::CreateInstanceNetwork(
         return err;
     }
 
-    if (err = mNetworkProvider->AllocateInstanceNetwork(
-            instanceNetworkParameters.mInstanceIdent, networkID, mNodeID, *serviceData, *allocatedParams);
-        !err.IsNone()) {
+    err = mNetworkProvider->AllocateInstanceNetwork(
+        instanceNetworkParameters.mInstanceIdent, networkID, mNodeID, *serviceData, *allocatedParams);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -266,10 +279,14 @@ Error NetworkManager::CreateInstanceNetwork(
 
         TakeDeferredFirewallRules(instanceNetworkParameters.mInstanceIdent, &info->mAllocatedParams);
 
-        mInstanceNetworkInfos.Set(instanceID, *info);
+        err = mInstanceNetworkInfos.Set(instanceID, *info);
+        if (!err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
-    if (err = mStorage->AddInstanceNetworkInfo(*info); !err.IsNone()) {
+    err = mStorage->AddInstanceNetworkInfo(*info);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -315,7 +332,8 @@ Error NetworkManager::StartInstanceNetwork(const String& instanceID, const Strin
         }
     });
 
-    if (err = EnsureNodeNetworkPhysical(networkID); !err.IsNone()) {
+    err = EnsureNodeNetworkPhysical(networkID);
+    if (!err.IsNone()) {
         return err;
     }
 
@@ -376,7 +394,7 @@ Error NetworkManager::GetResolvServers(const String& instanceID, Array<StaticStr
     }
 
     if (servers.IsEmpty()) {
-        if (auto err = servers.EmplaceBack("8.8.8.8"); !err.IsNone()) {
+        if (auto err = servers.EmplaceBack("8.8.8.8"); !err.IsNone()) { // NOSONAR cpp:S1313 - public DNS fallback
             return AOS_ERROR_WRAP(err);
         }
     }
@@ -419,7 +437,7 @@ Error NetworkManager::GetHosts(const String& instanceID, Array<Host>& hosts) con
     StaticString<cHostNameLen> ownHosts {networkID};
 
     if (!hostname.IsEmpty()) {
-        ownHosts.Append(" ").Append(hostname);
+        (void)ownHosts.Append(" ").Append(hostname);
     }
 
     if (auto err = hosts.EmplaceBack(instanceIP, ownHosts); !err.IsNone()) {
@@ -456,16 +474,12 @@ Error NetworkManager::StopInstanceNetwork(const String& instanceID, const String
 
     Error err;
 
-    if (auto errStop = mNetMonitor->StopInstanceMonitoring(instanceID); !errStop.IsNone()) {
-        if (err.IsNone()) {
-            err = errStop;
-        }
+    if (auto errStop = mNetMonitor->StopInstanceMonitoring(instanceID); !errStop.IsNone() && err.IsNone()) {
+        err = errStop;
     }
 
-    if (auto errDelete = DeleteInstanceNetworkConfig(instanceID, networkID); !errDelete.IsNone()) {
-        if (err.IsNone()) {
-            err = errDelete;
-        }
+    if (auto errDelete = DeleteInstanceNetworkConfig(instanceID, networkID); !errDelete.IsNone() && err.IsNone()) {
+        err = errDelete;
     }
 
     {
@@ -486,8 +500,8 @@ Error NetworkManager::StopInstanceNetwork(const String& instanceID, const String
     {
         LockGuard lock {mMutex};
 
-        auto network = mRuntimeCache.Find(networkID);
-        if (network != mRuntimeCache.end() && !network->mSecond.IsEmpty()) {
+        if (auto network = mRuntimeCache.Find(networkID);
+            network != mRuntimeCache.end() && !network->mSecond.IsEmpty()) {
             return err;
         }
 
@@ -499,7 +513,7 @@ Error NetworkManager::StopInstanceNetwork(const String& instanceID, const String
             if (auto errClear = ClearNetwork(it->mSecond); !errClear.IsNone()) {
                 LOG_WRN() << "Failed to clear network" << Log::Field("networkID", networkID) << Log::Field(errClear);
             } else {
-                mPhysicalNetworks.Remove(networkID);
+                (void)mPhysicalNetworks.Remove(networkID);
             }
         }
     }
@@ -518,8 +532,8 @@ Error NetworkManager::ReleaseInstanceNetwork(const String& instanceID, const Str
     {
         LockGuard lock {mMutex};
 
-        auto network = mRuntimeCache.Find(networkID);
-        if (network != mRuntimeCache.end() && network->mSecond.Find(instanceID) != network->mSecond.end()) {
+        if (auto network = mRuntimeCache.Find(networkID);
+            network != mRuntimeCache.end() && network->mSecond.Find(instanceID) != network->mSecond.end()) {
             return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "instance is still running, call Stop first"));
         }
 
@@ -531,7 +545,8 @@ Error NetworkManager::ReleaseInstanceNetwork(const String& instanceID, const Str
 
             instanceIdent = itInfo->mSecond.mNetworkConfig.mInstanceIdent;
             found         = true;
-            mInstanceNetworkInfos.Remove(instanceID);
+            (void)mInstanceNetworkInfos.Remove(instanceID);
+            (void)mUnappliedFirewalls.Remove(instanceID);
         }
     }
 
@@ -556,8 +571,8 @@ Error NetworkManager::ReleaseInstanceNetwork(const String& instanceID, const Str
             }
         }
 
-        auto runtimeNetwork = mRuntimeCache.Find(networkID);
-        if (runtimeNetwork != mRuntimeCache.end() && !runtimeNetwork->mSecond.IsEmpty()) {
+        if (auto runtimeNetwork = mRuntimeCache.Find(networkID);
+            runtimeNetwork != mRuntimeCache.end() && !runtimeNetwork->mSecond.IsEmpty()) {
             return ErrorEnum::eNone;
         }
 
@@ -565,7 +580,7 @@ Error NetworkManager::ReleaseInstanceNetwork(const String& instanceID, const Str
             return ErrorEnum::eNone;
         }
 
-        mNetworkProviders.Remove(networkID);
+        (void)mNetworkProviders.Remove(networkID);
     }
 
     if (auto err = mStorage->RemoveNetworkInfo(networkID); !err.IsNone()) {
@@ -599,27 +614,34 @@ Error NetworkManager::BeginBatch()
         }
     });
 
-    if (err = mStorage->BeginTransaction(); !err.IsNone()) {
+    err = mStorage->BeginTransaction();
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     auto cleanupStorage = DeferRelease(this, [&err](NetworkManager* self) {
         if (!err.IsNone()) {
-            self->mStorage->RollbackTransaction();
+            if (auto rollbackErr = self->mStorage->RollbackTransaction(); !rollbackErr.IsNone()) {
+                LOG_ERR() << "Failed to rollback transaction" << Log::Field(rollbackErr);
+            }
         }
     });
 
-    if (err = mFirewall->BeginBatch(); !err.IsNone()) {
+    err = mFirewall->BeginBatch();
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     auto cleanupFirewall = DeferRelease(this, [&err](NetworkManager* self) {
         if (!err.IsNone()) {
-            self->mFirewall->AbortBatch();
+            if (auto abortErr = self->mFirewall->AbortBatch(); !abortErr.IsNone()) {
+                LOG_ERR() << "Failed to abort firewall batch" << Log::Field(abortErr);
+            }
         }
     });
 
-    if (err = mNetMonitor->BeginBatch(); !err.IsNone()) {
+    err = mNetMonitor->BeginBatch();
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -633,8 +655,13 @@ Error NetworkManager::FlushBatch(Array<StaticString<cIDLen>>& failedInstanceIDs)
     if (auto err = mFirewall->FlushBatch(); !err.IsNone()) {
         LOG_ERR() << "Failed to flush firewall batch" << Log::Field(err);
 
-        mNetMonitor->AbortBatch();
-        mStorage->RollbackTransaction();
+        if (auto abortErr = mNetMonitor->AbortBatch(); !abortErr.IsNone()) {
+            LOG_ERR() << "Failed to abort traffic monitor batch" << Log::Field(abortErr);
+        }
+
+        if (auto rollbackErr = mStorage->RollbackTransaction(); !rollbackErr.IsNone()) {
+            LOG_ERR() << "Failed to rollback transaction" << Log::Field(rollbackErr);
+        }
 
         ReapplyBatchEntries(failedInstanceIDs);
         ClearBatchState();
@@ -645,8 +672,13 @@ Error NetworkManager::FlushBatch(Array<StaticString<cIDLen>>& failedInstanceIDs)
     if (auto err = mNetMonitor->FlushBatch(); !err.IsNone()) {
         LOG_ERR() << "Failed to flush traffic monitor batch" << Log::Field(err);
 
-        mFirewall->Revert();
-        mStorage->RollbackTransaction();
+        if (auto revertErr = mFirewall->Revert(); !revertErr.IsNone()) {
+            LOG_ERR() << "Failed to revert firewall" << Log::Field(revertErr);
+        }
+
+        if (auto rollbackErr = mStorage->RollbackTransaction(); !rollbackErr.IsNone()) {
+            LOG_ERR() << "Failed to rollback transaction" << Log::Field(rollbackErr);
+        }
 
         ReapplyBatchEntries(failedInstanceIDs);
         ClearBatchState();
@@ -657,12 +689,23 @@ Error NetworkManager::FlushBatch(Array<StaticString<cIDLen>>& failedInstanceIDs)
     if (auto err = mStorage->CommitTransaction(); !err.IsNone()) {
         LOG_ERR() << "Failed to commit batch transaction" << Log::Field(err);
 
-        mFirewall->Revert();
-        mNetMonitor->Revert();
-        mStorage->RollbackTransaction();
+        if (auto revertErr = mFirewall->Revert(); !revertErr.IsNone()) {
+            LOG_ERR() << "Failed to revert firewall" << Log::Field(revertErr);
+        }
+
+        if (auto revertErr = mNetMonitor->Revert(); !revertErr.IsNone()) {
+            LOG_ERR() << "Failed to revert traffic monitor" << Log::Field(revertErr);
+        }
+
+        if (auto rollbackErr = mStorage->RollbackTransaction(); !rollbackErr.IsNone()) {
+            LOG_ERR() << "Failed to rollback transaction" << Log::Field(rollbackErr);
+        }
 
         for (const auto& entry : mBatchEntries) {
-            failedInstanceIDs.PushBack(entry.mInstanceID);
+            if (auto pushErr = failedInstanceIDs.PushBack(entry.mInstanceID); !pushErr.IsNone()) {
+                LOG_ERR() << "Failed to store failed instance ID" << Log::Field("instanceID", entry.mInstanceID)
+                          << Log::Field(pushErr);
+            }
         }
     }
 
@@ -678,7 +721,7 @@ void NetworkManager::ReapplyBatchEntries(Array<StaticString<cIDLen>>& failedInst
             LOG_ERR() << "Failed to reapply instance policy" << Log::Field("instanceID", entry.mInstanceID)
                       << Log::Field(err);
 
-            failedInstanceIDs.PushBack(entry.mInstanceID);
+            (void)failedInstanceIDs.PushBack(entry.mInstanceID);
         }
     }
 }
@@ -735,7 +778,8 @@ Error NetworkManager::ReapplyInstancePolicy(const BatchEntry& entry)
 
     Error err;
 
-    if (err = mFirewall->AddInstance(entry.mInstanceID, *firewallParams); !err.IsNone()) {
+    err = mFirewall->AddInstance(entry.mInstanceID, *firewallParams);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -748,9 +792,9 @@ Error NetworkManager::ReapplyInstancePolicy(const BatchEntry& entry)
         }
     });
 
-    if (err = mNetMonitor->StartInstanceMonitoring(entry.mInstanceID, info->mAllocatedParams.mIP,
-            info->mNetworkConfig.mDownloadLimit, info->mNetworkConfig.mUploadLimit);
-        !err.IsNone()) {
+    err = mNetMonitor->StartInstanceMonitoring(entry.mInstanceID, info->mAllocatedParams.mIP,
+        info->mNetworkConfig.mDownloadLimit, info->mNetworkConfig.mUploadLimit);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -763,7 +807,8 @@ Error NetworkManager::ReapplyInstancePolicy(const BatchEntry& entry)
         }
     });
 
-    if (err = mStorage->UpdateInstanceNetworkInfo(*info); !err.IsNone()) {
+    err = mStorage->UpdateInstanceNetworkInfo(*info);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -785,14 +830,14 @@ Error NetworkManager::PrepareUpdateItemNetworkParams(
     if (!params.mInstanceIdent.mItemID.IsEmpty() && !params.mInstanceIdent.mSubjectID.IsEmpty()) {
         StaticString<cHostNameLen> host;
 
-        host.Format("%d.%s.%s", params.mInstanceIdent.mInstance, params.mInstanceIdent.mSubjectID.CStr(),
+        (void)host.Format("%d.%s.%s", params.mInstanceIdent.mInstance, params.mInstanceIdent.mSubjectID.CStr(),
             params.mInstanceIdent.mItemID.CStr());
 
         if (auto err = serviceData.mHosts.PushBack(host); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
-        host.Format("%d.%s.%s.%s", params.mInstanceIdent.mInstance, params.mInstanceIdent.mSubjectID.CStr(),
+        (void)host.Format("%d.%s.%s.%s", params.mInstanceIdent.mInstance, params.mInstanceIdent.mSubjectID.CStr(),
             params.mInstanceIdent.mItemID.CStr(), networkID.CStr());
 
         if (auto err = serviceData.mHosts.PushBack(host); !err.IsNone()) {
@@ -800,13 +845,13 @@ Error NetworkManager::PrepareUpdateItemNetworkParams(
         }
 
         if (params.mInstanceIdent.mInstance == 0) {
-            host.Format("%s.%s", params.mInstanceIdent.mSubjectID.CStr(), params.mInstanceIdent.mItemID.CStr());
+            (void)host.Format("%s.%s", params.mInstanceIdent.mSubjectID.CStr(), params.mInstanceIdent.mItemID.CStr());
 
             if (auto err = serviceData.mHosts.PushBack(host); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
 
-            host.Format("%s.%s.%s", params.mInstanceIdent.mSubjectID.CStr(), params.mInstanceIdent.mItemID.CStr(),
+            (void)host.Format("%s.%s.%s", params.mInstanceIdent.mSubjectID.CStr(), params.mInstanceIdent.mItemID.CStr(),
                 networkID.CStr());
 
             if (auto err = serviceData.mHosts.PushBack(host); !err.IsNone()) {
@@ -897,7 +942,8 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
 
     Error err;
 
-    if (err = mNetns->CreateNetworkNamespace(instanceID); !err.IsNone()) {
+    err = mNetns->CreateNetworkNamespace(instanceID);
+    if (!err.IsNone()) {
         return err;
     }
 
@@ -917,7 +963,8 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         return err;
     }
 
-    if (err = PrepareHosts(instanceID, networkID, networkConfig, *hosts); !err.IsNone()) {
+    err = PrepareHosts(instanceID, networkID, networkConfig, *hosts);
+    if (!err.IsNone()) {
         return err;
     }
 
@@ -935,7 +982,8 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         return err;
     }
 
-    if (err = PrepareBridgeParams(networkID, networkParams, *bridgeParams); !err.IsNone()) {
+    err = PrepareBridgeParams(networkID, networkParams, *bridgeParams);
+    if (!err.IsNone()) {
         return err;
     }
 
@@ -943,7 +991,8 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
 
     BridgeAttachResult attachResult;
 
-    if (err = mBridgeNetwork->Attach(instanceID, *bridgeParams, attachResult); !err.IsNone()) {
+    err = mBridgeNetwork->Attach(instanceID, *bridgeParams, attachResult);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -962,11 +1011,13 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         return err;
     }
 
-    if (err = PrepareInstanceFirewallParams(networkConfig, networkParams, *firewallParams); !err.IsNone()) {
+    err = PrepareInstanceFirewallParams(networkConfig, networkParams, *firewallParams);
+    if (!err.IsNone()) {
         return err;
     }
 
-    if (err = mFirewall->AddInstance(instanceID, *firewallParams); !err.IsNone()) {
+    err = mFirewall->AddInstance(instanceID, *firewallParams);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -986,11 +1037,13 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         return err;
     }
 
-    if (err = PrepareBandwidthParams(networkConfig, *bandwidthParams); !err.IsNone()) {
+    err = PrepareBandwidthParams(networkConfig, *bandwidthParams);
+    if (!err.IsNone()) {
         return err;
     }
 
-    if (err = mBandwidth->Apply(attachResult.mHostIfName, *bandwidthParams); !err.IsNone()) {
+    err = mBandwidth->Apply(attachResult.mHostIfName, *bandwidthParams);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1027,11 +1080,13 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         return err;
     }
 
-    if (err = PrepareDNSAliasesParams(networkParams, *hosts, *dnsParams); !err.IsNone()) {
+    err = PrepareDNSAliasesParams(networkParams, *hosts, *dnsParams);
+    if (!err.IsNone()) {
         return err;
     }
 
-    if (err = dnsServer->AddHost(instanceID, *dnsParams); !err.IsNone()) {
+    err = dnsServer->AddHost(instanceID, *dnsParams);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1043,9 +1098,9 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         }
     });
 
-    if (err = mNetMonitor->StartInstanceMonitoring(
-            instanceID, networkParams.mIP, networkConfig.mDownloadLimit, networkConfig.mUploadLimit);
-        !err.IsNone()) {
+    err = mNetMonitor->StartInstanceMonitoring(
+        instanceID, networkParams.mIP, networkConfig.mDownloadLimit, networkConfig.mUploadLimit);
+    if (!err.IsNone()) {
 
         return AOS_ERROR_WRAP(err);
     }
@@ -1062,7 +1117,8 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
     // resolv.conf / hosts are no longer written here; the caller fetches the
     // data via GetResolvServers/GetHosts and writes the files at its own paths.
 
-    if (err = UpdateInstanceNetworkCache(instanceID, networkID, *hosts); !err.IsNone()) {
+    err = UpdateInstanceNetworkCache(instanceID, networkID, *hosts);
+    if (!err.IsNone()) {
         return err;
     }
 
@@ -1087,7 +1143,8 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
 
     info->mHostIfName = attachResult.mHostIfName;
 
-    if (err = mStorage->UpdateInstanceNetworkInfo(*info); !err.IsNone()) {
+    err = mStorage->UpdateInstanceNetworkInfo(*info);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1123,7 +1180,9 @@ Error NetworkManager::EnsureNodeNetworkPhysical(const String& networkID)
     }
 
     if (auto err = mPhysicalNetworks.PushBack(networkID); !err.IsNone()) {
-        ClearNetwork(it->mSecond);
+        if (auto clearErr = ClearNetwork(it->mSecond); !clearErr.IsNone()) {
+            LOG_ERR() << "Can't clear network after push failure" << Log::Field(AOS_ERROR_WRAP(clearErr));
+        }
 
         return AOS_ERROR_WRAP(err);
     }
@@ -1243,7 +1302,7 @@ Error NetworkManager::IsInstanceInNetwork(const String& instanceID, const String
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    LOG_DBG() << "Network data: " << network->mSecond.Size();
+    LOG_DBG() << "Network data: " << static_cast<int32_t>(network->mSecond.Size());
 
     if (auto instance = network->mSecond.Find(instanceID); instance == network->mSecond.end()) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
@@ -1299,7 +1358,8 @@ RetWithError<bool> NetworkManager::IsInstanceInterfaceAlive(
     bool  nsExists = false;
     Error err;
 
-    if (Tie(nsExists, err) = mNetns->IsNetworkNamespaceExist(instanceID); !err.IsNone()) {
+    Tie(nsExists, err) = mNetns->IsNetworkNamespaceExist(instanceID);
+    if (!err.IsNone()) {
         return {false, AOS_ERROR_WRAP(err)};
     }
 
@@ -1355,13 +1415,13 @@ Error NetworkManager::InitInstance(const String& instanceID, const String& netwo
         return err;
     }
 
-    if (err = PrepareHosts(instanceID, networkID, *config, *hosts); !err.IsNone()) {
+    err = PrepareHosts(instanceID, networkID, *config, *hosts);
+    if (!err.IsNone()) {
         return err;
     }
 
-    if (err
-        = mNetMonitor->StartInstanceMonitoring(instanceID, instanceIP, config->mDownloadLimit, config->mUploadLimit);
-        !err.IsNone()) {
+    err = mNetMonitor->StartInstanceMonitoring(instanceID, instanceIP, config->mDownloadLimit, config->mUploadLimit);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1374,7 +1434,8 @@ Error NetworkManager::InitInstance(const String& instanceID, const String& netwo
         }
     });
 
-    if (err = UpdateInstanceNetworkCache(instanceID, networkID, *hosts); !err.IsNone()) {
+    err = UpdateInstanceNetworkCache(instanceID, networkID, *hosts);
+    if (!err.IsNone()) {
         return err;
     }
 
@@ -1423,14 +1484,15 @@ Error NetworkManager::ReconcileInstances()
         bool  alive = false;
         Error err;
 
-        if (Tie(alive, err) = IsInstanceInterfaceAlive(entry.mInstanceID, entry.mHostIfName, entry.mBridgeIfName);
-            !err.IsNone()) {
+        Tie(alive, err) = IsInstanceInterfaceAlive(entry.mInstanceID, entry.mHostIfName, entry.mBridgeIfName);
+        if (!err.IsNone()) {
             LOG_WRN() << "Failed to check leftover instance interface" << Log::Field("instanceID", entry.mInstanceID)
                       << Log::Field("hostIfName", entry.mHostIfName) << Log::Field(err);
         }
 
         if (alive) {
-            if (err = InitInstance(entry.mInstanceID, entry.mNetworkID); err.IsNone()) {
+            err = InitInstance(entry.mInstanceID, entry.mNetworkID);
+            if (err.IsNone()) {
                 if (auto dnsErr = AdoptDNSServer(entry.mNetworkID); !dnsErr.IsNone()) {
                     LOG_WRN() << "Failed to adopt DNS server for running instance"
                               << Log::Field("networkID", entry.mNetworkID) << Log::Field(dnsErr);
@@ -1443,12 +1505,14 @@ Error NetworkManager::ReconcileInstances()
             }
         }
 
-        if (err = AdoptDNSServer(entry.mNetworkID); !err.IsNone()) {
+        err = AdoptDNSServer(entry.mNetworkID);
+        if (!err.IsNone()) {
             LOG_WRN() << "Failed to adopt DNS server for leftover cleanup" << Log::Field("networkID", entry.mNetworkID)
                       << Log::Field(err);
         }
 
-        if (err = DeleteInstanceNetworkConfig(entry.mInstanceID, entry.mNetworkID); !err.IsNone()) {
+        err = DeleteInstanceNetworkConfig(entry.mInstanceID, entry.mNetworkID);
+        if (!err.IsNone()) {
             LOG_WRN() << "Failed to delete leftover instance network config"
                       << Log::Field("instanceID", entry.mInstanceID) << Log::Field("networkID", entry.mNetworkID)
                       << Log::Field(err);
@@ -1670,7 +1734,7 @@ Error NetworkManager::ClearNetwork(const NetworkInfo& networkInfo)
             err = AOS_ERROR_WRAP(errRemove);
         }
 
-        mDNSServers.Remove(networkInfo.mNetworkID);
+        (void)mDNSServers.Remove(networkInfo.mNetworkID);
     }
 
     if (auto errMasq = mFirewall->RemoveMasquerade(networkInfo.mSubnet, mUplinkIfName);
@@ -1707,8 +1771,7 @@ Error NetworkManager::PrepareHosts(const String& instanceID, const String& netwo
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
-    auto instanceData = networkData->mSecond.Find(instanceID);
-    if (instanceData == networkData->mSecond.end()) {
+    if (auto instanceData = networkData->mSecond.Find(instanceID); instanceData == networkData->mSecond.end()) {
         return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
     }
 
@@ -1727,7 +1790,7 @@ Error NetworkManager::PrepareHosts(const String& instanceID, const String& netwo
     if (!network.mInstanceIdent.mItemID.IsEmpty() && !network.mInstanceIdent.mSubjectID.IsEmpty()) {
         StaticString<cHostNameLen> host;
 
-        host.Format("%d.%s.%s", network.mInstanceIdent.mInstance, network.mInstanceIdent.mSubjectID.CStr(),
+        (void)host.Format("%d.%s.%s", network.mInstanceIdent.mInstance, network.mInstanceIdent.mSubjectID.CStr(),
             network.mInstanceIdent.mItemID.CStr());
 
         if (auto err = PushHostWithDomain(host, networkID, hosts); !err.IsNone()) {
@@ -1735,7 +1798,7 @@ Error NetworkManager::PrepareHosts(const String& instanceID, const String& netwo
         }
 
         if (network.mInstanceIdent.mInstance == 0) {
-            host.Format("%s.%s", network.mInstanceIdent.mSubjectID.CStr(), network.mInstanceIdent.mItemID.CStr());
+            (void)host.Format("%s.%s", network.mInstanceIdent.mSubjectID.CStr(), network.mInstanceIdent.mItemID.CStr());
 
             if (auto err = PushHostWithDomain(host, networkID, hosts); !err.IsNone()) {
                 return err;
@@ -1842,7 +1905,8 @@ Error NetworkManager::PrepareInstanceFirewallParams(const InstanceNetworkConfig&
             return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
         }
 
-        if (auto err = params.mInput.PushBack({portConfig[0], portConfig.Size() > 1 ? portConfig[1] : String("tcp")});
+        if (auto err = params.mInput.PushBack(
+                {portConfig[0], portConfig.Size() > 1 ? portConfig[1] : String("tcp")}); // NOSONAR cpp:S5912
             !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -1916,7 +1980,8 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
 
     Error err;
 
-    if (err = RefreshUplinkInterface(); !err.IsNone()) {
+    err = RefreshUplinkInterface();
+    if (!err.IsNone()) {
         return err;
     }
 
@@ -1927,14 +1992,16 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
     // still running on it. Adopt what exists and create only what is missing.
     bool bridgeExists = false;
 
-    if (Tie(bridgeExists, err) = IsLinkExist(network.mBridgeIfName); !err.IsNone()) {
+    Tie(bridgeExists, err) = IsLinkExist(network.mBridgeIfName);
+    if (!err.IsNone()) {
         return err;
     }
 
     bool bridgeCreated = false;
 
     if (!bridgeExists) {
-        if (err = mNetIfFactory->CreateBridge(network.mBridgeIfName, network.mIP, network.mSubnet); !err.IsNone()) {
+        err = mNetIfFactory->CreateBridge(network.mBridgeIfName, network.mIP, network.mSubnet);
+        if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
@@ -1943,13 +2010,17 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
 
     auto cleanupBridge = DeferRelease(&network, [this, &err, bridgeCreated](const NetworkInfo* network) {
         if (!err.IsNone() && bridgeCreated) {
-            mNetIf->DeleteLink(network->mBridgeIfName);
+            if (auto deleteErr = mNetIf->DeleteLink(network->mBridgeIfName); !deleteErr.IsNone()) {
+                LOG_ERR() << "Can't delete bridge interface" << Log::Field("ifName", network->mBridgeIfName)
+                          << Log::Field(AOS_ERROR_WRAP(deleteErr));
+            }
         }
     });
 
     bool vlanExists = false;
 
-    if (Tie(vlanExists, err) = IsLinkExist(network.mVlanIfName); !err.IsNone()) {
+    Tie(vlanExists, err) = IsLinkExist(network.mVlanIfName);
+    if (!err.IsNone()) {
         return err;
     }
 
@@ -1958,8 +2029,8 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
     if (!vlanExists) {
         // Create the vlan already enslaved to the bridge (master) in one operation,
         // avoiding a separate SetMasterLink round-trip.
-        if (err = mNetIfFactory->CreateVlan(network.mVlanIfName, network.mVlanID, network.mBridgeIfName);
-            !err.IsNone()) {
+        err = mNetIfFactory->CreateVlan(network.mVlanIfName, network.mVlanID, network.mBridgeIfName);
+        if (!err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
 
@@ -1968,13 +2039,17 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
 
     auto cleanupVlan = DeferRelease(&network, [this, &err, vlanCreated](const NetworkInfo* network) {
         if (!err.IsNone() && vlanCreated) {
-            mNetIf->DeleteLink(network->mVlanIfName);
+            if (auto deleteErr = mNetIf->DeleteLink(network->mVlanIfName); !deleteErr.IsNone()) {
+                LOG_ERR() << "Can't delete vlan interface" << Log::Field("ifName", network->mVlanIfName)
+                          << Log::Field(AOS_ERROR_WRAP(deleteErr));
+            }
         }
     });
 
     // Masquerade is a per-network property (one rule per subnet), so it is
     // installed here on network creation rather than per instance.
-    if (err = mFirewall->AddMasquerade(network.mSubnet, mUplinkIfName); !err.IsNone()) {
+    err = mFirewall->AddMasquerade(network.mSubnet, mUplinkIfName);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1989,7 +2064,8 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
 
     DNSServerParams dnsParams;
 
-    if (err = PrepareDNSServerParams(network, dnsParams); !err.IsNone()) {
+    err = PrepareDNSServerParams(network, dnsParams);
+    if (!err.IsNone()) {
         return err;
     }
 
@@ -2009,7 +2085,8 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
         }
     });
 
-    if (err = mDNSServers.Set(network.mNetworkID, dnsServer); !err.IsNone()) {
+    err = mDNSServers.Set(network.mNetworkID, dnsServer);
+    if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -2022,15 +2099,15 @@ Error NetworkManager::GenerateIfName(String& ifName, const String& ifPrefix)
 {
     ifName.Clear();
 
-    ifName.Append(ifPrefix);
+    (void)ifName.Append(ifPrefix);
 
-    String randomString = String(ifName.Get() + ifPrefix.Size(), ifName.MaxSize() - ifPrefix.Size());
+    auto randomString = String(ifName.Get() + ifPrefix.Size(), ifName.MaxSize() - ifPrefix.Size());
 
     if (auto err = crypto::GenerateRandomString<cMaxNetworkIDLen / 2>(randomString, *mRandom); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    ifName.Resize(ifName.Size() + randomString.Size());
+    (void)ifName.Resize(ifName.Size() + randomString.Size());
 
     return ErrorEnum::eNone;
 }
@@ -2045,16 +2122,7 @@ void NetworkManager::DeferFirewallUpdate(const aos::networkmanager::PendingFirew
             continue;
         }
 
-        for (const auto& rule : update.mFirewallRules) {
-            if (deferred.mFirewallRules.Contains(rule)) {
-                continue;
-            }
-
-            if (auto err = deferred.mFirewallRules.PushBack(rule); !err.IsNone()) {
-                LOG_ERR() << "Failed to defer firewall rule" << Log::Field("instanceIdent", update.mInstanceIdent)
-                          << Log::Field(err);
-            }
-        }
+        deferred = update;
 
         return;
     }
@@ -2073,21 +2141,34 @@ void NetworkManager::TakeDeferredFirewallRules(const InstanceIdent& instanceIden
         }
 
         if (params != nullptr) {
-            for (const auto& rule : it->mFirewallRules) {
-                if (params->mFirewallRules.Contains(rule)) {
-                    continue;
-                }
-
-                if (auto err = params->mFirewallRules.PushBack(rule); !err.IsNone()) {
-                    LOG_ERR() << "Failed to apply deferred firewall rule" << Log::Field("instanceIdent", instanceIdent)
-                              << Log::Field(err);
-                }
-            }
+            MergeDeferredFirewallRules(*it, *params);
         }
 
-        mDeferredFirewallUpdates.Erase(it);
+        (void)mDeferredFirewallUpdates.Erase(it);
 
         return;
+    }
+}
+
+void NetworkManager::MergeDeferredFirewallRules(
+    const aos::networkmanager::PendingFirewallUpdate& deferred, InstanceNetworkAllocation& params)
+{
+    if (IsOutdatedFirewallUpdate(deferred, params.mIP)) {
+        LOG_WRN() << "Dropping outdated deferred firewall update"
+                  << Log::Field("instanceIdent", deferred.mInstanceIdent) << Log::Field("ip", params.mIP);
+
+        return;
+    }
+
+    for (const auto& rule : deferred.mFirewallRules) {
+        if (params.mFirewallRules.Contains(rule)) {
+            continue;
+        }
+
+        if (auto err = params.mFirewallRules.PushBack(rule); !err.IsNone()) {
+            LOG_ERR() << "Failed to apply deferred firewall rule"
+                      << Log::Field("instanceIdent", deferred.mInstanceIdent) << Log::Field(err);
+        }
     }
 }
 
@@ -2104,90 +2185,138 @@ void NetworkManager::OnPendingFirewallUpdate(
     LOG_DBG() << "Received pending firewall update" << Log::Field("instanceIdent", update.mInstanceIdent)
               << Log::Field("rulesCount", update.mFirewallRules.Size());
 
-    StaticString<cIDLen> instanceID;
-    StaticString<cIDLen> networkID;
-    bool                 isRunning = false;
-
-    auto networkConfig = MakeUnique<InstanceNetworkConfig>(mAllocator);
-    if (!networkConfig) {
-        LOG_ERR() << "Failed to allocate network config" << Log::Field(ErrorEnum::eNoMemory);
+    auto info = MakeUnique<InstanceNetworkInfo>(mAllocator);
+    if (!info) {
+        LOG_ERR() << "Failed to allocate instance network info" << Log::Field(ErrorEnum::eNoMemory);
 
         return;
     }
-
-    auto allocatedParams = MakeUnique<aos::InstanceNetworkAllocation>(mAllocator);
-    if (!allocatedParams) {
-        LOG_ERR() << "Failed to allocate network allocation params" << Log::Field(ErrorEnum::eNoMemory);
-
-        return;
-    }
-
-    StaticString<cInterfaceLen> hostIfName;
 
     {
         LockGuard lock {mMutex};
 
-        for (const auto& item : mInstanceNetworkInfos) {
-            if (item.mSecond.mNetworkConfig.mInstanceIdent == update.mInstanceIdent) {
-                instanceID       = item.mFirst;
-                networkID        = item.mSecond.mNetworkID;
-                *networkConfig   = item.mSecond.mNetworkConfig;
-                *allocatedParams = item.mSecond.mAllocatedParams;
-                hostIfName       = item.mSecond.mHostIfName;
-
-                auto network = mRuntimeCache.Find(networkID);
-                if (network != mRuntimeCache.end()) {
-                    isRunning = network->mSecond.Find(instanceID) != network->mSecond.end();
-                }
-
-                break;
-            }
-        }
-
-        if (instanceID.IsEmpty()) {
-            DeferFirewallUpdate(update);
-
+        if (!SetPendingFirewallRules(update, *info)) {
             return;
-        }
-
-        for (const auto& rule : update.mFirewallRules) {
-            if (allocatedParams->mFirewallRules.Contains(rule)) {
-                continue;
-            }
-
-            if (auto err = allocatedParams->mFirewallRules.PushBack(rule); !err.IsNone()) {
-                LOG_ERR() << "Failed to add firewall rule" << Log::Field("instanceID", instanceID) << Log::Field(err);
-
-                return;
-            }
-        }
-
-        auto info = MakeUnique<InstanceNetworkInfo>(
-            mAllocator, instanceID, networkID, *networkConfig, *allocatedParams, hostIfName);
-        if (!info) {
-            LOG_ERR() << "Failed to allocate instance network info" << Log::Field("instanceID", instanceID)
-                      << Log::Field(ErrorEnum::eNoMemory);
-
-            return;
-        }
-
-        if (auto err = mStorage->UpdateInstanceNetworkInfo(*info); !err.IsNone()) {
-            LOG_ERR() << "Failed to update instance network info" << Log::Field("instanceID", instanceID)
-                      << Log::Field(err);
-
-            return;
-        }
-
-        if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
-            it->mSecond.mAllocatedParams.mFirewallRules = allocatedParams->mFirewallRules;
         }
     }
 
-    if (isRunning) {
-        if (auto err = UpdateInstanceFirewall(instanceID, networkID, *networkConfig, *allocatedParams); !err.IsNone()) {
-            LOG_ERR() << "Failed to update instance firewall" << Log::Field("instanceID", instanceID)
+    ApplyPendingFirewallRules(*info);
+}
+
+bool NetworkManager::SetPendingFirewallRules(
+    const aos::networkmanager::PendingFirewallUpdate& update, InstanceNetworkInfo& info)
+{
+    auto it = mInstanceNetworkInfos.FindIf(
+        [&update](const auto& item) { return item.mSecond.mNetworkConfig.mInstanceIdent == update.mInstanceIdent; });
+    if (it == mInstanceNetworkInfos.end()) {
+        DeferFirewallUpdate(update);
+
+        return false;
+    }
+
+    const auto& instanceID = it->mFirst;
+    const auto  isRunning  = IsInstanceRunning(instanceID, it->mSecond.mNetworkID);
+
+    if (IsOutdatedFirewallUpdate(update, it->mSecond.mAllocatedParams.mIP)) {
+        LOG_WRN() << "Ignoring outdated firewall update" << Log::Field("instanceID", instanceID)
+                  << Log::Field("ip", it->mSecond.mAllocatedParams.mIP);
+
+        return false;
+    }
+
+    const auto unchanged = IsSameFirewallRules(it->mSecond.mAllocatedParams.mFirewallRules, update.mFirewallRules);
+
+    if (unchanged && !mUnappliedFirewalls.Contains(instanceID)) {
+        LOG_DBG() << "Firewall rules unchanged" << Log::Field("instanceID", instanceID);
+
+        return false;
+    }
+
+    if (!isRunning) {
+        SetFirewallApplied(instanceID, false);
+    }
+
+    if (!unchanged) {
+        if (auto err = StoreFirewallRules(it->mSecond, update.mFirewallRules); !err.IsNone()) {
+            LOG_ERR() << "Failed to update instance network info" << Log::Field("instanceID", instanceID)
                       << Log::Field(err);
+
+            return false;
         }
+    }
+
+    info = it->mSecond;
+
+    return isRunning;
+}
+
+Error NetworkManager::StoreFirewallRules(InstanceNetworkInfo& cachedInfo, const Array<FirewallRule>& rules)
+{
+    auto info = MakeUnique<InstanceNetworkInfo>(mAllocator, cachedInfo);
+    if (!info) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    info->mAllocatedParams.mFirewallRules = rules;
+
+    if (auto err = mStorage->UpdateInstanceNetworkInfo(*info); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    cachedInfo.mAllocatedParams.mFirewallRules = rules;
+
+    return ErrorEnum::eNone;
+}
+
+void NetworkManager::ApplyPendingFirewallRules(const InstanceNetworkInfo& info)
+{
+    auto err = UpdateInstanceFirewall(info.mInstanceID, info.mNetworkID, info.mNetworkConfig, info.mAllocatedParams);
+    if (!err.IsNone()) {
+        LOG_ERR() << "Failed to update instance firewall" << Log::Field("instanceID", info.mInstanceID)
+                  << Log::Field(err);
+    }
+
+    LockGuard lock {mMutex};
+
+    SetFirewallApplied(info.mInstanceID, err.IsNone());
+}
+
+bool NetworkManager::IsInstanceRunning(const String& instanceID, const String& networkID) const
+{
+    auto network = mRuntimeCache.Find(networkID);
+
+    return network != mRuntimeCache.end() && network->mSecond.Find(instanceID) != network->mSecond.end();
+}
+
+bool NetworkManager::IsSameFirewallRules(const Array<FirewallRule>& current, const Array<FirewallRule>& rules)
+{
+    if (current.Size() != rules.Size()) {
+        return false;
+    }
+
+    return !rules.ContainsIf([&current](const FirewallRule& rule) { return !current.Contains(rule); });
+}
+
+bool NetworkManager::IsOutdatedFirewallUpdate(
+    const aos::networkmanager::PendingFirewallUpdate& update, const String& ip)
+{
+    return update.mFirewallRules.ContainsIf([&ip](const FirewallRule& rule) { return rule.mSrcIP != ip; });
+}
+
+void NetworkManager::SetFirewallApplied(const String& instanceID, bool applied)
+{
+    if (applied) {
+        (void)mUnappliedFirewalls.Remove(instanceID);
+
+        return;
+    }
+
+    if (mUnappliedFirewalls.Contains(instanceID)) {
+        return;
+    }
+
+    if (auto err = mUnappliedFirewalls.PushBack(instanceID); !err.IsNone()) {
+        LOG_ERR() << "Failed to track unapplied firewall" << Log::Field("instanceID", instanceID) << Log::Field(err);
     }
 }
 
@@ -2207,8 +2336,8 @@ void NetworkManager::OnConnect()
 
         for (const auto& [id, info] : mInstanceNetworkInfos) {
             // Only sync running instances (present in runtime cache)
-            auto network = mRuntimeCache.Find(info.mNetworkID);
-            if (network == mRuntimeCache.end() || network->mSecond.Find(id) == network->mSecond.end()) {
+            if (auto network = mRuntimeCache.Find(info.mNetworkID);
+                network == mRuntimeCache.end() || network->mSecond.Find(id) == network->mSecond.end()) {
                 continue;
             }
 

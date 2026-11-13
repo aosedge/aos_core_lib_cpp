@@ -6,149 +6,87 @@
 #ifndef AOS_SM_IMAGE_MANAGER_TESTS_STUBS_STORAGESTUB_HPP_
 #define AOS_SM_IMAGE_MANAGER_TESTS_STUBS_STORAGESTUB_HPP_
 
-#include <future>
-#include <list>
-#include <queue>
+#include <memory>
 
+#include <core/common/imagemanager/tests/stubs/storagestub.hpp>
 #include <core/sm/imagemanager/itf/storage.hpp>
 
 namespace aos::sm::imagemanager {
 
+/**
+ * Storage stub.
+ */
 class StorageStub : public StorageItf {
 public:
-    void Init(std::vector<UpdateItemData> initialItems)
+    Error AddDeployableItem(const common::imagemanager::DeployableItemInfo& item) override
     {
-        for (const auto& item : initialItems) {
-            mItemsList.push_back(item);
-        }
+        return mStorage.AddDeployableItem(item);
     }
 
-    /**
-     * Returns future to wait when item removed.
-     *
-     * @return future.
-     */
-    auto GetRemoveFuture()
+    Error UpdateDeployableItem(const common::imagemanager::DeployableItemInfo& item) override
     {
-        mRemovePromises.emplace();
-
-        return mRemovePromises.back().get_future();
+        return mStorage.UpdateDeployableItem(item);
     }
 
-    /**
-     * Adds update item to storage.
-     *
-     * @param updateItem update item to add.
-     * @return Error.
-     */
-    Error AddUpdateItem(const UpdateItemData& updateItem) override
+    Error RemoveDeployableItem(const String& itemID, const String& version) override
     {
-        auto it = std::find_if(mItemsList.begin(), mItemsList.end(), [&](const UpdateItemData& item) {
-            return item.mID == updateItem.mID && item.mVersion == updateItem.mVersion;
-        });
-        if (it != mItemsList.end()) {
-            return ErrorEnum::eAlreadyExist;
-        }
-
-        mItemsList.push_back(updateItem);
-
-        return ErrorEnum::eNone;
+        return mStorage.RemoveDeployableItem(itemID, version);
     }
 
-    /**
-     * Updates update item in storage.
-     *
-     * @param updateItem update item to update.
-     * @return Error.
-     */
-    Error UpdateUpdateItem(const UpdateItemData& updateItem) override
+    Error GetDeployableItem(
+        const String& itemID, const String& version, common::imagemanager::DeployableItemInfo& item) override
     {
-        auto it = std::find_if(mItemsList.begin(), mItemsList.end(), [&](const UpdateItemData& item) {
-            return item.mID == updateItem.mID && item.mVersion == updateItem.mVersion;
-        });
-        if (it != mItemsList.end()) {
-            *it = updateItem;
-
-            return ErrorEnum::eNone;
-        }
-
-        mItemsList.push_back(updateItem);
-
-        return ErrorEnum::eNone;
+        return mStorage.GetDeployableItem(itemID, version, item);
     }
 
-    /**
-     * Removes previously stored update item.
-     *
-     * @param itemID update item ID to remove.
-     * @param version update item version.
-     * @return Error.
-     */
-    Error RemoveUpdateItem(const String& itemID, const String& version) override
+    Error GetAllDeployableItems(Array<common::imagemanager::DeployableItemInfo>& items) override
     {
-        auto it = std::find_if(mItemsList.begin(), mItemsList.end(),
-            [&](const UpdateItemData& item) { return item.mID == itemID && item.mVersion == version; });
-        if (it == mItemsList.end()) {
-            return ErrorEnum::eNotFound;
-        }
-
-        if (!mRemovePromises.empty()) {
-            mRemovePromises.front().set_value(*it);
-            mRemovePromises.pop();
-        }
-
-        mItemsList.erase(it);
-
-        return ErrorEnum::eNone;
+        return mStorage.GetAllDeployableItems(items);
     }
 
-    /**
-     * Returns update item versions by item ID.
-     *
-     * @param itemID update item ID.
-     * @param[out] itemData array to store update item data.
-     * @return Error.
-     */
-    Error GetUpdateItem(const String& itemID, Array<UpdateItemData>& itemData) override
+    RetWithError<size_t> GetDeployableItemsCount() override { return mStorage.GetDeployableItemsCount(); }
+
+    Error AddItemBlob(
+        const String& itemID, const String& version, const common::imagemanager::ItemBlobInfo& blob) override
     {
-        for (const auto& item : mItemsList) {
-            if (item.mID == itemID) {
-                if (auto err = itemData.PushBack(item); !err.IsNone()) {
-                    return err;
+        return mStorage.AddItemBlob(itemID, version, blob);
+    }
+
+    Error GetItemBlobs(
+        const String& itemID, const String& version, Array<common::imagemanager::ItemBlobInfo>& blobs) override
+    {
+        return mStorage.GetItemBlobs(itemID, version, blobs);
+    }
+
+    RetWithError<bool> IsBlobUsed(const String& digest) override { return mStorage.IsBlobUsed(digest); }
+
+    RetWithError<bool> IsLayerUsed(const String& diffID) override
+    {
+        auto items = std::make_unique<StaticArray<common::imagemanager::DeployableItemInfo, cMaxNumUpdateItems * 2>>();
+
+        if (auto err = mStorage.GetAllDeployableItems(*items); !err.IsNone()) {
+            return {false, err};
+        }
+
+        for (const auto& item : *items) {
+            auto blobs = std::make_unique<StaticArray<common::imagemanager::ItemBlobInfo, 16>>();
+
+            if (auto err = mStorage.GetItemBlobs(item.mItemID, item.mVersion, *blobs); !err.IsNone()) {
+                return {false, err};
+            }
+
+            for (const auto& blob : *blobs) {
+                if (blob.mIsLayer && blob.mDiffID == diffID) {
+                    return true;
                 }
             }
         }
 
-        return ErrorEnum::eNone;
+        return false;
     }
-
-    /**
-     * Returns all update items.
-     *
-     * @param itemsData[out] array to store update items data.
-     * @return Error.
-     */
-    Error GetAllUpdateItems(Array<UpdateItemData>& itemsData) override
-    {
-        for (const auto& item : mItemsList) {
-            if (auto err = itemsData.PushBack(item); !err.IsNone()) {
-                return err;
-            }
-        }
-
-        return ErrorEnum::eNone;
-    }
-
-    /**
-     * Returns count of stored update items.
-     *
-     * @return RetWithError<size_t>.
-     */
-    RetWithError<size_t> GetUpdateItemsCount() override { return RetWithError<size_t>(mItemsList.size()); }
 
 private:
-    std::list<UpdateItemData>                mItemsList;
-    std::queue<std::promise<UpdateItemData>> mRemovePromises;
+    common::imagemanager::StorageStub mStorage;
 };
 
 } // namespace aos::sm::imagemanager
