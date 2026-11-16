@@ -11,9 +11,9 @@ documentation:
 - [Networking overview][arch-overview];
 - [Per-instance network lifecycle][arch-lifecycle].
 
-The contract between SM and CM (network parameters allocation, release, state synchronization and deferred firewall
-updates) is described in [common network manager][common-networkmanager]. This document only covers the SM
-implementation of that contract.
+The contract between SM and CM (network parameters allocation, release, state synchronization, deferred firewall
+updates and unit networks updates) is described in [common network manager][common-networkmanager]. This document
+only covers the SM implementation of that contract.
 
 [arch-overview]: https://github.com/aosedge/public-docs/blob/main/docs/aos-core/14-network/index.md
 [arch-lifecycle]: https://github.com/aosedge/public-docs/blob/main/docs/aos-core/14-network/per-instance-networking.md
@@ -37,8 +37,13 @@ Network manager keeps the following state:
 - **instance network infos** (`InstanceNetworkInfo`) - instance network config (`InstanceNetworkConfig`), parameters
   allocated by CM (`InstanceNetworkAllocation`) and the host-side veth name once the instance is started. Persisted in
   the storage;
+- **unit networks** - IDs of the networks that exist in the unit. Taken from the stored network infos on `Init` and
+  replaced by every unit networks update from CM. Not persisted separately;
 - **runtime cache** - instances that are currently physically started, grouped by network. Not persisted;
-- **physical networks** - networks whose bridge/VLAN/masquerade/DNS server are currently created. Not persisted;
+- **physical networks** - networks whose bridge/VLAN links and masquerade rule are currently created: every unit network
+  and every other network with running instances on the node. Not persisted;
+- **DNS servers** - per-network DNS servers. A network has one only while it has running instances on the node. Not
+  persisted;
 - **deferred firewall updates** - pending firewall updates received from CM for instances that are not created yet.
   Not persisted.
 
@@ -50,7 +55,7 @@ It implements the following interfaces:
   - [aos::sm::networkmanager::InstanceTrafficProviderItf](itf/instancetrafficprovider.hpp) - provides instance
     traffic;
   - [aos::networkmanager::PendingUpdateHandlerItf](../../common/networkmanager/itf/pendingupdatehandler.hpp) -
-    receives resolved pending firewall rules from CM;
+    receives resolved pending firewall rules and unit networks updates from CM;
   - [aos::sm::smclient::ConnectListenerItf](../smclient/itf/connection.hpp) - receives CM connection events to
     synchronize network state.
 
@@ -163,7 +168,8 @@ classDiagram
 ## Initialization
 
 `Init` stores the dependencies and loads network infos and instance network infos from the storage into the internal
-cache. No CM calls and no physical changes are made at this stage.
+cache. The stored networks are taken as the unit networks until CM sends a unit networks update. No CM calls and no
+physical changes are made at this stage.
 
 `Start` brings the node into a consistent state after SM (re)start:
 
@@ -171,11 +177,16 @@ cache. No CM calls and no physical changes are made at this stage.
 2. resolves the uplink interface (the one the default route points to) used for masquerade;
 3. removes orphan firewall chains and masquerade rules that do not belong to any known instance/network;
 4. re-asserts masquerade rules for all known networks;
-5. removes orphan DNS servers left from the previous SM lifetime;
-6. reconciles instances: for every instance network info that has a host-side veth name recorded, checks whether the
+5. removes orphan DNS servers left from the previous SM lifetime: only networks that have stored instances are known;
+6. restores the unit networks: creates the missing bridge/VLAN links (existing links are adopted) and installs the
+   masquerade rule for every unit network. No DNS server is created. A network that fails to be restored is logged and
+   does not fail `Start`;
+7. reconciles instances: for every instance network info that has a host-side veth name recorded, checks whether the
    veth still exists and is attached to the expected bridge. If it is alive, the instance is adopted: it is added to the
    runtime cache, traffic monitoring is restarted and the DNS server for its network is adopted. Otherwise the leftover
-   physical configuration (DNS host, bandwidth, firewall chain, namespace) is cleaned up.
+   physical configuration (DNS host, bandwidth, firewall chain, namespace) is cleaned up;
+8. removes the DNS servers of networks that have no running instances, e.g. the ones adopted only to clean up leftover
+   instances.
 
 Adopted instances are treated as running, so the launcher does not need to restart them.
 
@@ -187,6 +198,7 @@ sequenceDiagram
     participant trafficmonitor
     participant dnsname
     participant interfacemanager
+    participant interfacefactory
 
     launcher ->> networkmanager: Start
 
@@ -199,7 +211,13 @@ sequenceDiagram
         networkmanager ->> firewall: AddMasquerade(subnet, uplink)
     end
 
-    networkmanager ->> dnsname: RemoveOrphans(knownNetworks)
+    networkmanager ->> dnsname: RemoveOrphans(networksWithInstances)
+
+    loop unit networks
+        networkmanager ->> interfacemanager: GetLink(bridge), GetLink(vlan)
+        networkmanager ->> interfacefactory: CreateBridge / CreateVlan (missing links)
+        networkmanager ->> firewall: AddMasquerade(subnet, uplink)
+    end
 
     loop instance network infos with host veth
         networkmanager ->> interfacemanager: GetLink(hostIfName)
@@ -211,6 +229,10 @@ sequenceDiagram
         else veth missing
             networkmanager ->> networkmanager: cleanupPhysicalConfig
         end
+    end
+
+    loop DNS servers of networks without running instances
+        networkmanager ->> dnsname: RemoveServer(networkID)
     end
 ```
 
@@ -236,7 +258,8 @@ The typical sequence for an instance is `CreateInstanceNetwork` -> `StartInstanc
 5. stores instance network info in the storage and in the internal cache.
 
 On any failure the allocation is released on CM and the cache is rolled back. No bridge/VLAN, namespace or veth is
-created here.
+created here. While the instance network is being created, `StartInstanceNetwork` and `ReleaseInstanceNetwork` return
+`eWrongState` for it.
 
 ```mermaid
 sequenceDiagram
@@ -263,23 +286,25 @@ sequenceDiagram
 ### Start instance network
 
 `StartInstanceNetwork` performs the physical part only, using the cached parameters. It does not call CM. It returns
-`eNotFound` if `CreateInstanceNetwork` was not called for the instance and `eInvalidArgument` if the network ID does not
-match the created one.
+`eNotFound` if `CreateInstanceNetwork` was not called for the instance, `eInvalidArgument` if the network ID does not
+match the created one and `eWrongState` if the instance network is still being created.
 
 1. adds the instance to the runtime cache and checks that its hostname and aliases are unique within the network;
 2. ensures the physical node network exists: if the bridge and VLAN links are not created yet, creates them (an
-   existing link left from a crashed SM is adopted, not recreated), installs the masquerade rule for the network
-   subnet on the uplink interface and creates the per-network DNS server;
-3. creates the instance network namespace;
-4. attaches the instance to the bridge: creates a veth pair, moves the peer end into the namespace, assigns IP and
+   existing link left from a crashed SM is adopted, not recreated) and installs the masquerade rule for the network
+   subnet on the uplink interface;
+3. creates the per-network DNS server if the network has none yet, i.e. for the first running instance of the network;
+4. creates the instance network namespace;
+5. attaches the instance to the bridge: creates a veth pair, moves the peer end into the namespace, assigns IP and
    default route via the bridge IP, enables hairpin;
-5. adds the per-instance firewall chain: exposed ports as input rules, CM firewall rules as output rules;
-6. applies bandwidth shaping to the host-side veth if ingress or egress limit is set;
-7. registers the instance IP with its hostname, aliases and instance identifier names on the network DNS server;
-8. starts traffic monitoring for the instance IP with upload/download limits;
-9. stores the host-side veth name in the instance network info (used for reconciliation after restart).
+6. adds the per-instance firewall chain: exposed ports as input rules, CM firewall rules as output rules;
+7. applies bandwidth shaping to the host-side veth if ingress or egress limit is set;
+8. registers the instance IP with its hostname, aliases and instance identifier names on the network DNS server;
+9. starts traffic monitoring for the instance IP with upload/download limits;
+10. stores the host-side veth name in the instance network info (used for reconciliation after restart).
 
-On any failure the completed steps are unwound in reverse order.
+On any failure the completed steps are unwound in reverse order. The bridge/VLAN links are kept; the DNS server is
+removed if it was created by this call and no other instance of the network is running.
 
 The hosts file and resolv.conf are not written by network manager. The caller obtains their content via `GetHosts`
 and `GetResolvServers` after `StartInstanceNetwork` and writes the files itself.
@@ -302,6 +327,9 @@ sequenceDiagram
     alt physical network not created
         networkmanager ->> interfacefactory: CreateBridge / CreateVlan
         networkmanager ->> firewall: AddMasquerade(subnet, uplink)
+    end
+
+    alt no DNS server for network
         networkmanager ->> dnsname: CreateServer(networkID)
     end
 
@@ -331,8 +359,8 @@ CM. If the instance is not running (not in the runtime cache), it returns `eNone
    the namespace;
 6. clears the host-side veth name in the instance network info;
 7. removes the instance from the runtime cache;
-8. if it was the last running instance on the network, clears the physical network: removes the DNS server, the
-   masquerade rule and the bridge/VLAN links.
+8. if it was the last running instance on the network, removes the network DNS server. If the network is not a unit
+   network, also clears the physical network: removes the masquerade rule and the bridge/VLAN links.
 
 ```mermaid
 sequenceDiagram
@@ -357,20 +385,25 @@ sequenceDiagram
 
     alt last running instance on network
         networkmanager ->> dnsname: RemoveServer(networkID)
-        networkmanager ->> firewall: RemoveMasquerade(subnet, uplink)
-        networkmanager ->> interfacemanager: DeleteLink(bridge), DeleteLink(vlan)
+
+        alt not a unit network
+            networkmanager ->> firewall: RemoveMasquerade(subnet, uplink)
+            networkmanager ->> interfacemanager: DeleteLink(bridge), DeleteLink(vlan)
+        end
     end
 ```
 
 ### Release instance network
 
 `ReleaseInstanceNetwork` performs the logical release (DB + CM). It requires `StopInstanceNetwork` to be called first
-and returns `eInvalidArgument` if the instance is still running.
+and returns `eInvalidArgument` if the instance is still running and `eWrongState` if the instance network is still
+being created.
 
 1. removes instance network info from the internal cache and the storage;
 2. releases instance network on CM (`ReleaseInstanceNetwork`);
-3. if it was the last created instance on the network, removes network info from the storage and releases node
-   network on CM (`ReleaseNodeNetwork`).
+3. if it was the last created instance on the network and the network is not a unit network, clears the physical
+   network if it is still created, removes network info from the storage and releases node network on CM
+   (`ReleaseNodeNetwork`).
 
 Storage and CM failures are logged as warnings and do not fail the release.
 
@@ -386,9 +419,66 @@ sequenceDiagram
     networkmanager ->> storage: RemoveInstanceNetworkInfo(instanceID)
     networkmanager ->> networkprovider: ReleaseInstanceNetwork(instanceIdent, nodeID)
 
-    alt last instance on network
+    alt last instance on network and not a unit network
         networkmanager ->> storage: RemoveNetworkInfo(networkID)
         networkmanager ->> networkprovider: ReleaseNodeNetwork(networkID, nodeID)
+    end
+```
+
+## Unit networks
+
+CM announces the IDs of all networks of the unit via `OnUnitNetworksUpdate` (see
+[common network manager][common-networkmanager]). The set is complete: network manager replaces its unit networks
+with it. On `OnUnitNetworksUpdate` network manager:
+
+1. ignores the update if the node ID does not match its own;
+2. for every known network that is not in the set: if the node has no instances of it (neither created nor running),
+   clears its physical network, removes network info from the storage and releases node network on CM
+   (`ReleaseNodeNetwork`). A network that still has instances is kept and removed with its last instance (see
+   [Stop instance network](#stop-instance-network) and [Release instance network](#release-instance-network));
+3. for every network in the set: if the network is not known yet, requests node network parameters from CM
+   (`GetNodeNetworkParams`), generates bridge/VLAN interface names and stores the network info. Then creates the
+   missing bridge/VLAN links and installs the masquerade rule. No DNS server is created.
+
+A network that fails is logged and skipped without affecting the others. It is retried on the next unit networks
+update, which CM sends again when SM reconnects.
+
+Node network creation and release towards CM are serialized, so a node network is never released on CM while it is
+being requested for an instance on the same node. An instance network that is being created keeps its node network
+from being released until the creation completes or fails.
+
+```mermaid
+sequenceDiagram
+    participant networkprovider as networkprovider (CM)
+    participant networkmanager
+    participant storage
+    participant interfacefactory
+    participant firewall
+    participant interfacemanager
+
+    networkprovider ->> networkmanager: OnUnitNetworksUpdate(nodeID, networkIDs)
+
+    loop known networks not in set
+        alt no instances of network
+            networkmanager ->> firewall: RemoveMasquerade(subnet, uplink)
+            networkmanager ->> interfacemanager: DeleteLink(bridge), DeleteLink(vlan)
+            networkmanager ->> storage: RemoveNetworkInfo(networkID)
+            networkmanager ->> networkprovider: ReleaseNodeNetwork(networkID, nodeID)
+        end
+    end
+
+    loop networks in set
+        alt network not known
+            networkmanager ->> networkprovider: GetNodeNetworkParams(networkID, nodeID)
+            networkprovider -->> networkmanager: NetworkParams
+            networkmanager ->> networkmanager: generate bridge/VLAN names
+            networkmanager ->> storage: AddNetworkInfo
+        end
+
+        alt physical network not created
+            networkmanager ->> interfacefactory: CreateBridge / CreateVlan
+            networkmanager ->> firewall: AddMasquerade(subnet, uplink)
+        end
     end
 ```
 
@@ -451,8 +541,8 @@ and allocated parameters in the storage. Returns `eAlreadyExist` if already crea
 
 ### StartInstanceNetwork
 
-Starts instance network: creates bridge/VLAN if needed, namespace, veth, firewall chain, bandwidth shaping, DNS
-registration and traffic monitoring. Does not call CM.
+Starts instance network: creates bridge/VLAN if needed, the network DNS server for the first running instance of the
+network, namespace, veth, firewall chain, bandwidth shaping, DNS registration and traffic monitoring. Does not call CM.
 
 ### GetResolvServers
 
@@ -468,13 +558,15 @@ custom hosts from the instance network config. The caller writes the hosts file 
 
 ### StopInstanceNetwork
 
-Stops instance network: tears down traffic monitoring, DNS, bandwidth, firewall and namespace. Clears bridge/VLAN if
-it was the last running instance on the network. Does not touch the storage and does not call CM.
+Stops instance network: tears down traffic monitoring, DNS, bandwidth, firewall and namespace. If it was the last
+running instance on the network, removes the network DNS server and, unless the network is a unit network, clears
+bridge/VLAN. Does not touch the storage and does not call CM.
 
 ### ReleaseInstanceNetwork
 
 Releases instance network: removes it from the storage and releases it on CM. Releases node network on CM if it was
-the last instance on the network. Requires `StopInstanceNetwork` to be called first.
+the last instance on the network and the network is not a unit network. Requires `StopInstanceNetwork` to be called
+first.
 
 ### BeginBatch / FlushBatch
 
@@ -493,6 +585,11 @@ Sets the traffic accounting period.
 ### OnPendingFirewallUpdate
 
 Applies resolved pending firewall rules to the instance, or defers them if the instance is not created yet.
+
+### OnUnitNetworksUpdate
+
+Replaces the unit networks: creates the missing node networks without DNS servers and releases the networks that left
+the set and have no instances on the node.
 
 ## aos::sm::smclient::ConnectListenerItf
 
