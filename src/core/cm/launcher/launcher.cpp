@@ -77,6 +77,8 @@ Error Launcher::Init(AllocatorItf& allocator, const Config& config,
 
 Error Launcher::Start()
 {
+    auto notifyStatuses = DeferRelease([this]() { NotifyInstancesStatusesChanged(); });
+
     LockGuard balancingLock {mBalancingMutex};
     LockGuard updateLock {mUpdateMutex};
 
@@ -170,6 +172,7 @@ Error Launcher::Stop()
     mUpdatedNodes.Clear();
     mNewSubjects.Reset();
     mInstanceStatuses.Clear();
+    mChangedInstanceStatuses.Clear();
 
     if (auto err = mProcessUpdatesCondVar.NotifyAll(); !err.IsNone()) {
         LOG_ERR() << "Can't notify process updates" << Log::Field(AOS_ERROR_WRAP(err));
@@ -216,6 +219,8 @@ Error Launcher::Stop()
 
 Error Launcher::RunInstances(const Array<RunInstanceRequest>& requests, Array<InstanceStatus>& statuses)
 {
+    auto notifyStatuses = DeferRelease([this]() { NotifyInstancesStatusesChanged(); });
+
     UniqueLock balancingLock {mBalancingMutex};
     UniqueLock updateLock {mUpdateMutex};
 
@@ -271,7 +276,7 @@ Error Launcher::GetInstancesStatuses(Array<InstanceStatus>& statuses)
 
 Error Launcher::SubscribeListener(instancestatusprovider::ListenerItf& listener)
 {
-    LockGuard updateLock {mUpdateMutex};
+    LockGuard lock {mListenersMutex};
 
     LOG_DBG() << "Subscribe instance status listener";
 
@@ -284,7 +289,7 @@ Error Launcher::SubscribeListener(instancestatusprovider::ListenerItf& listener)
 
 Error Launcher::UnsubscribeListener(instancestatusprovider::ListenerItf& listener)
 {
-    LockGuard updateLock {mUpdateMutex};
+    LockGuard lock {mListenersMutex};
 
     LOG_DBG() << "Unsubscribe instance status listener";
 
@@ -359,30 +364,64 @@ void Launcher::UpdateInstanceStatuses()
         return;
     }
 
-    // Find new statuses.
-    auto changedStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(mAllocator);
-    if (!changedStatuses) {
-        LOG_ERR() << "Failed to allocate changed statuses" << Log::Field(AOS_ERROR_WRAP(ErrorEnum::eNoMemory));
-
-        return;
-    }
-
-    for (size_t i = 0; i < mInstanceStatuses.Size(); ++i) {
-        auto newStatus = !oldInstanceStatuses->Contains(mInstanceStatuses[i]);
-        if (newStatus) {
-            if (auto err = changedStatuses->PushBack(mInstanceStatuses[i]); !err.IsNone()) {
-                LOG_ERR() << "Failed to add changed status" << Log::Field(AOS_ERROR_WRAP(err));
-
-                return;
-            }
+    // Add new statuses to the changed statuses, the listeners are notified after the launcher lock is released.
+    for (const auto& status : mInstanceStatuses) {
+        if (oldInstanceStatuses->Contains(status)) {
+            continue;
         }
-    }
 
-    for (const auto& status : *changedStatuses) {
         LOG_INF() << "Instance status changed" << Log::Field("instance", static_cast<const InstanceIdent&>(status))
                   << Log::Field("preinstalled", status.mPreinstalled) << Log::Field("nodeID", status.mNodeID)
                   << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("manifestDigest", status.mManifestDigest)
                   << Log::Field("state", status.mState) << Log::Field(status.mError);
+
+        auto changedStatus = mChangedInstanceStatuses.FindIf([&status](const InstanceStatus& item) {
+            return static_cast<const InstanceIdent&>(item) == static_cast<const InstanceIdent&>(status)
+                && item.mVersion == status.mVersion;
+        });
+
+        if (changedStatus != mChangedInstanceStatuses.end()) {
+            *changedStatus = status;
+
+            continue;
+        }
+
+        if (auto err = mChangedInstanceStatuses.PushBack(status); !err.IsNone()) {
+            LOG_ERR() << "Failed to add changed status" << Log::Field(AOS_ERROR_WRAP(err));
+
+            return;
+        }
+    }
+}
+
+void Launcher::NotifyInstancesStatusesChanged()
+{
+    // Serializes the notifications to deliver the changed statuses in order.
+    LockGuard lock {mListenersMutex};
+
+    UniquePtr<StaticArray<InstanceStatus, cMaxNumInstances>> changedStatuses;
+
+    {
+        LockGuard updateLock {mUpdateMutex};
+
+        if (mChangedInstanceStatuses.IsEmpty()) {
+            return;
+        }
+
+        changedStatuses = MakeUnique<StaticArray<InstanceStatus, cMaxNumInstances>>(mAllocator);
+        if (!changedStatuses) {
+            LOG_ERR() << "Failed to allocate changed statuses" << Log::Field(AOS_ERROR_WRAP(ErrorEnum::eNoMemory));
+
+            return;
+        }
+
+        if (auto err = changedStatuses->Assign(mChangedInstanceStatuses); !err.IsNone()) {
+            LOG_ERR() << "Failed to copy changed statuses" << Log::Field(AOS_ERROR_WRAP(err));
+
+            return;
+        }
+
+        mChangedInstanceStatuses.Clear();
     }
 
     for (auto& listener : mInstanceStatusListeners) {
@@ -449,6 +488,8 @@ void Launcher::ProcessUpdate()
 
             WaitAllNodesConnected(updateLock);
         }
+
+        auto notifyStatuses = DeferRelease([this]() { NotifyInstancesStatusesChanged(); });
 
         UniqueLock balancingLock {mBalancingMutex};
         UniqueLock updateLock {mUpdateMutex};
@@ -557,6 +598,8 @@ Error Launcher::OnInstanceStatusReceived(const InstanceStatus& status)
               << Log::Field("runtimeID", status.mRuntimeID) << Log::Field("manifestDigest", status.mManifestDigest)
               << Log::Field("state", status.mState) << Log::Field(status.mError);
 
+    auto notifyStatuses = DeferRelease([this]() { NotifyInstancesStatusesChanged(); });
+
     LockGuard updateLock {mUpdateMutex};
 
     if (auto err = mInstanceManager.UpdateStatus(status); !err.IsNone()) {
@@ -580,6 +623,8 @@ Error Launcher::OnNodeInstancesStatusesReceived(const String& nodeID, const Arra
                   << Log::Field("manifestDigest", status.mManifestDigest) << Log::Field("state", status.mState)
                   << Log::Field(status.mError);
     }
+
+    auto notifyStatuses = DeferRelease([this]() { NotifyInstancesStatusesChanged(); });
 
     LockGuard updateLock {mUpdateMutex};
 

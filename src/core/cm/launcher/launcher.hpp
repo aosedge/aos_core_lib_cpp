@@ -142,6 +142,7 @@ private:
     void SendRunStatus();
 
     void UpdateInstanceStatuses();
+    void NotifyInstancesStatusesChanged();
     void FailActivatingInstances();
 
     Error BalanceInstances(UniqueLock<Mutex>& lock, bool rebalance);
@@ -205,6 +206,8 @@ private:
 
     // Misc
     StaticArray<InstanceStatus, cMaxNumInstances> mInstanceStatuses;
+    StaticArray<InstanceStatus, cMaxNumInstances> mChangedInstanceStatuses;
+    Mutex                                         mListenersMutex;
     Mutex                                         mBalancingMutex;
     ConditionalVariable                           mAllNodesConnectedCondVar;
     bool                                          mIsRunning {};
