@@ -193,6 +193,15 @@ public:
         const String& nodeID, const aos::networkmanager::PendingFirewallUpdate& update) override;
 
     /**
+     * Called with the full set of unit network IDs: creates the missing node networks and releases the node
+     * networks that left the set and have no instances.
+     *
+     * @param nodeID node ID the update is addressed to.
+     * @param networkIDs IDs of all networks of the unit.
+     */
+    void OnUnitNetworksUpdate(const String& nodeID, const Array<StaticString<cIDLen>>& networkIDs) override;
+
+    /**
      * Called when SM successfully connects/reconnects to CM.
      */
     void OnConnect() override;
@@ -227,6 +236,8 @@ private:
     Error RemoveFirewallOrphans();
     Error EnsureNodeNetwork(const String& networkID);
     Error EnsureNodeNetworkPhysical(const String& networkID);
+    void  RemoveNodeNetworkIfUnused(const String& networkID);
+    bool  IsNodeNetworkInUse(const String& networkID) const;
     Error UpdateInstanceFirewall(const String& instanceID, const String& networkID,
         const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams);
     Error AddInstanceToNetwork(const String& instanceID, const String& networkID,
@@ -310,6 +321,7 @@ private:
     StaticMap<StaticString<cIDLen>, DNSServerItf*, cMaxNumOwners>          mDNSServers;
     StaticMap<StaticString<cIDLen>, InstanceNetworkInfo, cMaxNumInstances> mInstanceNetworkInfos;
     StaticArray<StaticString<cIDLen>, cMaxNumOwners>                       mPhysicalNetworks;
+    StaticArray<StaticString<cIDLen>, cMaxNumOwners>                       mUnitNetworks;
     bool                                                                   mBatchMode {false};
     StaticArray<BatchEntry, cMaxNumInstances>                              mBatchEntries;
 
@@ -317,6 +329,7 @@ private:
     StaticArray<StaticString<cIDLen>, cMaxNumInstances>                             mUnappliedFirewalls;
 
     mutable Mutex mMutex;
+    Mutex         mNodeNetworkMutex;
     AllocatorItf* mAllocator {};
 };
 
