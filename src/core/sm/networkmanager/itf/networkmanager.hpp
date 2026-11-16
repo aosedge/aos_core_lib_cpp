@@ -109,7 +109,8 @@ public:
     /**
      * Stops instance network: tears down DNS/bandwidth/firewall/bridge for the
      * instance, deletes its namespace and monitoring.
-     * If last running instance on network — clears bridge/VLAN.
+     * If last running instance on network — removes its DNS server and, unless the network is a unit network,
+     * clears bridge/VLAN.
      * Does NOT remove from DB, does NOT call CM.
      *
      * @param instanceID instance ID.
@@ -120,7 +121,8 @@ public:
 
     /**
      * Releases instance network: removes from DB, calls CM ReleaseInstanceNetwork.
-     * If last instance on network — removes node network info from DB, releases on CM.
+     * If last instance on network and the network is not a unit network — removes node network info from DB,
+     * releases on CM.
      * Requires Stop to be called first.
      *
      * @param instanceID instance ID.
