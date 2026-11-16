@@ -64,6 +64,10 @@ Error NetworkManager::Init(AllocatorItf& allocator, StorageItf& storage, BridgeN
         if (auto err = mNetworkProviders.Set(networkInfo.mNetworkID, networkInfo); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
+
+        if (auto err = mUnitNetworks.PushBack(networkInfo.mNetworkID); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     return ErrorEnum::eNone;
@@ -137,7 +141,17 @@ Error NetworkManager::Start()
         return err;
     }
 
+    err = RestoreUnitNetworks();
+    if (!err.IsNone()) {
+        return err;
+    }
+
     err = ReconcileInstances();
+    if (!err.IsNone()) {
+        return err;
+    }
+
+    err = RemoveIdleDNSServers();
     if (!err.IsNone()) {
         return err;
     }
@@ -1684,8 +1698,12 @@ Error NetworkManager::RemoveDNSOrphans()
     {
         LockGuard lock {mMutex};
 
-        for (const auto& [id, _] : mNetworkProviders) {
-            if (auto err = known->PushBack(id); !err.IsNone()) {
+        for (const auto& [_, info] : mInstanceNetworkInfos) {
+            if (known->Contains(info.mNetworkID)) {
+                continue;
+            }
+
+            if (auto err = known->PushBack(info.mNetworkID); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
         }
@@ -1693,6 +1711,59 @@ Error NetworkManager::RemoveDNSOrphans()
 
     if (auto err = mDNSName->RemoveOrphans(*known); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::RestoreUnitNetworks()
+{
+    auto networkIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumOwners>>(mAllocator);
+    if (!networkIDs) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    {
+        LockGuard lock {mMutex};
+
+        *networkIDs = mUnitNetworks;
+    }
+
+    for (const auto& networkID : *networkIDs) {
+        LOG_DBG() << "Restore unit network" << Log::Field("networkID", networkID);
+
+        if (auto err = EnsureNodeNetworkPhysical(networkID); !err.IsNone()) {
+            LOG_ERR() << "Failed to restore unit network" << Log::Field("networkID", networkID) << Log::Field(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::RemoveIdleDNSServers()
+{
+    auto idleNetworks = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumOwners>>(mAllocator);
+    if (!idleNetworks) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    LockGuard lock {mMutex};
+
+    for (const auto& [networkID, _] : mDNSServers) {
+        if (auto network = mRuntimeCache.Find(networkID);
+            network != mRuntimeCache.end() && !network->mSecond.IsEmpty()) {
+            continue;
+        }
+
+        if (auto err = idleNetworks->PushBack(networkID); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    for (const auto& networkID : *idleNetworks) {
+        if (auto err = RemoveDNSServer(networkID); !err.IsNone()) {
+            LOG_WRN() << "Failed to remove idle DNS server" << Log::Field("networkID", networkID) << Log::Field(err);
+        }
     }
 
     return ErrorEnum::eNone;

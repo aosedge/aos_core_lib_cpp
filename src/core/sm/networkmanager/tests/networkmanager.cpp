@@ -345,6 +345,27 @@ protected:
         EXPECT_CALL(mStorage, UpdateInstanceNetworkInfo(_)).Times(0);
     }
 
+    void ExpectStoredNetworkLinksCreated(const NetworkInfo& network)
+    {
+        EXPECT_CALL(mNetIfFactory, CreateBridge(network.mBridgeIfName, network.mIP, network.mSubnet))
+            .WillOnce(Return(aos::ErrorEnum::eNone));
+        EXPECT_CALL(mNetIfFactory, CreateVlan(network.mVlanIfName, network.mVlanID, network.mBridgeIfName))
+            .WillOnce(Return(aos::ErrorEnum::eNone));
+    }
+
+    NetworkInfo CreateSecondTestNetworkInfo()
+    {
+        NetworkInfo network;
+        network.mNetworkID    = "network2";
+        network.mIP           = "192.168.2.1";
+        network.mSubnet       = "192.168.2.0/24";
+        network.mVlanID       = 200ULL;
+        network.mVlanIfName   = "vlan-22222222";
+        network.mBridgeIfName = "br-33333333";
+
+        return network;
+    }
+
     void ExpectStartInstanceOnStoredNetwork(const aos::String& instanceID, const aos::String& networkID)
     {
         EXPECT_CALL(mNetworkProvider, AllocateInstanceNetwork(_, networkID, aos::String("test-node"), _, _))
@@ -2797,6 +2818,7 @@ TEST_F(NetworkManagerTest, Start_CleansLeftoverInstanceWithMissingInterface)
     instances->PushBack(leftover);
 
     RestartWithStoredState(networks, *instances);
+    ExpectStoredNetworkLinksCreated(network);
 
     EXPECT_CALL(mDNSName, RemoveOrphans(_))
         .WillOnce(Invoke([&](const aos::Array<aos::StaticString<aos::cIDLen>>& known) {
@@ -2824,6 +2846,7 @@ TEST_F(NetworkManagerTest, Start_KeepsLeftoverInstanceWithLiveInterface)
     instances->PushBack(leftover);
 
     RestartWithStoredState(networks, *instances);
+    ExpectStoredNetworkLinksCreated(network);
 
     ExpectLinkExists(leftover.mHostIfName, LinkKindEnum::eVeth, network.mBridgeIfName);
     EXPECT_CALL(mNetns, IsNetworkNamespaceExist(leftover.mInstanceID))
@@ -2856,6 +2879,7 @@ TEST_F(NetworkManagerTest, Start_AdoptsDNSServerForRunningInstanceCleanedOnStop)
     instances->PushBack(leftover);
 
     RestartWithStoredState(networks, *instances);
+    ExpectStoredNetworkLinksCreated(network);
 
     ExpectLinkExists(leftover.mHostIfName, LinkKindEnum::eVeth, network.mBridgeIfName);
     EXPECT_CALL(mNetns, IsNetworkNamespaceExist(leftover.mInstanceID))
@@ -2895,6 +2919,7 @@ TEST_F(NetworkManagerTest, Start_CleansLeftoverInstanceWhenNamespaceMissing)
     instances->PushBack(leftover);
 
     RestartWithStoredState(networks, *instances);
+    ExpectStoredNetworkLinksCreated(network);
 
     ExpectLinkExists(leftover.mHostIfName, LinkKindEnum::eVeth, network.mBridgeIfName);
     EXPECT_CALL(mNetns, IsNetworkNamespaceExist(leftover.mInstanceID))
@@ -2919,6 +2944,7 @@ TEST_F(NetworkManagerTest, Start_CleansLeftoverInstanceAttachedToForeignBridge)
     instances->PushBack(leftover);
 
     RestartWithStoredState(networks, *instances);
+    ExpectStoredNetworkLinksCreated(network);
 
     ExpectLinkExists(leftover.mHostIfName, LinkKindEnum::eVeth, "br-someoneelse");
 
@@ -3041,13 +3067,17 @@ TEST_F(NetworkManagerTest, Start_ReassertsMasqueradeOnCurrentUplink)
     networks.PushBack(network);
 
     RestartWithStoredState(networks, *instances);
+    ExpectStoredNetworkLinksCreated(network);
 
     EXPECT_CALL(mDNSName, RemoveOrphans(_)).WillOnce(Return(aos::ErrorEnum::eNone));
 
     aos::StaticString<aos::cInterfaceLen> capturedOutIf;
 
     EXPECT_CALL(mFirewall, AddMasquerade(network.mSubnet, _))
-        .WillOnce(Invoke([&](const aos::String&, const aos::String& outIf) {
+        .Times(2)
+        .WillRepeatedly(Invoke([&](const aos::String&, const aos::String& outIf) {
+            EXPECT_EQ(outIf, aos::String(cUplinkIfName));
+
             capturedOutIf = outIf;
 
             return aos::ErrorEnum::eNone;
@@ -3056,6 +3086,184 @@ TEST_F(NetworkManagerTest, Start_ReassertsMasqueradeOnCurrentUplink)
     ASSERT_EQ(mNetManager->Start(), aos::ErrorEnum::eNone);
 
     EXPECT_EQ(capturedOutIf, aos::String(cUplinkIfName));
+}
+
+TEST_F(NetworkManagerTest, Start_RestoresStoredNetworksWithoutDNSServer)
+{
+    const auto network1 = CreateTestNetworkInfo();
+    const auto network2 = CreateSecondTestNetworkInfo();
+
+    aos::StaticArray<aos::sm::networkmanager::NetworkInfo, aos::cMaxNumOwners> networks;
+    auto                                                                       instances
+        = std::make_unique<aos::StaticArray<aos::sm::networkmanager::InstanceNetworkInfo, aos::cMaxNumInstances>>();
+    networks.PushBack(network1);
+    networks.PushBack(network2);
+
+    RestartWithStoredState(networks, *instances, false);
+
+    EXPECT_CALL(mDNSName, RemoveOrphans(_))
+        .WillOnce(Invoke([](const aos::Array<aos::StaticString<aos::cIDLen>>& known) {
+            EXPECT_TRUE(known.IsEmpty());
+
+            return aos::ErrorEnum::eNone;
+        }));
+
+    EXPECT_CALL(mFirewall, RemoveOrphans(_, _))
+        .WillOnce(Invoke([&](const aos::Array<aos::StaticString<aos::cIDLen>>&,
+                             const aos::Array<MasqueradeParams>& knownMasquerades) {
+            EXPECT_EQ(knownMasquerades.Size(), 2U);
+            EXPECT_TRUE(knownMasquerades.ContainsIf([&](const MasqueradeParams& params) {
+                return params.mSubnet == network1.mSubnet && params.mOutIfName == cUplinkIfName;
+            }));
+            EXPECT_TRUE(knownMasquerades.ContainsIf([&](const MasqueradeParams& params) {
+                return params.mSubnet == network2.mSubnet && params.mOutIfName == cUplinkIfName;
+            }));
+
+            return aos::ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mFirewall, AddMasquerade(network1.mSubnet, aos::String(cUplinkIfName)))
+        .Times(AtLeast(1))
+        .WillRepeatedly(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mFirewall, AddMasquerade(network2.mSubnet, aos::String(cUplinkIfName)))
+        .Times(AtLeast(1))
+        .WillRepeatedly(Return(aos::ErrorEnum::eNone));
+
+    ExpectStoredNetworkLinksCreated(network1);
+    ExpectStoredNetworkLinksCreated(network2);
+    EXPECT_CALL(mDNSName, CreateServer(_, _)).Times(0);
+    EXPECT_CALL(mNetworkProvider, GetNodeNetworkParams(_, _, _)).Times(0);
+
+    ASSERT_EQ(mNetManager->Start(), aos::ErrorEnum::eNone);
+}
+
+TEST_F(NetworkManagerTest, Start_ContinuesWhenStoredNetworkFails)
+{
+    const auto network1 = CreateTestNetworkInfo();
+    const auto network2 = CreateSecondTestNetworkInfo();
+
+    aos::StaticArray<aos::sm::networkmanager::NetworkInfo, aos::cMaxNumOwners> networks;
+    auto                                                                       instances
+        = std::make_unique<aos::StaticArray<aos::sm::networkmanager::InstanceNetworkInfo, aos::cMaxNumInstances>>();
+    networks.PushBack(network1);
+    networks.PushBack(network2);
+
+    RestartWithStoredState(networks, *instances);
+
+    EXPECT_CALL(mDNSName, RemoveOrphans(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    EXPECT_CALL(mNetIfFactory, CreateBridge(network1.mBridgeIfName, _, _)).WillOnce(Return(aos::ErrorEnum::eFailed));
+    EXPECT_CALL(mNetIfFactory, CreateVlan(network1.mVlanIfName, _, _)).Times(0);
+    ExpectStoredNetworkLinksCreated(network2);
+
+    ASSERT_EQ(mNetManager->Start(), aos::ErrorEnum::eNone);
+}
+
+TEST_F(NetworkManagerTest, Start_StoredNetworkIsKeptAsUnitNetwork)
+{
+    const auto        network    = CreateTestNetworkInfo();
+    const aos::String instanceID = "test-instance";
+
+    aos::StaticArray<aos::sm::networkmanager::NetworkInfo, aos::cMaxNumOwners> networks;
+    auto                                                                       instances
+        = std::make_unique<aos::StaticArray<aos::sm::networkmanager::InstanceNetworkInfo, aos::cMaxNumInstances>>();
+    networks.PushBack(network);
+
+    RestartWithStoredState(networks, *instances);
+
+    EXPECT_CALL(mDNSName, RemoveOrphans(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    ExpectStoredNetworkLinksCreated(network);
+
+    ASSERT_EQ(mNetManager->Start(), aos::ErrorEnum::eNone);
+
+    EXPECT_CALL(mNetworkProvider, GetNodeNetworkParams(_, _, _)).Times(0);
+
+    ExpectStartInstanceOnStoredNetwork(instanceID, network.mNetworkID);
+
+    EXPECT_CALL(mDNSName, CreateServer(network.mNetworkID, _))
+        .WillOnce(Return(aos::RetWithError<DNSServerItf*> {&mDNSServer, aos::ErrorEnum::eNone}));
+    ExpectStartInstanceCalls();
+
+    ASSERT_EQ(mNetManager->StartInstanceNetwork(instanceID, network.mNetworkID), aos::ErrorEnum::eNone);
+
+    EXPECT_CALL(mTrafficMonitor, StopInstanceMonitoring(instanceID)).WillOnce(Return(aos::ErrorEnum::eNone));
+    ExpectDeleteInstanceCalls();
+    ExpectPersistInstanceCalls();
+    EXPECT_CALL(mNetns, DeleteNetworkNamespace(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetIf, DeleteLink(_)).Times(0);
+
+    EXPECT_EQ(mNetManager->StopInstanceNetwork(instanceID, network.mNetworkID), aos::ErrorEnum::eNone);
+
+    EXPECT_CALL(mStorage, RemoveInstanceNetworkInfo(instanceID)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetworkProvider, ReleaseInstanceNetwork(_, aos::String("test-node")))
+        .WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, RemoveNetworkInfo(_)).Times(0);
+    EXPECT_CALL(mNetworkProvider, ReleaseNodeNetwork(_, _)).Times(0);
+
+    EXPECT_EQ(mNetManager->ReleaseInstanceNetwork(instanceID, network.mNetworkID), aos::ErrorEnum::eNone);
+
+    EXPECT_CALL(mNetIf, DeleteLink(_)).Times(2).WillRepeatedly(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, RemoveNetworkInfo(network.mNetworkID)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetworkProvider, ReleaseNodeNetwork(network.mNetworkID, aos::String("test-node")))
+        .WillOnce(Return(aos::ErrorEnum::eNone));
+
+    UpdateUnitNetworks({});
+}
+
+TEST_F(NetworkManagerTest, Start_RemovesDNSServerOfNetworkWithoutRunningInstances)
+{
+    const auto network1 = CreateTestNetworkInfo();
+    const auto network2 = CreateSecondTestNetworkInfo();
+    const auto leftover = CreateLeftoverInstance(network1);
+
+    auto alive                     = CreateLeftoverInstance(network2);
+    alive.mInstanceID              = "alive-instance";
+    alive.mNetworkConfig.mHostname = "alive-host";
+    alive.mAllocatedParams.mIP     = "192.168.2.5";
+    alive.mHostIfName              = "veth-alive";
+
+    aos::StaticArray<aos::sm::networkmanager::NetworkInfo, aos::cMaxNumOwners> networks;
+    auto                                                                       instances
+        = std::make_unique<aos::StaticArray<aos::sm::networkmanager::InstanceNetworkInfo, aos::cMaxNumInstances>>();
+    networks.PushBack(network1);
+    networks.PushBack(network2);
+    instances->PushBack(leftover);
+    instances->PushBack(alive);
+
+    RestartWithStoredState(networks, *instances);
+
+    EXPECT_CALL(mDNSName, RemoveOrphans(_))
+        .WillOnce(Invoke([&](const aos::Array<aos::StaticString<aos::cIDLen>>& known) {
+            EXPECT_EQ(known.Size(), 2U);
+            EXPECT_TRUE(known.Contains(network1.mNetworkID));
+            EXPECT_TRUE(known.Contains(network2.mNetworkID));
+
+            return aos::ErrorEnum::eNone;
+        }));
+
+    ExpectStoredNetworkLinksCreated(network1);
+    ExpectStoredNetworkLinksCreated(network2);
+
+    ExpectLinkExists(alive.mHostIfName, LinkKindEnum::eVeth, network2.mBridgeIfName);
+    EXPECT_CALL(mNetns, IsNetworkNamespaceExist(alive.mInstanceID))
+        .WillRepeatedly(Return(aos::RetWithError<bool> {true, aos::ErrorEnum::eNone}));
+    EXPECT_CALL(mTrafficMonitor, StartInstanceMonitoring(alive.mInstanceID, _, _, _))
+        .WillOnce(Return(aos::ErrorEnum::eNone));
+
+    EXPECT_CALL(mDNSName, CreateServer(network1.mNetworkID, _))
+        .WillOnce(Return(aos::RetWithError<DNSServerItf*> {&mDNSServer, aos::ErrorEnum::eNone}));
+    EXPECT_CALL(mDNSName, CreateServer(network2.mNetworkID, _))
+        .WillOnce(Return(aos::RetWithError<DNSServerItf*> {&mDNSServer, aos::ErrorEnum::eNone}));
+    EXPECT_CALL(mDNSServer, RemoveHost(leftover.mInstanceID)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mFirewall, RemoveInstance(leftover.mInstanceID)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mNetns, DeleteNetworkNamespace(leftover.mInstanceID)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mStorage, UpdateInstanceNetworkInfo(_)).WillOnce(Return(aos::ErrorEnum::eNone));
+
+    EXPECT_CALL(mDNSName, RemoveServer(network1.mNetworkID)).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mDNSName, RemoveServer(network2.mNetworkID)).Times(0);
+
+    ASSERT_EQ(mNetManager->Start(), aos::ErrorEnum::eNone);
+
+    EXPECT_CALL(mDNSName, RemoveServer(_)).Times(AnyNumber()).WillRepeatedly(Return(aos::ErrorEnum::eNone));
 }
 
 TEST_F(NetworkManagerTest, Start_FailsWhenNoDefaultRoute)
