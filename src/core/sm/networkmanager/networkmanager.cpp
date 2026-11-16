@@ -524,6 +524,18 @@ Error NetworkManager::StopInstanceNetwork(const String& instanceID, const String
             return err;
         }
 
+        if (mUnitNetworks.Contains(networkID)) {
+            LOG_DBG() << "Last running instance on unit network, removing DNS server"
+                      << Log::Field("networkID", networkID);
+
+            if (auto errRemove = RemoveDNSServer(networkID); !errRemove.IsNone()) {
+                LOG_WRN() << "Failed to remove DNS server" << Log::Field("networkID", networkID)
+                          << Log::Field(errRemove);
+            }
+
+            return err;
+        }
+
         auto it = mNetworkProviders.Find(networkID);
         if (it != mNetworkProviders.end()) {
             LOG_DBG() << "Last running instance on network, clearing physical network"
@@ -1205,6 +1217,12 @@ void NetworkManager::RemoveNodeNetworkIfUnused(const String& networkID)
             return;
         }
 
+        if (mUnitNetworks.Contains(networkID)) {
+            LOG_DBG() << "Keep unit network" << Log::Field("networkID", networkID);
+
+            return;
+        }
+
         if (mPhysicalNetworks.Contains(networkID)) {
             if (auto err = ClearNetwork(it->mSecond); !err.IsNone()) {
                 LOG_WRN() << "Failed to clear network" << Log::Field("networkID", networkID) << Log::Field(err);
@@ -1735,17 +1753,26 @@ void NetworkManager::RemoveUnusedDNSServer(const String& instanceID, const Strin
         }
     }
 
-    if (mDNSServers.Find(networkID) == mDNSServers.end()) {
-        return;
-    }
-
-    LOG_DBG() << "Remove unused DNS server" << Log::Field("networkID", networkID);
-
-    if (auto err = mDNSName->RemoveServer(networkID); !err.IsNone()) {
+    if (auto err = RemoveDNSServer(networkID); !err.IsNone()) {
         LOG_ERR() << "Failed to remove DNS server" << Log::Field("networkID", networkID) << Log::Field(err);
     }
+}
+
+Error NetworkManager::RemoveDNSServer(const String& networkID)
+{
+    if (mDNSServers.Find(networkID) == mDNSServers.end()) {
+        return ErrorEnum::eNone;
+    }
+
+    LOG_DBG() << "Remove DNS server" << Log::Field("networkID", networkID);
 
     (void)mDNSServers.Remove(networkID);
+
+    if (auto err = mDNSName->RemoveServer(networkID); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error NetworkManager::AddInstanceToCache(const String& instanceID, const String& networkID)
@@ -1805,12 +1832,8 @@ Error NetworkManager::ClearNetwork(const NetworkInfo& networkInfo)
 
     Error err;
 
-    if (mDNSServers.Find(networkInfo.mNetworkID) != mDNSServers.end()) {
-        if (auto errRemove = mDNSName->RemoveServer(networkInfo.mNetworkID); !errRemove.IsNone() && err.IsNone()) {
-            err = AOS_ERROR_WRAP(errRemove);
-        }
-
-        (void)mDNSServers.Remove(networkInfo.mNetworkID);
+    if (auto errRemove = RemoveDNSServer(networkInfo.mNetworkID); !errRemove.IsNone() && err.IsNone()) {
+        err = errRemove;
     }
 
     if (auto errMasq = mFirewall->RemoveMasquerade(networkInfo.mSubnet, mUplinkIfName);

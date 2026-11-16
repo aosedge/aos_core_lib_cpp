@@ -268,6 +268,7 @@ private:
     RetWithError<bool> IsLinkExist(const String& ifName) const;
     RetWithError<bool> EnsureDNSServer(const String& networkID);
     void               RemoveUnusedDNSServer(const String& instanceID, const String& networkID);
+    Error              RemoveDNSServer(const String& networkID);
     Error              CreateNetwork(const NetworkInfo& network);
     Error              DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID);
     Error              GenerateIfName(String& ifName, const String& ifPrefix);
