@@ -45,7 +45,8 @@ public:
     ~NetworkManager();
 
     /**
-     * Initializes network manager.
+     * Initializes network manager: loads the stored node and instance networks and takes the stored node networks as
+     * unit networks until CM sends the unit networks update.
      *
      * @param allocator allocator to use for temporary objects.
      * @param storage storage interface.
@@ -64,7 +65,8 @@ public:
         aos::networkmanager::NetworkProviderItf& networkProvider, const String& nodeID);
 
     /**
-     * Starts network manager.
+     * Starts network manager: removes firewall and DNS orphans, restores the links of the unit networks and
+     * reconciles the stored instances. DNS servers are kept only for networks with running instances.
      *
      * @return Error.
      */
@@ -246,6 +248,8 @@ private:
     void  ReapplyBatchEntries(Array<StaticString<cIDLen>>& failedInstanceIDs);
     void  ClearBatchState();
     Error RemoveDNSOrphans();
+    Error RestoreUnitNetworks();
+    Error RemoveIdleDNSServers();
     Error PrepareBridgeParams(
         const String& networkID, const aos::InstanceNetworkAllocation& networkParams, BridgeParams& params) const;
     Error PrepareInstanceFirewallParams(const InstanceNetworkConfig& networkConfig,
