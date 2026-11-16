@@ -235,7 +235,6 @@ private:
     void  ReapplyBatchEntries(Array<StaticString<cIDLen>>& failedInstanceIDs);
     void  ClearBatchState();
     Error RemoveDNSOrphans();
-    Error AdoptDNSServer(const String& networkID);
     Error PrepareBridgeParams(
         const String& networkID, const aos::InstanceNetworkAllocation& networkParams, BridgeParams& params) const;
     Error PrepareInstanceFirewallParams(const InstanceNetworkConfig& networkConfig,
@@ -256,6 +255,8 @@ private:
     Error PushHostWithDomain(
         const String& host, const String& networkID, Array<StaticString<cHostNameLen>>& hosts) const;
     RetWithError<bool> IsLinkExist(const String& ifName) const;
+    RetWithError<bool> EnsureDNSServer(const String& networkID);
+    void               RemoveUnusedDNSServer(const String& instanceID, const String& networkID);
     Error              CreateNetwork(const NetworkInfo& network);
     Error              DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID);
     Error              GenerateIfName(String& ifName, const String& ifPrefix);

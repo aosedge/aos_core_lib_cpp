@@ -337,6 +337,19 @@ Error NetworkManager::StartInstanceNetwork(const String& instanceID, const Strin
         return err;
     }
 
+    bool dnsServerCreated = false;
+
+    Tie(dnsServerCreated, err) = EnsureDNSServer(networkID);
+    if (!err.IsNone()) {
+        return err;
+    }
+
+    auto cleanupDNSServer = DeferRelease(&instanceID, [this, networkID, dnsServerCreated, &err](const String* id) {
+        if (!err.IsNone() && dnsServerCreated) {
+            RemoveUnusedDNSServer(*id, networkID);
+        }
+    });
+
     err = AddInstanceToNetwork(instanceID, networkID, cachedInfo->mNetworkConfig, cachedInfo->mAllocatedParams);
 
     if (err.IsNone()) {
@@ -1493,7 +1506,7 @@ Error NetworkManager::ReconcileInstances()
         if (alive) {
             err = InitInstance(entry.mInstanceID, entry.mNetworkID);
             if (err.IsNone()) {
-                if (auto dnsErr = AdoptDNSServer(entry.mNetworkID); !dnsErr.IsNone()) {
+                if (auto dnsErr = EnsureDNSServer(entry.mNetworkID).mError; !dnsErr.IsNone()) {
                     LOG_WRN() << "Failed to adopt DNS server for running instance"
                               << Log::Field("networkID", entry.mNetworkID) << Log::Field(dnsErr);
                 }
@@ -1505,7 +1518,7 @@ Error NetworkManager::ReconcileInstances()
             }
         }
 
-        err = AdoptDNSServer(entry.mNetworkID);
+        err = EnsureDNSServer(entry.mNetworkID).mError;
         if (!err.IsNone()) {
             LOG_WRN() << "Failed to adopt DNS server for leftover cleanup" << Log::Field("networkID", entry.mNetworkID)
                       << Log::Field(err);
@@ -1630,7 +1643,7 @@ Error NetworkManager::RemoveDNSOrphans()
     return ErrorEnum::eNone;
 }
 
-Error NetworkManager::AdoptDNSServer(const String& networkID)
+RetWithError<bool> NetworkManager::EnsureDNSServer(const String& networkID)
 {
     NetworkInfo networkInfo;
 
@@ -1638,21 +1651,23 @@ Error NetworkManager::AdoptDNSServer(const String& networkID)
         LockGuard lock {mMutex};
 
         if (mDNSServers.Find(networkID) != mDNSServers.end()) {
-            return ErrorEnum::eNone;
+            return {false, ErrorEnum::eNone};
         }
 
         auto it = mNetworkProviders.Find(networkID);
         if (it == mNetworkProviders.end()) {
-            return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "network provider not found"));
+            return {false, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "network provider not found"))};
         }
 
         networkInfo = it->mSecond;
     }
 
+    LOG_DBG() << "Create DNS server" << Log::Field("networkID", networkID);
+
     DNSServerParams params;
 
     if (auto err = PrepareDNSServerParams(networkInfo, params); !err.IsNone()) {
-        return err;
+        return {false, err};
     }
 
     DNSServerItf* handle = nullptr;
@@ -1660,16 +1675,40 @@ Error NetworkManager::AdoptDNSServer(const String& networkID)
 
     Tie(handle, err) = mDNSName->CreateServer(networkID, params);
     if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        return {false, AOS_ERROR_WRAP(err)};
     }
 
     LockGuard lock {mMutex};
 
     if (auto setErr = mDNSServers.Set(networkID, handle); !setErr.IsNone()) {
-        return AOS_ERROR_WRAP(setErr);
+        return {false, AOS_ERROR_WRAP(setErr)};
     }
 
-    return ErrorEnum::eNone;
+    return {true, ErrorEnum::eNone};
+}
+
+void NetworkManager::RemoveUnusedDNSServer(const String& instanceID, const String& networkID)
+{
+    LockGuard lock {mMutex};
+
+    // Another instance may have started on the network meanwhile and already uses the server.
+    if (auto network = mRuntimeCache.Find(networkID); network != mRuntimeCache.end()) {
+        if (network->mSecond.ContainsIf([&instanceID](const auto& item) { return item.mFirst != instanceID; })) {
+            return;
+        }
+    }
+
+    if (mDNSServers.Find(networkID) == mDNSServers.end()) {
+        return;
+    }
+
+    LOG_DBG() << "Remove unused DNS server" << Log::Field("networkID", networkID);
+
+    if (auto err = mDNSName->RemoveServer(networkID); !err.IsNone()) {
+        LOG_ERR() << "Failed to remove DNS server" << Log::Field("networkID", networkID) << Log::Field(err);
+    }
+
+    (void)mDNSServers.Remove(networkID);
 }
 
 Error NetworkManager::AddInstanceToCache(const String& instanceID, const String& networkID)
@@ -2049,43 +2088,6 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
     // Masquerade is a per-network property (one rule per subnet), so it is
     // installed here on network creation rather than per instance.
     err = mFirewall->AddMasquerade(network.mSubnet, mUplinkIfName);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    auto cleanupMasquerade = DeferRelease(&network, [this, &err](const NetworkInfo* network) {
-        if (!err.IsNone()) {
-            if (auto errMasq = mFirewall->RemoveMasquerade(network->mSubnet, mUplinkIfName); !errMasq.IsNone()) {
-                LOG_ERR() << "Failed to remove masquerade on CreateNetwork rollback"
-                          << Log::Field("networkID", network->mNetworkID) << Log::Field(errMasq);
-            }
-        }
-    });
-
-    DNSServerParams dnsParams;
-
-    err = PrepareDNSServerParams(network, dnsParams);
-    if (!err.IsNone()) {
-        return err;
-    }
-
-    DNSServerItf* dnsServer = nullptr;
-
-    Tie(dnsServer, err) = mDNSName->CreateServer(network.mNetworkID, dnsParams);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    auto cleanupDNSServer = DeferRelease(&network, [this, &err](const NetworkInfo* network) {
-        if (!err.IsNone()) {
-            if (auto errRemove = mDNSName->RemoveServer(network->mNetworkID); !errRemove.IsNone()) {
-                LOG_ERR() << "Failed to remove DNS server on CreateNetwork rollback"
-                          << Log::Field("networkID", network->mNetworkID) << Log::Field(errRemove);
-            }
-        }
-    });
-
-    err = mDNSServers.Set(network.mNetworkID, dnsServer);
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
