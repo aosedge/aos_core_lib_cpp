@@ -34,26 +34,28 @@ classDiagram
 After waiting for the instances to become active, the instances are checked per update item, using the item ID and
 version:
 
-* if at least one instance has the `eIntegrity` error, the item is set to `eFailed` with this error, even if the other
-  instances are not failed;
+* if at least one instance has the `eIntegrity` error, the item state is not changed, even if the other instances are
+  failed. The item is recovered by the changed instances statuses;
 * otherwise, if all the instances are failed, the item is set to `eFailed` with the error of the first one;
 * otherwise, the item state is not changed.
 
-If there are items with the `eIntegrity` error, the update goes to the `eRecovering` state instead of `eFinalizing`:
+The items are never set to `eFailed` with the `eIntegrity` error: the instances statuses report it.
 
-* the update items in `eFailed` state with the `eIntegrity` error are installed again. The image manager validates the
-  blobs of a stored item and downloads the missing or corrupted ones. The items failed with other errors are not;
-* the update goes back to the `eLaunching` state, which runs all the instances again, and to `eWaitingActive`.
+The recovery is started only by changed instances statuses that contain an instance failed with the `eIntegrity` error,
+reported by the nodes or set by the CM launcher, for example during an update or after the SM or CM restart. The
+recovery starts in the update thread when no update is running, so the changes made during an update start it after the
+update. The items of the current desired status are recovered. A desired status that requires no update becomes the
+current one and is stored if it differs from the current one (the protocol part is not compared). After a restart, the
+stored desired status is used, so the items are recovered offline as well.
 
-The recovery is performed once per update. If the instances fail again, their items are set to `eFailed` again, the
-update is finalized and their states are reported in the unit status. The recovery can be canceled the same way as the
-install, and it is resumed after a restart based on the stored items statuses.
+The update starts in the `eRecovering` state:
 
-Outside an update, the recovery is started by the instances statuses reported by the nodes or set by the CM launcher,
-for example after the SM or CM restart, and also by a desired status that requires no update. The last desired status is
-kept for it: a desired status that requires no update is stored and becomes the current one, and after a restart the
-stored one is used until a new one arrives. If an item of this desired status is in `eInstalled` state and has an
-instance failed with the `eIntegrity` error, the item is set to `eFailed` with this error and the update starts in the
-`eRecovering` state, which installs the item again and goes on as above. The instances statuses are only checked in the
-update thread when no update is running: on change and at least once per minute while idle. If the recovery fails, the
-item stays `eFailed` and neither the following instances statuses nor the same desired status recover it again.
+* the items to recover are found by the current instances statuses: the `eInstalled` items with an instance failed with
+  the `eIntegrity` error. They are installed again: the image manager validates the blobs of a stored item and downloads
+  the missing or corrupted ones;
+* the update goes to the `eLaunching` state, which runs all the instances again, to `eWaitingActive` and `eFinalizing`.
+
+The instances statuses changed by the recovery itself don't start the recovery again: if the instances fail again with
+the `eIntegrity` error, the items stay installed and the failed instances are reported in the unit status. The recovery
+is tried again by the next instances statuses change, for example after the SM restart. The recovery can be canceled
+the same way as the install, and it is resumed after a restart in the `eRecovering` state.
