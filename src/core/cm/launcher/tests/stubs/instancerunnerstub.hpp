@@ -8,6 +8,8 @@
 #define AOS_CM_LAUNCHER_STUBS_INSTANCERUNNERSTUB_HPP_
 
 #include <cassert>
+#include <chrono>
+#include <condition_variable>
 #include <gmock/gmock.h>
 #include <map>
 #include <memory>
@@ -50,6 +52,14 @@ public:
 
     const std::map<std::string, NodeRunRequest>& GetRunRequests() const { return mNodeInstances; }
 
+    bool WaitForRunRequests(
+        const std::map<std::string, NodeRunRequest>& expectedRequests, std::chrono::milliseconds timeout) const
+    {
+        std::unique_lock lock {mMutex};
+
+        return mRunRequestsCondVar.wait_for(lock, timeout, [&]() { return mNodeInstances == expectedRequests; });
+    }
+
     void SetAutoUpdateStatuses(bool enable)
     {
         std::lock_guard lock {mMutex};
@@ -84,17 +94,23 @@ public:
     Error UpdateInstances(const String& nodeID, const Array<aos::InstanceInfo>& stopInstances,
         const Array<aos::InstanceInfo>& startInstances) override
     {
-        // Update the map with nodeID -> node run request
-        NodeRunRequest& nodeRequest = mNodeInstances[nodeID.CStr()];
-        nodeRequest.mStopInstances.clear();
-        nodeRequest.mStartInstances.clear();
+        {
+            std::lock_guard lock {mMutex};
 
-        for (const auto& inst : stopInstances) {
-            nodeRequest.mStopInstances.push_back(inst);
-        }
+            // Update the map with nodeID -> node run request
+            NodeRunRequest& nodeRequest = mNodeInstances[nodeID.CStr()];
+            nodeRequest.mStopInstances.clear();
+            nodeRequest.mStartInstances.clear();
 
-        for (const auto& inst : startInstances) {
-            nodeRequest.mStartInstances.push_back(inst);
+            for (const auto& inst : stopInstances) {
+                nodeRequest.mStopInstances.push_back(inst);
+            }
+
+            for (const auto& inst : startInstances) {
+                nodeRequest.mStartInstances.push_back(inst);
+            }
+
+            mRunRequestsCondVar.notify_all();
         }
 
         if (mStatusReceiver != nullptr) {
@@ -159,7 +175,8 @@ private:
         }
     }
 
-    mutable std::mutex mMutex;
+    mutable std::mutex              mMutex;
+    mutable std::condition_variable mRunRequestsCondVar;
 
     std::map<std::string, NodeRunRequest> mNodeInstances {};
     InstanceStatusReceiverItf*            mStatusReceiver {};

@@ -1538,15 +1538,11 @@ TEST_F(CMLauncherTest, Balancing)
                 mMonitoringProvider.SetAverageMonitoring(nodeID.c_str(), monitoring);
             }
 
-            // Get current notification count before triggering alert
-            size_t currentNotifyCount = instanceStatusListener.GetNotifyCount();
-
             mAlertsProvider.TriggerSystemQuotaAlert();
 
-            // Wait for rebalancing to complete (expect at least 2 more notifications:
-            // one from rebalancing and one from status updates after rebalancing)
+            // Wait for rebalancing to send the expected run requests
             using namespace std::chrono_literals;
-            ASSERT_TRUE(instanceStatusListener.WaitForNotifyCount(currentNotifyCount + 3, 2000ms));
+            ASSERT_TRUE(mInstanceRunner.WaitForRunRequests(testItem.mExpectedRunRequests, 2000ms));
         }
 
         ASSERT_TRUE(mLauncher.Stop().IsNone());
