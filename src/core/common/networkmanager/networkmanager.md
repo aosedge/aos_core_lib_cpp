@@ -2,7 +2,7 @@
 
 This document describes the network manager interfaces shared between CM (Communication Manager) and SM (Service
 Manager). They define the contract for allocating and releasing network resources, synchronizing network state on
-(re)connect and delivering deferred firewall rule updates.
+(re)connect, delivering deferred firewall rule updates and announcing the networks of the unit.
 
 The overall networking architecture is described in the public documentation:
 
@@ -20,6 +20,10 @@ The SM side implementation of this contract is described in [SM network manager]
 CM is the allocator: it hands out subnets, IP addresses and per-instance firewall policy and keeps them consistent
 across the unit. SM is the runtime owner: it asks CM what an instance network should look like and builds it on the
 node.
+
+CM also keeps the set of networks that exist in the unit and announces it to every node. SM keeps every network of
+this set present on its node, whether or not the node runs instances of it, so instances of different networks on
+different nodes can reach each other and an instance can move to another node without waiting for its network.
 
 The interfaces are placed in `common` because both sides depend on them:
 
@@ -54,6 +58,7 @@ classDiagram
     class PendingUpdateHandlerItf ["aos::networkmanager::PendingUpdateHandlerItf"] {
         <<interface>>
         OnPendingFirewallUpdate()
+        OnUnitNetworksUpdate()
     }
 
     %% SM -> CM requests
@@ -73,7 +78,8 @@ Network provider interface used by SM to request network resources from CM.
 ### GetNodeNetworkParams
 
 Returns node network parameters (`NetworkParams`: subnet, bridge IP, VLAN ID) for the given network and node. SM calls
-it once per network when the first instance of that network is created on the node.
+it once per network when the network is not known on the node yet: when CM announces it in the unit networks (see
+[Unit networks](#unit-networks)) or when the first instance of that network is created on the node.
 
 ### AllocateInstanceNetwork
 
@@ -91,7 +97,8 @@ Releases instance network resources on CM. SM calls it when the instance network
 
 ### ReleaseNodeNetwork
 
-Releases node network resources on CM. SM calls it when the last instance of the network on the node is released.
+Releases node network resources on CM. SM calls it when the network is not in the unit networks and the node has no
+instances of it: when the network leaves the unit networks or when its last instance on the node is released.
 
 ### SyncNetworkState
 
@@ -102,7 +109,7 @@ not drift apart after restarts or connection interruptions.
 
 ## aos::networkmanager::PendingUpdateHandlerItf
 
-Handler interface for deferred firewall update notifications.
+Handler interface for CM -> SM notifications: deferred firewall updates and unit networks updates.
 
 ### OnPendingFirewallUpdate
 
@@ -110,6 +117,11 @@ Called when the firewall rules of an instance change. The update (`PendingFirewa
 identifier and the instance's whole current rule set, resolved from all of its allowed connections against the current
 target addresses. The receiver has to replace the rules it holds for the instance with these, so rules to released or
 re-addressed targets are removed and rules to new addresses are added.
+
+### OnUnitNetworksUpdate
+
+Called with the IDs of all networks that exist in the unit. The set is complete, not a delta: the receiver replaces the
+set it holds with it. CM sends it when SM subscribes and whenever the set changes.
 
 ## Deferred firewall rules
 
@@ -136,6 +148,37 @@ sequenceDiagram
 
     CM ->> SM_A: OnPendingFirewallUpdate(nodeA, {instance1, whole rule set})
     SM_A ->> SM_A: replace rules, update instance1 firewall
+```
+
+## Unit networks
+
+CM announces the networks that exist in the unit to every node via `PendingUpdateHandlerItf::OnUnitNetworksUpdate`. SM
+stays the initiator of node network creation: for every announced network it does not have yet, it requests the node
+network parameters with `GetNodeNetworkParams` and creates the network links. When a network leaves the set, SM releases
+it with `ReleaseNodeNetwork` once the node has no instances of it.
+
+```mermaid
+sequenceDiagram
+    participant CM
+    participant SM_A as SM (node A)
+    participant SM_B as SM (node B)
+
+    CM ->> SM_A: OnUnitNetworksUpdate(nodeA, [network1, network2])
+    CM ->> SM_B: OnUnitNetworksUpdate(nodeB, [network1, network2])
+
+    loop announced networks not known on the node
+        SM_B ->> CM: GetNodeNetworkParams(network2, nodeB)
+        CM -->> SM_B: NetworkParams
+        SM_B ->> SM_B: create bridge/VLAN
+    end
+
+    CM ->> SM_A: OnUnitNetworksUpdate(nodeA, [network1])
+    CM ->> SM_B: OnUnitNetworksUpdate(nodeB, [network1])
+
+    alt no instances of network2 on node B
+        SM_B ->> SM_B: remove bridge/VLAN
+        SM_B ->> CM: ReleaseNodeNetwork(network2, nodeB)
+    end
 ```
 
 ## Types
