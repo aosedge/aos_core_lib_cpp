@@ -213,6 +213,8 @@ Error NetworkManager::CreateInstanceNetwork(
         if (auto err = mInstanceNetworkInfos.Emplace(instanceID); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
+
+        mInstanceNetworkInfos.Find(instanceID)->mSecond.mNetworkID = networkID;
     }
 
     Error err;
@@ -312,6 +314,10 @@ Error NetworkManager::StartInstanceNetwork(const String& instanceID, const Strin
 
         if (itInfo->mSecond.mNetworkID != networkID) {
             return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "networkID mismatch"));
+        }
+
+        if (itInfo->mSecond.mInstanceID.IsEmpty()) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eWrongState, "instance network is being created"));
         }
 
         *cachedInfo = itInfo->mSecond;
@@ -556,6 +562,10 @@ Error NetworkManager::ReleaseInstanceNetwork(const String& instanceID, const Str
                 return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "networkID mismatch"));
             }
 
+            if (itInfo->mSecond.mInstanceID.IsEmpty()) {
+                return AOS_ERROR_WRAP(Error(ErrorEnum::eWrongState, "instance network is being created"));
+            }
+
             instanceIdent = itInfo->mSecond.mNetworkConfig.mInstanceIdent;
             found         = true;
             (void)mInstanceNetworkInfos.Remove(instanceID);
@@ -575,35 +585,7 @@ Error NetworkManager::ReleaseInstanceNetwork(const String& instanceID, const Str
         }
     }
 
-    {
-        LockGuard lock {mMutex};
-
-        for (const auto& info : mInstanceNetworkInfos) {
-            if (info.mSecond.mNetworkID == networkID) {
-                return ErrorEnum::eNone;
-            }
-        }
-
-        if (auto runtimeNetwork = mRuntimeCache.Find(networkID);
-            runtimeNetwork != mRuntimeCache.end() && !runtimeNetwork->mSecond.IsEmpty()) {
-            return ErrorEnum::eNone;
-        }
-
-        if (mNetworkProviders.Find(networkID) == mNetworkProviders.end()) {
-            return ErrorEnum::eNone;
-        }
-
-        (void)mNetworkProviders.Remove(networkID);
-    }
-
-    if (auto err = mStorage->RemoveNetworkInfo(networkID); !err.IsNone()) {
-        LOG_WRN() << "Failed to remove network info from storage" << Log::Field("networkID", networkID)
-                  << Log::Field(err);
-    }
-
-    if (auto err = mNetworkProvider->ReleaseNodeNetwork(networkID, mNodeID); !err.IsNone()) {
-        LOG_WRN() << "Failed to release node network on CM" << Log::Field("networkID", networkID) << Log::Field(err);
-    }
+    RemoveNodeNetworkIfUnused(networkID);
 
     return ErrorEnum::eNone;
 }
@@ -882,6 +864,8 @@ Error NetworkManager::PrepareUpdateItemNetworkParams(
 
 Error NetworkManager::EnsureNodeNetwork(const String& networkID)
 {
+    LockGuard nodeNetworkLock {mNodeNetworkMutex};
+
     {
         LockGuard lock {mMutex};
 
@@ -1201,6 +1185,59 @@ Error NetworkManager::EnsureNodeNetworkPhysical(const String& networkID)
     }
 
     return ErrorEnum::eNone;
+}
+
+void NetworkManager::RemoveNodeNetworkIfUnused(const String& networkID)
+{
+    LockGuard nodeNetworkLock {mNodeNetworkMutex};
+
+    {
+        LockGuard lock {mMutex};
+
+        auto it = mNetworkProviders.Find(networkID);
+        if (it == mNetworkProviders.end()) {
+            return;
+        }
+
+        if (IsNodeNetworkInUse(networkID)) {
+            LOG_DBG() << "Node network is still in use" << Log::Field("networkID", networkID);
+
+            return;
+        }
+
+        if (mPhysicalNetworks.Contains(networkID)) {
+            if (auto err = ClearNetwork(it->mSecond); !err.IsNone()) {
+                LOG_WRN() << "Failed to clear network" << Log::Field("networkID", networkID) << Log::Field(err);
+            }
+
+            (void)mPhysicalNetworks.Remove(networkID);
+        }
+
+        (void)mNetworkProviders.Remove(networkID);
+    }
+
+    LOG_DBG() << "Release node network" << Log::Field("networkID", networkID);
+
+    if (auto err = mStorage->RemoveNetworkInfo(networkID); !err.IsNone()) {
+        LOG_WRN() << "Failed to remove network info from storage" << Log::Field("networkID", networkID)
+                  << Log::Field(err);
+    }
+
+    if (auto err = mNetworkProvider->ReleaseNodeNetwork(networkID, mNodeID); !err.IsNone()) {
+        LOG_WRN() << "Failed to release node network on CM" << Log::Field("networkID", networkID) << Log::Field(err);
+    }
+}
+
+bool NetworkManager::IsNodeNetworkInUse(const String& networkID) const
+{
+    if (mInstanceNetworkInfos.ContainsIf(
+            [&networkID](const auto& item) { return item.mSecond.mNetworkID == networkID; })) {
+        return true;
+    }
+
+    auto network = mRuntimeCache.Find(networkID);
+
+    return network != mRuntimeCache.end() && !network->mSecond.IsEmpty();
 }
 
 Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID)
@@ -2319,6 +2356,62 @@ void NetworkManager::SetFirewallApplied(const String& instanceID, bool applied)
 
     if (auto err = mUnappliedFirewalls.PushBack(instanceID); !err.IsNone()) {
         LOG_ERR() << "Failed to track unapplied firewall" << Log::Field("instanceID", instanceID) << Log::Field(err);
+    }
+}
+
+void NetworkManager::OnUnitNetworksUpdate(const String& nodeID, const Array<StaticString<cIDLen>>& networkIDs)
+{
+    if (nodeID != mNodeID) {
+        LOG_WRN() << "Ignoring unit networks update for different node" << Log::Field("expectedNodeID", mNodeID)
+                  << Log::Field("receivedNodeID", nodeID);
+
+        return;
+    }
+
+    LOG_DBG() << "Received unit networks update" << Log::Field("count", networkIDs.Size());
+
+    auto droppedNetworks = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumOwners>>(mAllocator);
+    if (!droppedNetworks) {
+        LOG_ERR() << "Failed to allocate dropped networks" << Log::Field(ErrorEnum::eNoMemory);
+
+        return;
+    }
+
+    {
+        LockGuard lock {mMutex};
+
+        if (auto err = mUnitNetworks.Assign(networkIDs); !err.IsNone()) {
+            LOG_ERR() << "Failed to set unit networks" << Log::Field(AOS_ERROR_WRAP(err));
+
+            return;
+        }
+
+        for (const auto& [networkID, _] : mNetworkProviders) {
+            if (mUnitNetworks.Contains(networkID)) {
+                continue;
+            }
+
+            if (auto err = droppedNetworks->PushBack(networkID); !err.IsNone()) {
+                LOG_ERR() << "Failed to add dropped network" << Log::Field("networkID", networkID)
+                          << Log::Field(AOS_ERROR_WRAP(err));
+            }
+        }
+    }
+
+    for (const auto& networkID : *droppedNetworks) {
+        RemoveNodeNetworkIfUnused(networkID);
+    }
+
+    for (const auto& networkID : networkIDs) {
+        if (auto err = EnsureNodeNetwork(networkID); !err.IsNone()) {
+            LOG_ERR() << "Failed to ensure unit network" << Log::Field("networkID", networkID) << Log::Field(err);
+
+            continue;
+        }
+
+        if (auto err = EnsureNodeNetworkPhysical(networkID); !err.IsNone()) {
+            LOG_ERR() << "Failed to create unit network" << Log::Field("networkID", networkID) << Log::Field(err);
+        }
     }
 }
 

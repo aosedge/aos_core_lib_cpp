@@ -51,9 +51,10 @@ struct PendingFirewallUpdate {
 };
 
 /**
- * Handler for pending firewall update notifications.
+ * Handler for CM -> SM network notifications: pending firewall updates and unit networks updates.
  * CM side: CM NetworkManager notifies SMController which pushes to stream.
- * SM side: SM NetworkManager implements this to apply resolved pending rules.
+ * SM side: SM NetworkManager implements this to apply resolved pending rules and to keep the node networks in sync
+ * with the networks of the unit.
  */
 class PendingUpdateHandlerItf {
 public:
@@ -69,6 +70,17 @@ public:
      * @param update pending firewall update.
      */
     virtual void OnPendingFirewallUpdate(const String& nodeID, const PendingFirewallUpdate& update) = 0;
+
+    /**
+     * Called with the full set of network IDs that exist in the unit.
+     *
+     * The set is complete, not a delta: a receiver has to replace the unit networks it holds with this set. Sent when
+     * SM subscribes and whenever the set changes.
+     *
+     * @param nodeID node ID the update is addressed to.
+     * @param networkIDs IDs of all networks of the unit.
+     */
+    virtual void OnUnitNetworksUpdate(const String& nodeID, const Array<StaticString<cIDLen>>& networkIDs) = 0;
 };
 
 /** @}*/
