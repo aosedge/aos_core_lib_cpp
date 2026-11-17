@@ -7,21 +7,20 @@
 #define AOS_CORE_SM_LAUNCHER_LAUNCHER_HPP_
 
 #include <core/common/cloudconnection/itf/cloudconnection.hpp>
-#include <core/common/crypto/itf/uuid.hpp>
 #include <core/common/imagemanager/itf/iteminfoprovider.hpp>
 #include <core/common/imagemanager/itf/itemstatusprovider.hpp>
 #include <core/common/instancestatusprovider/itf/instancestatusprovider.hpp>
 #include <core/common/monitoring/itf/instanceinfoprovider.hpp>
 #include <core/common/ocispec/itf/ocispec.hpp>
-#include <core/common/tools/map.hpp>
 #include <core/common/tools/memory.hpp>
 #include <core/common/tools/thread.hpp>
-#include <core/common/tools/timer.hpp>
 #include <core/common/types/instance.hpp>
 #include <core/sm/imagemanager/itf/imagemanager.hpp>
 #include <core/sm/networkmanager/itf/networkmanager.hpp>
 #include <core/sm/resourcemanager/itf/resourceinfoprovider.hpp>
 
+#include "instanceregistry.hpp"
+#include "instancerunner.hpp"
 #include "itf/instanceidprovider.hpp"
 #include "itf/instancestatusreceiver.hpp"
 #include "itf/launcher.hpp"
@@ -29,6 +28,10 @@
 #include "itf/runtimeinfoprovider.hpp"
 #include "itf/sender.hpp"
 #include "itf/storage.hpp"
+#include "offlinehandler.hpp"
+#include "runtimemanager.hpp"
+#include "statusnotifier.hpp"
+#include "updateiteminstaller.hpp"
 
 namespace aos::sm::launcher {
 
@@ -37,13 +40,17 @@ namespace aos::sm::launcher {
  */
 
 /**
- * Launcher implementation.
+ * Launcher: runs the node instances requested by the CM.
+ *
+ * The launcher runs one job at a time on its thread: an update request, the repair of the instances reported broken,
+ * the stop of the instances whose offline TTL expired and the runtimes reboot. The jobs never overlap, so a reboot or
+ * an offline TTL never interrupts a launch.
  */
 class Launcher : public LauncherItf,
                  public InstanceStatusReceiverItf,
                  public RuntimeInfoProviderItf,
                  public monitoring::InstanceInfoProviderItf,
-                 private cloudconnection::ConnectionListenerItf {
+                 private OfflineCheckListenerItf {
 public:
     /**
      * Initializes launcher.
@@ -162,120 +169,54 @@ public:
     Error GetRuntimesInfos(Array<RuntimeInfo>& runtimes) const override;
 
 private:
-    struct InstanceData {
-        InstanceInfo         mInfo;
-        InstanceStatus       mStatus;
-        StaticString<cIDLen> mInstanceID;
-        Duration             mOfflineTTL;
-        bool                 mConfigsLoaded {};
+    static constexpr auto cThreadTaskSize = 512;
+
+    struct UpdateRequest {
+        StaticArray<InstanceIdent, cMaxNumInstances> mStopInstances;
+        InstanceInfoArray                            mStartInstances;
     };
 
-    struct UpdateItemInfo {
-        StaticString<cIDLen>      mItemID;
-        StaticString<cVersionLen> mVersion;
-    };
+    void OnOfflineCheck() override;
 
-    struct InstallItem : imagemanager::UpdateItemInfo {
-        Error mError;
-    };
-
-    using AddInstanceTaskFunc = Error (Launcher::*)(InstanceData& instanceData);
-
-    static constexpr auto cOIDNamespace         = "6ba7b812-9dad-11d1-80b4-00c04fd430c8";
-    static constexpr auto cThreadTaskSize       = 512;
-    static constexpr auto cMaxNumSubscribers    = 4;
-    static constexpr auto cCancelInstallsPeriod = Time::cMilliseconds * 100;
-
-    void  OnConnect() override;
-    void  OnDisconnect() override;
-    void  RunRebootThread();
-    void  HandleOfflineTTLs();
-    Error LoadInstanceData(InstanceData& instanceData);
-    void  LoadInstancesData(const Array<InstanceInfo>& storedInstances);
-    Error HandleComponentStatus(const aos::InstanceStatus& status);
-    void  UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances);
-    void  StopInstances(const Array<InstanceIdent>& stopInstances);
-    Error AddStopInstanceTask(InstanceData& instanceData);
-    void  StopNetworks(const Array<InstanceIdent>& stopInstances);
-    Error AddStopNetworkTask(InstanceData& instanceData);
-    Error StopInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData) const;
-    void  StopAllInstances();
-    void  StopAllNetworks();
-    Error PrepareInstance(InstanceData& instanceData);
-    void  PrepareInstances(const Array<InstanceInfo>& startInstances, const Array<InstallItem>& installItems,
-         const Error& installError, Array<InstanceIdent>& preparedInstances);
-    Error AddPrepareInstanceTask(InstanceData& instanceData);
-    void  StartNetworks(const Array<InstanceInfo>& startInstances);
-    Error AddStartNetworkTask(InstanceData& instanceData);
-    void  StartInstances(const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& startedInstances);
-    void  RepairInstances(
-         const Array<InstanceIdent>& instances, Array<InstallItem>& repairedItems, AddInstanceTaskFunc addRetryTask);
-    void  RepairModuleStartInstances();
-    Error AddStartInstanceTask(InstanceData& instanceData);
-    Error StartInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData) const;
+    void RunJobs();
+    void RunUpdate(UniquePtr<UpdateRequest>& request);
+    void LaunchInstances(
+        Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances, bool moduleStart);
+    void AddStartInstances(
+        const Array<InstanceInfo>& startInstances, const Array<InstallItem>& installItems, const Error& installError);
+    bool RepairBrokenInstances();
+    void StopExpiredInstances();
+    void ArmOfflineHandler();
+    void LoadStoredInstances(const Array<InstanceInfo>& storedInstances);
+    void StopAllInstances();
+    void RemoveInstances(const Array<InstanceData*>& instances);
+    template <typename T>
+    void  FindInstances(const Array<T>& idents, Array<InstanceData*>& instances);
     Error AppendInstancesWithModifiedParams(
         const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& stopInstances);
-    Error StartLaunch();
-    void  FinishLaunch();
-    void  GetRemoveUpdateItems(const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances,
-         Array<UpdateItemInfo>& removeItems);
-    void  RemoveUpdateItems(const Array<UpdateItemInfo>& removeItems);
-    Error InstallUpdateItems(const Array<InstanceInfo>& startInstances, Array<InstallItem>& installItems);
-    Error InstallUpdateItem(const imagemanager::UpdateItemInfo& item);
-    void  CancelInstalls();
-    RetWithError<InstanceData*> AddInstanceData(const InstanceInfo& instanceInfo);
-    Error                       ReleaseInstance(const InstanceData& instanceData);
-    void                        RemoveInstances(const Array<InstanceIdent>& instances);
-    void  SetInstanceState(InstanceData& instance, const InstanceState& state, const Error& error = ErrorEnum::eNone);
-    Error LoadInstanceConfigs(const InstanceInfo& instance, oci::ItemConfig& itemConfig, oci::ImageConfig& imageConfig);
-    Error GetInstanceNetworkConfig(const InstanceInfo& instance, const oci::ItemConfig& itemConfig,
-        const oci::ImageConfig& imageConfig, networkmanager::InstanceNetworkConfig& networkConfig);
-    Error CreateNetwork(
-        const InstanceData& instanceData, const oci::ItemConfig& itemConfig, const oci::ImageConfig& imageConfig);
+    Error HandleComponentStatus(const aos::InstanceStatus& status);
+    void  HandleBrokenInstance(const InstanceStatus& status);
+    void  NotifyAll();
 
-    InstanceData*       FindInstanceData(const InstanceIdent& instanceIdent);
-    const InstanceData* FindInstanceData(const InstanceIdent& instanceIdent) const;
-    InstanceData*       FindInstanceDataByID(const String& instanceID);
-    RuntimeItf*         FindInstanceRuntime(const String& runtimeID);
-    const RuntimeItf*   FindInstanceRuntime(const String& runtimeID) const;
-    RuntimeItf*         FindInstanceRuntime(const InstanceIdent& instanceIdent);
-    const RuntimeItf*   FindInstanceRuntime(const InstanceIdent& instanceIdent) const;
-    Optional<Duration>  GetMinOfflineTTL() const;
-    void                StartTTLTimer();
-    void                StopExpiredInstances(UniqueLock<Mutex>& lock);
-    void                SendNodeInstancesStatuses();
-    Error               InitInstances(const Array<InstanceInfo>& instancesInfo);
-
-    AllocatorItf*                                                         mAllocator {};
-    StaticArray<instancestatusprovider::ListenerItf*, cMaxNumSubscribers> mSubscribers;
-    Thread<cThreadTaskSize>                                               mThread;
-    Thread<cThreadTaskSize>                                               mRebootThread;
-    Timer                                                                 mOfflineTTLHandler;
-    ThreadPool<cMaxNumConcurrentItems, cMaxNumInstances, cThreadTaskSize> mLaunchPool;
-    ThreadPool<cMaxNumConcurrentItems, cMaxNumInstances, cThreadTaskSize> mOfflineTTLPool;
-    mutable Mutex                                                         mMutex;
-    Mutex                                                                 mSubscribersMutex;
-    mutable ConditionalVariable                                           mCondVar;
-    size_t                                                                mNumInstalls {};
-    bool                                                                  mInstallsCanceled {};
-    StaticArray<InstanceData, cMaxNumInstances>                           mInstances;
-    StaticMap<RuntimeItf*, StaticString<cIDLen>, cMaxNumNodeRuntimes>     mRuntimes;
-    StaticArray<StaticString<cIDLen>, cMaxNumNodeRuntimes>                mRebootQueue;
-    imagemanager::ImageManagerItf*                                        mImageManager {};
-    common::imagemanager::ItemStatusProviderItf*                          mItemStatusProvider {};
-    StorageItf*                                                           mStorage {};
-    SenderItf*                                                            mSender {};
-    oci::OCISpecItf*                                                      mOCISpec {};
-    common::imagemanager::ItemInfoProviderItf*                            mItemInfoProvider {};
-    cloudconnection::CloudConnectionItf*                                  mCloudConnection {};
-    networkmanager::NetworkManagerItf*                                    mNetworkManager {};
-    InstanceIDProviderItf*                                                mInstanceIDProvider {};
-    resourcemanager::ResourceInfoProviderItf*                             mResourceInfoProvider {};
-    bool                                                                  mLaunchInProgress {};
-    bool                                                                  mIsRunning {};
-    bool                                                                  mFirstStart {true};
-    bool                                                                  mModuleStartRepair {};
-    Optional<Time>                                                        mOfflineTime {};
+    AllocatorItf*                                          mAllocator {};
+    StorageItf*                                            mStorage {};
+    cloudconnection::CloudConnectionItf*                   mCloudConnection {};
+    Thread<cThreadTaskSize>                                mThread;
+    mutable Mutex                                          mMutex;
+    mutable ConditionalVariable                            mCondVar;
+    InstanceRegistry                                       mInstances;
+    RuntimeManager                                         mRuntimes;
+    InstanceRunner                                         mRunner;
+    UpdateItemInstaller                                    mInstaller;
+    OfflineHandler                                         mOfflineHandler;
+    StatusNotifier                                         mStatusNotifier;
+    UniquePtr<UpdateRequest>                               mPendingUpdate;
+    StaticArray<StaticString<cIDLen>, cMaxNumNodeRuntimes> mRebootQueue;
+    bool                                                   mIsRunning {};
+    bool                                                   mFirstStart {true};
+    bool                                                   mUpdateInProgress {};
+    bool                                                   mRepairRequested {};
+    bool                                                   mOfflineCheckRequested {};
 };
 
 } // namespace aos::sm::launcher

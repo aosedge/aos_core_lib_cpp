@@ -1549,20 +1549,13 @@ TEST_F(LauncherTest, ModuleStartRepairDoesNotBlockStatusesAndRequests)
     EXPECT_EQ(repairStatuses[0].mState, InstanceStateEnum::eFailed);
     EXPECT_TRUE(repairStatuses[0].mError.Is(ErrorEnum::eIntegrity)) << repairStatuses[0];
 
-    // The request received during the repair waits for it instead of being rejected.
+    // The request received during the repair is accepted and processed after it.
     EXPECT_CALL(mItemStatusProvider, GetItemsStatuses).WillOnce(Invoke(ItemsInstalled({"item0"})));
 
-    auto request = std::async(
-        std::launch::async, [this, &cStartInstances]() { return mLauncher.UpdateInstances({}, cStartInstances); });
-
-    EXPECT_EQ(request.wait_for(std::chrono::milliseconds(200)), std::future_status::timeout);
+    err = mLauncher.UpdateInstances({}, cStartInstances);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     installReleased.set_value();
-
-    ASSERT_EQ(request.wait_for(std::chrono::seconds(5)), std::future_status::ready);
-
-    err = request.get();
-    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     // The statuses of the repair, then of the request.
     for (size_t i = 0; i < 2; ++i) {
@@ -1693,6 +1686,223 @@ TEST_F(LauncherTest, InstallFailureKeepsRunningInstance)
             EXPECT_EQ(status.mError, cInstallError) << status;
         }
     }
+
+    EXPECT_CALL(mRuntime0, StopInstance).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    err = mLauncher.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, RequestedAgainRunningInstanceKeepsActiveState)
+{
+    const auto cInstanceInfo = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
+
+    mItemConfig.mOfflineTTL = Time::cMilliseconds;
+    EXPECT_CALL(mOCISpec, LoadItemConfig)
+        .WillRepeatedly(DoAll(SetArgReferee<1>(mItemConfig), Return(ErrorEnum::eNone)));
+
+    auto err = mLauncher.Init(mAllocator, GetRuntimesArray(), mImageManager, mItemStatusProvider, mSender, mStorage,
+        mOCISpec, mItemInfoProvider, mCloudConnection, mNetworkManager, mInstanceIDProvider, mResourceInfoProvider);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mRuntime0, StartInstance)
+        .WillRepeatedly(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+            SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+            return ErrorEnum::eNone;
+        }));
+
+    err = mLauncher.UpdateInstances({}, Array<InstanceInfo>(&cInstanceInfo, 1));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    ASSERT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive) << mReceivedStatuses[0];
+
+    // The cloud disconnects while the running instance is requested again. The offline TTL handler is armed only for
+    // the active and activating instances: if the running instance were reset to inactive by the request, its offline
+    // TTL wouldn't be handled and the instance wouldn't be stopped.
+    std::promise<void> stopPromise;
+
+    EXPECT_CALL(mNetworkManager, StartInstanceNetwork).WillOnce(Invoke([&](const String&, const String&) {
+        mCloudConnectionListener->OnDisconnect();
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cInstanceInfo), _))
+        .WillOnce(Invoke([&](const InstanceIdent& instance, InstanceStatus& status) {
+            SetInstanceStatus(instance, InstanceStateEnum::eInactive, status);
+
+            stopPromise.set_value();
+
+            return ErrorEnum::eNone;
+        }))
+        .WillRepeatedly(Return(ErrorEnum::eNone));
+
+    err = mLauncher.UpdateInstances({}, Array<InstanceInfo>(&cInstanceInfo, 1));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    // The launcher is stopped before the check, so a failed check doesn't leave it running.
+    const auto stoppedByTTL = stopPromise.get_future().wait_for(std::chrono::seconds(5)) == std::future_status::ready;
+
+    err = mLauncher.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(stoppedByTTL) << "Instance with expired offline TTL was not stopped";
+}
+
+TEST_F(LauncherTest, RepairsInstanceReportedBrokenByRuntime)
+{
+    const auto cInstanceInfo = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
+
+    auto err = mLauncher.Init(mAllocator, GetRuntimesArray(), mImageManager, mItemStatusProvider, mSender, mStorage,
+        mOCISpec, mItemInfoProvider, mCloudConnection, mNetworkManager, mInstanceIDProvider, mResourceInfoProvider);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mItemStatusProvider, GetItemsStatuses).WillOnce(Invoke(ItemsInstalled({"item0"})));
+    EXPECT_CALL(mRuntime0, StartInstance)
+        .Times(2)
+        .WillRepeatedly(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+            SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+            return ErrorEnum::eNone;
+        }));
+
+    err = mLauncher.UpdateInstances({}, Array<InstanceInfo>(&cInstanceInfo, 1));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    ASSERT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive) << mReceivedStatuses[0];
+
+    // The running instance fails, as its item content is broken: the item is repaired and the instance is started
+    // again.
+    EXPECT_CALL(mImageManager, InstallItem).WillOnce(Invoke([](const imagemanager::UpdateItemInfo& itemInfo) {
+        EXPECT_EQ(itemInfo.mID, "item0");
+        EXPECT_EQ(itemInfo.mVersion, "1.0.0");
+
+        return ErrorEnum::eNone;
+    }));
+
+    auto brokenStatus   = CreateInstanceStatus(cInstanceInfo, InstanceStateEnum::eFailed);
+    brokenStatus.mError = ErrorEnum::eIntegrity;
+
+    err = mLauncher.OnInstancesStatusesReceived(Array<InstanceStatus>(&brokenStatus, 1));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    // The reported status is forwarded, then the node instances statuses are sent after the repair.
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eFailed) << mReceivedStatuses[0];
+
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive) << mReceivedStatuses[0];
+
+    EXPECT_CALL(mRuntime0, StopInstance).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    err = mLauncher.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, RepairsReportedItemOnceUntilNextRequest)
+{
+    const auto cInstanceInfo = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
+
+    auto brokenStatus   = CreateInstanceStatus(cInstanceInfo, InstanceStateEnum::eFailed);
+    brokenStatus.mError = ErrorEnum::eIntegrity;
+
+    auto err = mLauncher.Init(mAllocator, GetRuntimesArray(), mImageManager, mItemStatusProvider, mSender, mStorage,
+        mOCISpec, mItemInfoProvider, mCloudConnection, mNetworkManager, mInstanceIDProvider, mResourceInfoProvider);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mItemStatusProvider, GetItemsStatuses).WillRepeatedly(Invoke(ItemsInstalled({"item0"})));
+    EXPECT_CALL(mRuntime0, StartInstance)
+        .WillRepeatedly(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+            SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+            return ErrorEnum::eNone;
+        }));
+
+    std::atomic_int numInstalls {};
+
+    EXPECT_CALL(mImageManager, InstallItem).WillRepeatedly(Invoke([&numInstalls](const imagemanager::UpdateItemInfo&) {
+        numInstalls++;
+
+        return ErrorEnum::eNone;
+    }));
+
+    // Requests the instance and reports it broken: the item is repaired.
+    const auto requestAndReportBroken = [&]() {
+        auto err = mLauncher.UpdateInstances({}, Array<InstanceInfo>(&cInstanceInfo, 1));
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        err = mLauncher.OnInstancesStatusesReceived(Array<InstanceStatus>(&brokenStatus, 1));
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        // The forwarded status and the node instances statuses after the repair.
+        for (auto i = 0; i < 2; ++i) {
+            err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+            ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+        }
+    };
+
+    requestAndReportBroken();
+    EXPECT_EQ(numInstalls, 1);
+
+    // The repaired instance fails again: the item isn't repaired again until the next request for it.
+    err = mLauncher.OnInstancesStatusesReceived(Array<InstanceStatus>(&brokenStatus, 1));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout).Is(ErrorEnum::eTimeout))
+        << "Node instances statuses sent without repair";
+    EXPECT_EQ(numInstalls, 1);
+
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eFailed) << mReceivedStatuses[0];
+    EXPECT_TRUE(mReceivedStatuses[0].mError.Is(ErrorEnum::eIntegrity)) << mReceivedStatuses[0];
+
+    // The next request for the item allows to repair it again.
+    requestAndReportBroken();
+    EXPECT_EQ(numInstalls, 2);
 
     EXPECT_CALL(mRuntime0, StopInstance).WillRepeatedly(Return(ErrorEnum::eNone));
 
