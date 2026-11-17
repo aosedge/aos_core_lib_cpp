@@ -14,7 +14,7 @@ set(TARGET_NAME launcher)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES instancenetwork.cpp instanceregistry.cpp itemconfigloader.cpp launcher.cpp)
+set(SOURCES instancenetwork.cpp instanceregistry.cpp itemconfigloader.cpp iteminstaller.cpp launcher.cpp)
 
 # ######################################################################################################################
 # Headers

@@ -46,15 +46,14 @@ Error Launcher::Init(AllocatorItf& allocator, const Array<RuntimeItf*>& runtimes
         }
     }
 
-    mImageManager       = &imageManager;
-    mItemStatusProvider = &itemStatusProvider;
-    mStorage            = &storage;
-    mSender             = &sender;
-    mCloudConnection    = &cloudConnection;
+    mStorage         = &storage;
+    mSender          = &sender;
+    mCloudConnection = &cloudConnection;
 
     mInstances.Init(instanceIDProvider);
     mItemConfigLoader.Init(allocator, itemInfoProvider, ociSpec);
     mNetwork.Init(allocator, networkManager, resourceInfoProvider);
+    mItemInstaller.Init(allocator, mLaunchPool, imageManager, itemStatusProvider);
 
     return ErrorEnum::eNone;
 }
@@ -86,8 +85,9 @@ Error Launcher::Start()
                   << Log::Field("type", runtimeInfo.mRuntimeType);
     }
 
-    mIsRunning        = true;
-    mInstallsCanceled = false;
+    mIsRunning = true;
+
+    mItemInstaller.Start();
 
     if (auto err = mRebootThread.Run([this](void*) { RunRebootThread(); }); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -134,7 +134,7 @@ Error Launcher::Stop()
     }
 
     // Don't wait for the items being installed by the launch in progress.
-    CancelInstalls();
+    mItemInstaller.Cancel();
 
     {
         UniqueLock lock {mMutex};
@@ -817,7 +817,7 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
     }
 
     if (!mFirstStart) {
-        GetRemoveUpdateItems(stopInstances, startInstances, *removeItems);
+        mItemInstaller.GetUnusedItems(mInstances, stopInstances, startInstances, *removeItems);
     }
 
     StopInstances(stopInstances);
@@ -828,8 +828,8 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
         LOG_INF() << "[profiling] Install items begin" << Log::Field("removeCount", removeItems->Size())
                   << Log::Field("installCount", startInstances.Size());
 
-        RemoveUpdateItems(*removeItems);
-        auto installError = InstallUpdateItems(startInstances, *installItems);
+        mItemInstaller.RemoveItems(*removeItems);
+        auto installError = mItemInstaller.InstallItems(startInstances, *installItems);
 
         LOG_INF() << "[profiling] Install items end";
 
@@ -1264,7 +1264,7 @@ void Launcher::RepairInstances(
                 LOG_WRN() << "Repair update item" << Log::Field("itemID", item->mID)
                           << Log::Field("version", item->mVersion);
 
-                item->mError = InstallUpdateItem(*item);
+                item->mError = mItemInstaller.Install(*item);
                 if (!item->mError.IsNone()) {
                     LOG_ERR() << "Repair update item failed" << Log::Field("itemID", item->mID)
                               << Log::Field("version", item->mVersion) << Log::Field(AOS_ERROR_WRAP(item->mError));
@@ -1452,55 +1452,6 @@ Error Launcher::AppendInstancesWithModifiedParams(
     return ErrorEnum::eNone;
 }
 
-Error Launcher::InstallUpdateItem(const imagemanager::UpdateItemInfo& item)
-{
-    {
-        LockGuard lock {mMutex};
-
-        if (mInstallsCanceled) {
-            return AOS_ERROR_WRAP(Error(ErrorEnum::eCanceled, "launcher is stopping"));
-        }
-
-        mNumInstalls++;
-    }
-
-    auto err = mImageManager->InstallItem(item);
-
-    LockGuard lock {mMutex};
-
-    mNumInstalls--;
-
-    if (auto notifyErr = mCondVar.NotifyAll(); !notifyErr.IsNone()) {
-        LOG_ERR() << "Can't notify installs" << Log::Field(AOS_ERROR_WRAP(notifyErr));
-    }
-
-    return err;
-}
-
-void Launcher::CancelInstalls()
-{
-    {
-        LockGuard lock {mMutex};
-
-        mInstallsCanceled = true;
-    }
-
-    // An install which passed the check above may reach the image manager after Cancel resets its context, so cancel
-    // again until all of them return.
-    while (true) {
-        if (auto err = mImageManager->Cancel(); !err.IsNone()) {
-            LOG_ERR() << "Can't cancel installs" << Log::Field(AOS_ERROR_WRAP(err));
-        }
-
-        UniqueLock lock {mMutex};
-
-        if (auto err = mCondVar.Wait(lock, cCancelInstallsPeriod, [this]() { return mNumInstalls == 0; });
-            err.IsNone() || !err.Is(ErrorEnum::eTimeout)) {
-            return;
-        }
-    }
-}
-
 Error Launcher::StartLaunch()
 {
     UniqueLock lock {mMutex};
@@ -1539,117 +1490,6 @@ RuntimeItf* Launcher::FindInstanceRuntime(const String& runtimeID)
     }
 
     return nullptr;
-}
-
-void Launcher::GetRemoveUpdateItems(const Array<InstanceIdent>& stopInstances,
-    const Array<InstanceInfo>& startInstances, Array<ItemVersion>& removeItems)
-{
-    for (const auto& instanceIdent : stopInstances) {
-        const auto* const instanceData = mInstances.Find(instanceIdent);
-        if (!instanceData) {
-            LOG_ERR() << "Instance not found, skip removing update item" << Log::Field("instance", instanceIdent);
-
-            continue;
-        }
-
-        if (auto it = startInstances.FindIf([&instanceData](const auto& item) {
-                return item.mItemID == instanceData->mInfo.mItemID && item.mVersion == instanceData->mInfo.mVersion;
-            });
-            it != startInstances.end()) {
-            continue;
-        }
-
-        if (auto it = removeItems.FindIf([&instanceData](const auto& item) {
-                return item.mItemID == instanceData->mInfo.mItemID && item.mVersion == instanceData->mInfo.mVersion;
-            });
-            it == removeItems.end()) {
-            (void)removeItems.EmplaceBack(ItemVersion {instanceData->mInfo.mItemID, instanceData->mInfo.mVersion});
-        }
-    }
-}
-
-void Launcher::RemoveUpdateItems(const Array<ItemVersion>& removeItems)
-{
-    for (const auto& updateItem : removeItems) {
-        if (auto err = mLaunchPool.AddTask([this, &updateItem](void*) {
-                if (auto err = mImageManager->RemoveItem(updateItem.mItemID, updateItem.mVersion);
-                    !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
-                    LOG_ERR() << "Remove update item failed" << Log::Field("itemID", updateItem.mItemID)
-                              << Log::Field("version", updateItem.mVersion) << Log::Field(AOS_ERROR_WRAP(err));
-                }
-            });
-            !err.IsNone()) {
-            LOG_ERR() << "Remove update item failed" << Log::Field("itemID", updateItem.mItemID)
-                      << Log::Field("version", updateItem.mVersion) << Log::Field(AOS_ERROR_WRAP(err));
-
-            continue;
-        }
-    }
-
-    WaitLaunchPool();
-}
-
-Error Launcher::InstallUpdateItems(const Array<InstanceInfo>& startInstances, Array<InstallItem>& installItems)
-{
-    // The image manager reports all stored item versions, including the ones kept in the cache.
-    auto currentItems = MakeUnique<StaticArray<UpdateItemStatus, cMaxNumUpdateItems * 2>>(mAllocator);
-    if (!currentItems) {
-        LOG_ERR() << "Failed to allocate current items" << Log::Field(ErrorEnum::eNoMemory);
-
-        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
-    }
-
-    if (auto err = mItemStatusProvider->GetItemsStatuses(*currentItems); !err.IsNone()) {
-        LOG_ERR() << "Get update items statuses failed" << Log::Field(AOS_ERROR_WRAP(err));
-
-        currentItems->Clear();
-    }
-
-    for (const auto& startInstance : startInstances) {
-        if (auto it = currentItems->FindIf([&startInstance](const auto& item) {
-                return item.mItemID == startInstance.mItemID && item.mVersion == startInstance.mVersion;
-            });
-            it != currentItems->end() && it->mState == ItemStateEnum::eInstalled) {
-            continue;
-        }
-
-        if (auto it = installItems.FindIf([&startInstance](const auto& item) {
-                return item.mID == startInstance.mItemID && item.mVersion == startInstance.mVersion;
-            });
-            it == installItems.end()) {
-            if (auto err = installItems.EmplaceBack(InstallItem {
-                    {startInstance.mItemID, startInstance.mType, startInstance.mVersion, startInstance.mManifestDigest},
-                    {}});
-                !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
-            }
-        }
-    }
-
-    for (auto& installItem : installItems) {
-        if (auto err = mLaunchPool.AddTask([this, &installItem](void*) {
-                if (auto err = InstallUpdateItem(installItem); !err.IsNone()) {
-                    installItem.mError = AOS_ERROR_WRAP(err);
-
-                    LOG_ERR() << "Install update item failed" << Log::Field("itemID", installItem.mID)
-                              << Log::Field("version", installItem.mVersion) << Log::Field(AOS_ERROR_WRAP(err));
-                }
-            });
-            !err.IsNone()) {
-            installItem.mError = AOS_ERROR_WRAP(err);
-
-            LOG_ERR() << "Install update item failed" << Log::Field("itemID", installItem.mID)
-                      << Log::Field("version", installItem.mVersion) << Log::Field(AOS_ERROR_WRAP(err));
-
-            continue;
-        }
-    }
-
-    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    return ErrorEnum::eNone;
 }
 
 RetWithError<InstanceData*> Launcher::AddInstanceData(const InstanceInfo& instanceInfo)

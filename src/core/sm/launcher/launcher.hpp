@@ -25,6 +25,7 @@
 #include "instancenetwork.hpp"
 #include "instanceregistry.hpp"
 #include "itemconfigloader.hpp"
+#include "iteminstaller.hpp"
 #include "itf/instanceidprovider.hpp"
 #include "itf/instancestatusreceiver.hpp"
 #include "itf/launcher.hpp"
@@ -32,6 +33,7 @@
 #include "itf/runtimeinfoprovider.hpp"
 #include "itf/sender.hpp"
 #include "itf/storage.hpp"
+#include "launchpool.hpp"
 
 namespace aos::sm::launcher {
 
@@ -165,20 +167,10 @@ public:
     Error GetRuntimesInfos(Array<RuntimeInfo>& runtimes) const override;
 
 private:
-    struct ItemVersion {
-        StaticString<cIDLen>      mItemID;
-        StaticString<cVersionLen> mVersion;
-    };
-
-    struct InstallItem : imagemanager::UpdateItemInfo {
-        Error mError;
-    };
-
     using AddInstanceTaskFunc = Error (Launcher::*)(InstanceData& instanceData);
 
-    static constexpr auto cThreadTaskSize       = 512;
-    static constexpr auto cMaxNumSubscribers    = 4;
-    static constexpr auto cCancelInstallsPeriod = Time::cMilliseconds * 100;
+    static constexpr auto cThreadTaskSize    = 512;
+    static constexpr auto cMaxNumSubscribers = 4;
 
     void  OnConnect() override;
     void  OnDisconnect() override;
@@ -210,14 +202,8 @@ private:
     Error StartInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData) const;
     Error AppendInstancesWithModifiedParams(
         const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& stopInstances);
-    Error StartLaunch();
-    void  FinishLaunch();
-    void  GetRemoveUpdateItems(const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances,
-         Array<ItemVersion>& removeItems);
-    void  RemoveUpdateItems(const Array<ItemVersion>& removeItems);
-    Error InstallUpdateItems(const Array<InstanceInfo>& startInstances, Array<InstallItem>& installItems);
-    Error InstallUpdateItem(const imagemanager::UpdateItemInfo& item);
-    void  CancelInstalls();
+    Error                       StartLaunch();
+    void                        FinishLaunch();
     RetWithError<InstanceData*> AddInstanceData(const InstanceInfo& instanceInfo);
     Error                       ReleaseInstance(const InstanceData& instanceData);
     void                        RemoveInstances(const Array<InstanceIdent>& instances);
@@ -239,20 +225,17 @@ private:
     Thread<cThreadTaskSize>                                               mThread;
     Thread<cThreadTaskSize>                                               mRebootThread;
     Timer                                                                 mOfflineTTLHandler;
-    ThreadPool<cMaxNumConcurrentItems, cMaxNumInstances, cThreadTaskSize> mLaunchPool;
-    ThreadPool<cMaxNumConcurrentItems, cMaxNumInstances, cThreadTaskSize> mOfflineTTLPool;
+    LaunchPool                                                            mLaunchPool;
+    LaunchPool                                                            mOfflineTTLPool;
     mutable Mutex                                                         mMutex;
     Mutex                                                                 mSubscribersMutex;
     mutable ConditionalVariable                                           mCondVar;
-    size_t                                                                mNumInstalls {};
-    bool                                                                  mInstallsCanceled {};
     InstanceRegistry                                                      mInstances;
     ItemConfigLoader                                                      mItemConfigLoader;
     InstanceNetwork                                                       mNetwork;
+    ItemInstaller                                                         mItemInstaller;
     StaticMap<RuntimeItf*, StaticString<cIDLen>, cMaxNumNodeRuntimes>     mRuntimes;
     StaticArray<StaticString<cIDLen>, cMaxNumNodeRuntimes>                mRebootQueue;
-    imagemanager::ImageManagerItf*                                        mImageManager {};
-    common::imagemanager::ItemStatusProviderItf*                          mItemStatusProvider {};
     StorageItf*                                                           mStorage {};
     SenderItf*                                                            mSender {};
     cloudconnection::CloudConnectionItf*                                  mCloudConnection {};

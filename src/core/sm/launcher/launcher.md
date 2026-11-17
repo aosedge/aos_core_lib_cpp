@@ -97,6 +97,9 @@ classDiagram
     class InstanceNetwork ["aos::sm::launcher::InstanceNetwork"] {
     }
 
+    class ItemInstaller ["aos::sm::launcher::ItemInstaller"] {
+    }
+
     class InstanceIDProviderItf ["aos::sm::launcher::InstanceIDProviderItf"] {
         <<interface>>
     }
@@ -116,6 +119,7 @@ classDiagram
     Launcher *-- InstanceRegistry
     Launcher *-- ItemConfigLoader
     Launcher *-- InstanceNetwork
+    Launcher *-- ItemInstaller
     InstanceRegistry ..> InstanceIDProviderItf
 ```
 
@@ -143,6 +147,13 @@ by the item and image configs: the hostname, the traffic quotas, the allowed con
 image and the hosts of the resources used by the instance, which it gets from `ResourceInfoProviderItf`. It also
 starts, stops and releases the instance network, and begins and flushes the network batch. An existing network on
 create or start and a not found network on stop aren't errors.
+
+The launcher installs and removes the update items with [aos::sm::launcher::ItemInstaller](iteminstaller.hpp). The
+installer finds the item versions used by the stopped instances and not used by the started ones, removes them, and
+installs the items of the started instances which `ItemStatusProviderItf` doesn't report as installed, once per item
+ID and version. It also installs a single item for the integrity recovery. The installer runs the installs and
+removals in the launcher thread pool. It counts the installs in progress under its own lock: on launcher stop, it
+rejects the new installs with `eCanceled` and cancels `ImageManagerItf` until all installs in progress return.
 
 ## Initialization
 
