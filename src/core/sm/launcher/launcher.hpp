@@ -220,6 +220,7 @@ private:
     Error                       ReleaseInstance(const InstanceData& instanceData);
     void                        RemoveInstances(const Array<InstanceIdent>& instances);
     void SetInstanceState(InstanceData& instance, const InstanceState& state, const Error& error = ErrorEnum::eNone);
+    void ResetFailedInstance(InstanceData& instance);
     void FailInstance(InstanceData& instance, const char* message, const Error& error);
     void WaitLaunchPool();
     template <typename AddTasks, typename HandleFailedIDs>

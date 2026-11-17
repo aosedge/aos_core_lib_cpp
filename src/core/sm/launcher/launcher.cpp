@@ -1012,7 +1012,7 @@ void Launcher::PrepareInstances(const Array<InstanceInfo>& startInstances, const
                 continue;
             }
         } else {
-            SetInstanceState(*instanceData, InstanceStateEnum::eInactive);
+            ResetFailedInstance(*instanceData);
         }
 
         auto installItem = installItems.FindIf([&instance](const auto& item) {
@@ -1060,7 +1060,7 @@ Error Launcher::AddPrepareInstanceTask(InstanceData& instanceData)
 {
     if (auto err = mLaunchPool.AddTask([this, &instanceData](void*) {
             // The instance which failed the previous prepare is prepared again after its item is repaired.
-            SetInstanceState(instanceData, InstanceStateEnum::eInactive);
+            ResetFailedInstance(instanceData);
 
             if (auto err = PrepareInstance(instanceData); !err.IsNone()) {
                 FailInstance(instanceData, "Failed to prepare instance", AOS_ERROR_WRAP(err));
@@ -1107,9 +1107,9 @@ void Launcher::StartNetworks(const Array<InstanceInfo>& startInstances)
                     continue;
                 }
 
-                if (instanceData->mStatus.mState != InstanceStateEnum::eInactive) {
+                if (instanceData->mStatus.mState == InstanceStateEnum::eFailed) {
                     LOG_ERR() << "Failed to start network" << Log::Field("instance", instance)
-                              << Log::Field(AOS_ERROR_WRAP(Error(ErrorEnum::eWrongState, "instance not inactive")));
+                              << Log::Field(AOS_ERROR_WRAP(Error(ErrorEnum::eWrongState, "instance failed")));
 
                     continue;
                 }
@@ -1197,9 +1197,9 @@ void Launcher::StartInstances(const Array<InstanceInfo>& startInstances, Array<I
             continue;
         }
 
-        if (instanceData->mStatus.mState != InstanceStateEnum::eInactive) {
+        if (instanceData->mStatus.mState == InstanceStateEnum::eFailed) {
             LOG_ERR() << "Failed to start instance" << Log::Field("instance", instance)
-                      << Log::Field(AOS_ERROR_WRAP(Error(ErrorEnum::eWrongState, "instance not inactive")));
+                      << Log::Field(AOS_ERROR_WRAP(Error(ErrorEnum::eWrongState, "instance failed")));
 
             continue;
         }
@@ -1724,6 +1724,20 @@ void Launcher::SetInstanceState(InstanceData& instance, const InstanceState& sta
 
     instance.mStatus.mState = state;
     instance.mStatus.mError = error;
+}
+
+void Launcher::ResetFailedInstance(InstanceData& instance)
+{
+    LockGuard lock {mMutex};
+
+    // The failed instance which is launched again leaves the failed state, so the launch stages process it and the
+    // error of the new attempt is set. The other instances keep their state: the running instance stays active.
+    if (instance.mStatus.mState != InstanceStateEnum::eFailed) {
+        return;
+    }
+
+    instance.mStatus.mState = InstanceStateEnum::eInactive;
+    instance.mStatus.mError = ErrorEnum::eNone;
 }
 
 void Launcher::FailInstance(InstanceData& instance, const char* message, const Error& error)

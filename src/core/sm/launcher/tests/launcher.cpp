@@ -1700,6 +1700,75 @@ TEST_F(LauncherTest, InstallFailureKeepsRunningInstance)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
+TEST_F(LauncherTest, RequestedAgainRunningInstanceKeepsActiveState)
+{
+    const auto cInstanceInfo = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
+
+    mItemConfig.mOfflineTTL = Time::cMilliseconds;
+    EXPECT_CALL(mOCISpec, LoadItemConfig)
+        .WillRepeatedly(DoAll(SetArgReferee<1>(mItemConfig), Return(ErrorEnum::eNone)));
+
+    auto err = mLauncher.Init(mAllocator, GetRuntimesArray(), mImageManager, mItemStatusProvider, mSender, mStorage,
+        mOCISpec, mItemInfoProvider, mCloudConnection, mNetworkManager, mInstanceIDProvider, mResourceInfoProvider);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mRuntime0, StartInstance)
+        .WillRepeatedly(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+            SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+            return ErrorEnum::eNone;
+        }));
+
+    err = mLauncher.UpdateInstances({}, Array<InstanceInfo>(&cInstanceInfo, 1));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    ASSERT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive) << mReceivedStatuses[0];
+
+    // The cloud disconnects while the running instance is requested again. The offline TTL handler is armed only for
+    // the active and activating instances: if the running instance were reset to inactive by the request, its offline
+    // TTL wouldn't be handled and the instance wouldn't be stopped.
+    std::promise<void> stopPromise;
+
+    EXPECT_CALL(mNetworkManager, StartInstanceNetwork).WillOnce(Invoke([&](const String&, const String&) {
+        mCloudConnectionListener->OnDisconnect();
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cInstanceInfo), _))
+        .WillOnce(Invoke([&](const InstanceIdent& instance, InstanceStatus& status) {
+            SetInstanceStatus(instance, InstanceStateEnum::eInactive, status);
+
+            stopPromise.set_value();
+
+            return ErrorEnum::eNone;
+        }))
+        .WillRepeatedly(Return(ErrorEnum::eNone));
+
+    err = mLauncher.UpdateInstances({}, Array<InstanceInfo>(&cInstanceInfo, 1));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    // The launcher is stopped before the check, so a failed check doesn't leave it running.
+    const auto stoppedByTTL = stopPromise.get_future().wait_for(std::chrono::seconds(5)) == std::future_status::ready;
+
+    err = mLauncher.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(stoppedByTTL) << "Instance with expired offline TTL was not stopped";
+}
+
 TEST_F(LauncherTest, ParallelUpdateInstancesDoesNotInterfere)
 {
     const std::vector cStartInstanceInfos = {

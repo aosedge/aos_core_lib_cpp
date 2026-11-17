@@ -157,7 +157,9 @@ If reading the item statuses fails, launcher logs the error and attempts to inst
 An installation failure marks every dependent instance as `eFailed` with the installation error. These instances
 remain in the local cache for status reporting, but are not prepared, persisted, or started. Other items can still
 start normally. On a subsequent request, cached `eFailed` instances are prepared again after successful installation.
-This retry applies to all failed instances, including failures during preparation or runtime startup.
+This retry applies to all failed instances, including failures during preparation or runtime startup. A failed
+instance is reset to `eInactive` before it's prepared again, so the error of the new attempt is reported. A running
+instance which is requested again keeps its state while the request is processed: it isn't reset to `eInactive`.
 
 After preparing eligible instances, launcher starts their networks and runtimes and sends node instances statuses.
 
