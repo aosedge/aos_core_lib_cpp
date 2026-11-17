@@ -46,16 +46,15 @@ Error Launcher::Init(AllocatorItf& allocator, const Array<RuntimeItf*>& runtimes
         }
     }
 
-    mImageManager         = &imageManager;
-    mItemStatusProvider   = &itemStatusProvider;
-    mStorage              = &storage;
-    mSender               = &sender;
-    mCloudConnection      = &cloudConnection;
-    mNetworkManager       = &networkManager;
-    mResourceInfoProvider = &resourceInfoProvider;
+    mImageManager       = &imageManager;
+    mItemStatusProvider = &itemStatusProvider;
+    mStorage            = &storage;
+    mSender             = &sender;
+    mCloudConnection    = &cloudConnection;
 
     mInstances.Init(instanceIDProvider);
     mItemConfigLoader.Init(allocator, itemInfoProvider, ociSpec);
+    mNetwork.Init(allocator, networkManager, resourceInfoProvider);
 
     return ErrorEnum::eNone;
 }
@@ -416,7 +415,7 @@ Error Launcher::GetRuntimesInfos(Array<RuntimeInfo>& runtimes) const
 template <typename AddTasks, typename HandleFailedIDs>
 void Launcher::RunNetworkBatch(AddTasks addTasks, HandleFailedIDs handleFailedIDs)
 {
-    auto errBegin = mNetworkManager->BeginBatch();
+    auto errBegin = mNetwork.BeginBatch();
     if (!errBegin.IsNone()) {
         LOG_ERR() << "Failed to begin network batch" << Log::Field(AOS_ERROR_WRAP(errBegin));
     }
@@ -436,7 +435,7 @@ void Launcher::RunNetworkBatch(AddTasks addTasks, HandleFailedIDs handleFailedID
         return;
     }
 
-    if (auto err = mNetworkManager->FlushBatch(*failedIDs); !err.IsNone()) {
+    if (auto err = mNetwork.FlushBatch(*failedIDs); !err.IsNone()) {
         LOG_ERR() << "Can't flush network batch" << Log::Field(AOS_ERROR_WRAP(err));
     }
 
@@ -983,7 +982,7 @@ Error Launcher::PrepareInstance(InstanceData& instanceData)
         return err;
     }
 
-    if (auto err = CreateNetwork(instanceData, *itemConfig, *imageConfig); !err.IsNone()) {
+    if (auto err = mNetwork.Create(instanceData, *itemConfig, *imageConfig); !err.IsNone()) {
         return err;
     }
 
@@ -1075,8 +1074,7 @@ Error Launcher::AddPrepareInstanceTask(InstanceData& instanceData)
 Error Launcher::AddStartNetworkTask(InstanceData& instanceData)
 {
     if (auto err = mLaunchPool.AddTask([this, &instanceData](void*) {
-            if (auto err = mNetworkManager->StartInstanceNetwork(instanceData.mInstanceID, instanceData.mInfo.mOwnerID);
-                !err.IsNone() && !err.Is(ErrorEnum::eAlreadyExist)) {
+            if (auto err = mNetwork.Start(instanceData); !err.IsNone()) {
                 FailInstance(instanceData, "Failed to start network", AOS_ERROR_WRAP(err));
             }
         });
@@ -1128,9 +1126,7 @@ void Launcher::StartNetworks(const Array<InstanceInfo>& startInstances)
                 SetInstanceState(*instanceData, InstanceStateEnum::eFailed,
                     AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "network batch apply failed")));
 
-                if (auto err
-                    = mNetworkManager->StopInstanceNetwork(instanceData->mInstanceID, instanceData->mInfo.mOwnerID);
-                    !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+                if (auto err = mNetwork.Stop(*instanceData); !err.IsNone()) {
                     LOG_ERR() << "Failed to stop network" << Log::Field("instance", instanceData->mInfo)
                               << Log::Field(AOS_ERROR_WRAP(err));
                 }
@@ -1143,8 +1139,7 @@ void Launcher::StartNetworks(const Array<InstanceInfo>& startInstances)
 Error Launcher::AddStopNetworkTask(InstanceData& instanceData)
 {
     if (auto err = mLaunchPool.AddTask([this, &instanceData](void*) {
-            if (auto err = mNetworkManager->StopInstanceNetwork(instanceData.mInstanceID, instanceData.mInfo.mOwnerID);
-                !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+            if (auto err = mNetwork.Stop(instanceData); !err.IsNone()) {
                 FailInstance(instanceData, "Failed to stop network", AOS_ERROR_WRAP(err));
             }
         });
@@ -1674,8 +1669,7 @@ Error Launcher::ReleaseInstance(const InstanceData& instanceData)
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mNetworkManager->ReleaseInstanceNetwork(instanceData.mInstanceID, instanceData.mInfo.mOwnerID);
-        !err.IsNone()) {
+    if (auto err = mNetwork.Release(instanceData); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1751,82 +1745,6 @@ void Launcher::WaitLaunchPool()
     if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
         LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
-}
-
-Error Launcher::GetInstanceNetworkConfig(const InstanceInfo& instance, const oci::ItemConfig& itemConfig,
-    const oci::ImageConfig& imageConfig, networkmanager::InstanceNetworkConfig& networkConfig)
-{
-    networkConfig.mInstanceIdent = static_cast<const InstanceIdent&>(instance);
-
-    auto resourceInfo = MakeUnique<resourcemanager::ResourceInfo>(mAllocator);
-    if (!resourceInfo) {
-        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
-    }
-
-    for (const auto& resource : itemConfig.mResources) {
-
-        if (auto err = mResourceInfoProvider->GetResourceInfo(resource.mName, *resourceInfo); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        if (auto err = networkConfig.mHosts.Insert(
-                networkConfig.mHosts.end(), resourceInfo->mHosts.begin(), resourceInfo->mHosts.end());
-            !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-    }
-
-    if (itemConfig.mHostname.HasValue()) {
-        networkConfig.mHostname = *itemConfig.mHostname;
-    }
-
-    if (itemConfig.mQuotas.mDownloadSpeed.HasValue()) {
-        networkConfig.mIngressKbit = *itemConfig.mQuotas.mDownloadSpeed;
-    }
-
-    if (itemConfig.mQuotas.mUploadSpeed.HasValue()) {
-        networkConfig.mEgressKbit = *itemConfig.mQuotas.mUploadSpeed;
-    }
-
-    if (itemConfig.mQuotas.mDownloadLimit.HasValue()) {
-        networkConfig.mDownloadLimit = *itemConfig.mQuotas.mDownloadLimit;
-    }
-
-    if (itemConfig.mQuotas.mUploadLimit.HasValue()) {
-        networkConfig.mUploadLimit = *itemConfig.mQuotas.mUploadLimit;
-    }
-
-    if (auto err = networkConfig.mExposedPorts.Assign(imageConfig.mConfig.mExposedPorts); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (auto err = networkConfig.mAllowedConnections.Assign(itemConfig.mAllowedConnections); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    return ErrorEnum::eNone;
-}
-
-Error Launcher::CreateNetwork(
-    const InstanceData& instanceData, const oci::ItemConfig& itemConfig, const oci::ImageConfig& imageConfig)
-{
-    auto networkConfig = MakeUnique<networkmanager::InstanceNetworkConfig>(mAllocator);
-    if (!networkConfig) {
-        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
-    }
-
-    if (auto err = GetInstanceNetworkConfig(instanceData.mInfo, itemConfig, imageConfig, *networkConfig);
-        !err.IsNone()) {
-        return err;
-    }
-
-    if (auto err
-        = mNetworkManager->CreateInstanceNetwork(instanceData.mInstanceID, instanceData.mInfo.mOwnerID, *networkConfig);
-        !err.IsNone() && !err.Is(ErrorEnum::eAlreadyExist)) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    return ErrorEnum::eNone;
 }
 
 } // namespace aos::sm::launcher

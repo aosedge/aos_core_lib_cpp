@@ -22,6 +22,7 @@
 #include <core/sm/networkmanager/itf/networkmanager.hpp>
 #include <core/sm/resourcemanager/itf/resourceinfoprovider.hpp>
 
+#include "instancenetwork.hpp"
 #include "instanceregistry.hpp"
 #include "itemconfigloader.hpp"
 #include "itf/instanceidprovider.hpp"
@@ -225,11 +226,7 @@ private:
     void FailInstance(InstanceData& instance, const char* message, const Error& error);
     void WaitLaunchPool();
     template <typename AddTasks, typename HandleFailedIDs>
-    void  RunNetworkBatch(AddTasks addTasks, HandleFailedIDs handleFailedIDs);
-    Error GetInstanceNetworkConfig(const InstanceInfo& instance, const oci::ItemConfig& itemConfig,
-        const oci::ImageConfig& imageConfig, networkmanager::InstanceNetworkConfig& networkConfig);
-    Error CreateNetwork(
-        const InstanceData& instanceData, const oci::ItemConfig& itemConfig, const oci::ImageConfig& imageConfig);
+    void RunNetworkBatch(AddTasks addTasks, HandleFailedIDs handleFailedIDs);
 
     RuntimeItf* FindInstanceRuntime(const String& runtimeID);
     void        StartTTLTimer();
@@ -251,6 +248,7 @@ private:
     bool                                                                  mInstallsCanceled {};
     InstanceRegistry                                                      mInstances;
     ItemConfigLoader                                                      mItemConfigLoader;
+    InstanceNetwork                                                       mNetwork;
     StaticMap<RuntimeItf*, StaticString<cIDLen>, cMaxNumNodeRuntimes>     mRuntimes;
     StaticArray<StaticString<cIDLen>, cMaxNumNodeRuntimes>                mRebootQueue;
     imagemanager::ImageManagerItf*                                        mImageManager {};
@@ -258,8 +256,6 @@ private:
     StorageItf*                                                           mStorage {};
     SenderItf*                                                            mSender {};
     cloudconnection::CloudConnectionItf*                                  mCloudConnection {};
-    networkmanager::NetworkManagerItf*                                    mNetworkManager {};
-    resourcemanager::ResourceInfoProviderItf*                             mResourceInfoProvider {};
     bool                                                                  mLaunchInProgress {};
     bool                                                                  mIsRunning {};
     bool                                                                  mFirstStart {true};

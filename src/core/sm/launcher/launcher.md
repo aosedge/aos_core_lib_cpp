@@ -35,7 +35,11 @@ It requires the following interfaces:
 * [aos::common::imagemanager::ItemInfoProviderItf](../../common/imagemanager/itf/iteminfoprovider.hpp) - provides the
   local paths of the blobs;
 * [aos::sm::launcher::InstanceIDProviderItf](itf/instanceidprovider.hpp) - provides the instance ID used to identify
-  the instance network.
+  the instance network;
+* [aos::sm::networkmanager::NetworkManagerItf](../networkmanager/itf/networkmanager.hpp) - creates, starts, stops and
+  releases the instance networks;
+* [aos::sm::resourcemanager::ResourceInfoProviderItf](../resourcemanager/itf/resourceinfoprovider.hpp) - provides the
+  hosts of the resources used by the instances.
 
 ```mermaid
 classDiagram
@@ -90,6 +94,9 @@ classDiagram
     class ItemConfigLoader ["aos::sm::launcher::ItemConfigLoader"] {
     }
 
+    class InstanceNetwork ["aos::sm::launcher::InstanceNetwork"] {
+    }
+
     class InstanceIDProviderItf ["aos::sm::launcher::InstanceIDProviderItf"] {
         <<interface>>
     }
@@ -108,6 +115,7 @@ classDiagram
     Launcher ..> StorageItf
     Launcher *-- InstanceRegistry
     Launcher *-- ItemConfigLoader
+    Launcher *-- InstanceNetwork
     InstanceRegistry ..> InstanceIDProviderItf
 ```
 
@@ -128,6 +136,13 @@ The launcher loads the item config and the image config of a service instance wi
 digest of the instance, then the item config and image config blobs referenced by the manifest. It gets the blob paths
 from `ItemInfoProviderItf` and parses the blobs with `OCISpecItf`. A manifest without an item config fails with
 `eNotFound`, and a broken blob fails with the error of `OCISpecItf`, for example `eIntegrity`.
+
+The launcher manages the instance networks with [aos::sm::launcher::InstanceNetwork](instancenetwork.hpp), which calls
+`NetworkManagerItf` with the instance ID and the owner ID of the instance. It creates the instance network configured
+by the item and image configs: the hostname, the traffic quotas, the allowed connections, the exposed ports of the
+image and the hosts of the resources used by the instance, which it gets from `ResourceInfoProviderItf`. It also
+starts, stops and releases the instance network, and begins and flushes the network batch. An existing network on
+create or start and a not found network on stop aren't errors.
 
 ## Initialization
 
