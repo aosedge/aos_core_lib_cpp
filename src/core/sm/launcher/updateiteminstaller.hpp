@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef AOS_CORE_SM_LAUNCHER_ITEMINSTALLER_HPP_
-#define AOS_CORE_SM_LAUNCHER_ITEMINSTALLER_HPP_
+#ifndef AOS_CORE_SM_LAUNCHER_UPDATEITEMINSTALLER_HPP_
+#define AOS_CORE_SM_LAUNCHER_UPDATEITEMINSTALLER_HPP_
 
 #include <core/common/imagemanager/itf/itemstatusprovider.hpp>
 #include <core/common/tools/array.hpp>
@@ -40,19 +40,21 @@ struct InstallItem : imagemanager::UpdateItemInfo {
 };
 
 /**
- * Installs and removes the update items used by the node instances.
+ * Installs, repairs and removes the update items of the node instances.
+ *
+ * An item version is repaired at most once until the next request for it: an item which failed to install or was
+ * already repaired isn't installed again by the repair.
  */
-class ItemInstaller {
+class UpdateItemInstaller {
 public:
     /**
-     * Initializes item installer.
+     * Initializes update item installer.
      *
      * @param allocator allocator to use for temporary objects.
-     * @param launchPool thread pool which runs the install and remove tasks.
      * @param imageManager image manager.
      * @param itemStatusProvider item status provider.
      */
-    void Init(AllocatorItf& allocator, LaunchPool& launchPool, imagemanager::ImageManagerItf& imageManager,
+    void Init(AllocatorItf& allocator, imagemanager::ImageManagerItf& imageManager,
         common::imagemanager::ItemStatusProviderItf& itemStatusProvider);
 
     /**
@@ -81,33 +83,40 @@ public:
      *
      * @param removeItems update items to remove.
      */
-    void RemoveItems(const Array<ItemVersion>& removeItems);
+    void Remove(const Array<ItemVersion>& removeItems);
 
     /**
      * Installs in parallel the update items of the instances which aren't installed yet, once per item ID and
-     * version. The install result of each item is set to its error.
+     * version. The install result of each item is set to its error. The requested item versions may be repaired
+     * again, except the ones which failed to install.
      *
      * @param startInstances instances to start.
      * @param[out] installItems installed update items with their install results.
      * @return Error if the items to install can't be collected or waited for.
      */
-    Error InstallItems(const Array<InstanceInfo>& startInstances, Array<InstallItem>& installItems);
+    Error Install(const Array<InstanceInfo>& startInstances, Array<InstallItem>& installItems);
 
     /**
-     * Installs update item.
+     * Installs again in parallel the broken update items. The items which can't be repaired anymore are removed from
+     * the list, the repair result of the others is set to their error.
      *
-     * @param item update item.
-     * @return Error eCanceled if the installs are canceled.
+     * @param[in,out] repairItems update items to repair.
      */
-    Error Install(const imagemanager::UpdateItemInfo& item);
+    void Repair(Array<InstallItem>& repairItems);
 
 private:
     static constexpr auto cCancelPeriod = Time::cMilliseconds * 100;
 
+    void  InstallInParallel(Array<InstallItem>& items, const char* message);
+    Error InstallOne(const imagemanager::UpdateItemInfo& item);
+    bool  IsRepaired(const String& itemID, const String& version) const;
+    void  SetRepaired(const String& itemID, const String& version);
+
     AllocatorItf*                                mAllocator {};
-    LaunchPool*                                  mLaunchPool {};
     imagemanager::ImageManagerItf*               mImageManager {};
     common::imagemanager::ItemStatusProviderItf* mItemStatusProvider {};
+    LaunchPool                                   mPool;
+    StaticArray<ItemVersion, cMaxNumUpdateItems> mRepairedItems;
     Mutex                                        mMutex;
     ConditionalVariable                          mCondVar;
     size_t                                       mNumInstalls {};

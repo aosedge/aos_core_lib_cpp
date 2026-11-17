@@ -31,6 +31,7 @@ struct InstanceData {
     StaticString<cIDLen> mInstanceID;
     Duration             mOfflineTTL;
     bool                 mConfigsLoaded {};
+    bool                 mPrepared {};
 };
 
 /**

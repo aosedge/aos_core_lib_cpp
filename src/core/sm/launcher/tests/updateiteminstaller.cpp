@@ -16,7 +16,7 @@
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/heapallocator.hpp>
-#include <core/sm/launcher/iteminstaller.hpp>
+#include <core/sm/launcher/updateiteminstaller.hpp>
 #include <core/sm/tests/mocks/instanceidprovidermock.hpp>
 
 #include "mocks/imagemanagermock.hpp"
@@ -60,33 +60,54 @@ UpdateItemStatus CreateItemStatus(const char* itemID, const char* version, ItemS
  * Suite
  **********************************************************************************************************************/
 
-class ItemInstallerTest : public Test {
+class UpdateItemInstallerTest : public Test {
 protected:
     static void SetUpTestSuite() { tests::utils::InitLog(); }
 
     void SetUp() override
     {
-        mLaunchPool = std::make_unique<LaunchPool>();
-        ASSERT_TRUE(mLaunchPool->Run().IsNone());
+        mInstaller = std::make_unique<UpdateItemInstaller>();
 
-        mInstaller.Init(mAllocator, *mLaunchPool, mImageManager, mItemStatusProvider);
-        mInstaller.Start();
+        mInstaller->Init(mAllocator, mImageManager, mItemStatusProvider);
+        mInstaller->Start();
     }
 
-    void TearDown() override { EXPECT_TRUE(mLaunchPool->Shutdown().IsNone()); }
+    // Installs the item of the instance which isn't installed yet.
+    Error InstallItemOf(const InstanceInfo& instance)
+    {
+        StaticArray<InstallItem, 1> installItems;
+
+        if (auto err = mInstaller->Install(Array<InstanceInfo>(&instance, 1), installItems); !err.IsNone()) {
+            return err;
+        }
+
+        return installItems.IsEmpty() ? Error(ErrorEnum::eNone) : installItems[0].mError;
+    }
+
+    // Repairs the item and returns the items which were repaired.
+    StaticArray<InstallItem, 1> Repair(const char* itemID)
+    {
+        StaticArray<InstallItem, 1> repairItems;
+
+        EXPECT_TRUE(
+            repairItems.EmplaceBack(InstallItem {{itemID, UpdateItemTypeEnum::eService, "1.0.0", ""}, {}}).IsNone());
+
+        mInstaller->Repair(repairItems);
+
+        return repairItems;
+    }
 
     HeapAllocator                                          mAllocator;
-    std::unique_ptr<LaunchPool>                            mLaunchPool;
     StrictMock<imagemanager::ImageManagerMock>             mImageManager;
     NiceMock<common::imagemanager::ItemStatusProviderMock> mItemStatusProvider;
-    ItemInstaller                                          mInstaller;
+    std::unique_ptr<UpdateItemInstaller>                   mInstaller;
 };
 
 /***********************************************************************************************************************
  * Tests
  **********************************************************************************************************************/
 
-TEST_F(ItemInstallerTest, GetUnusedItemsReturnsItemsNotUsedByStartedInstances)
+TEST_F(UpdateItemInstallerTest, GetUnusedItemsReturnsItemsNotUsedByStartedInstances)
 {
     NiceMock<InstanceIDProviderMock> instanceIDProvider;
     auto                             instances = std::make_unique<InstanceRegistry>();
@@ -108,7 +129,7 @@ TEST_F(ItemInstallerTest, GetUnusedItemsReturnsItemsNotUsedByStartedInstances)
 
     StaticArray<ItemVersion, 4> removeItems;
 
-    mInstaller.GetUnusedItems(*instances, Array<InstanceIdent>(stopInstances.data(), stopInstances.size()),
+    mInstaller->GetUnusedItems(*instances, Array<InstanceIdent>(stopInstances.data(), stopInstances.size()),
         Array<InstanceInfo>(startInstances.data(), startInstances.size()), removeItems);
 
     ASSERT_EQ(removeItems.Size(), 1);
@@ -116,7 +137,7 @@ TEST_F(ItemInstallerTest, GetUnusedItemsReturnsItemsNotUsedByStartedInstances)
     EXPECT_EQ(removeItems[0].mVersion, String("1.0.0"));
 }
 
-TEST_F(ItemInstallerTest, InstallItemsInstallsNotInstalledItemsOnce)
+TEST_F(UpdateItemInstallerTest, InstallInstallsNotInstalledItemsOnce)
 {
     const std::vector<InstanceInfo> startInstances = {
         CreateInstanceInfo("installed", 0),
@@ -143,7 +164,7 @@ TEST_F(ItemInstallerTest, InstallItemsInstallsNotInstalledItemsOnce)
 
     StaticArray<InstallItem, 8> installItems;
 
-    auto err = mInstaller.InstallItems(Array<InstanceInfo>(startInstances.data(), startInstances.size()), installItems);
+    auto err = mInstaller->Install(Array<InstanceInfo>(startInstances.data(), startInstances.size()), installItems);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     ASSERT_EQ(installItems.Size(), 3);
@@ -157,7 +178,7 @@ TEST_F(ItemInstallerTest, InstallItemsInstallsNotInstalledItemsOnce)
     }
 }
 
-TEST_F(ItemInstallerTest, InstallItemsInstallsAllItemsIfStatusesNotAvailable)
+TEST_F(UpdateItemInstallerTest, InstallInstallsAllItemsIfStatusesNotAvailable)
 {
     const std::vector<InstanceInfo> startInstances = {CreateInstanceInfo("item0", 0)};
 
@@ -166,40 +187,38 @@ TEST_F(ItemInstallerTest, InstallItemsInstallsAllItemsIfStatusesNotAvailable)
 
     StaticArray<InstallItem, 8> installItems;
 
-    auto err = mInstaller.InstallItems(Array<InstanceInfo>(startInstances.data(), startInstances.size()), installItems);
+    auto err = mInstaller->Install(Array<InstanceInfo>(startInstances.data(), startInstances.size()), installItems);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_EQ(installItems.Size(), 1);
 }
 
-TEST_F(ItemInstallerTest, RemoveItemsRemovesEachItem)
+TEST_F(UpdateItemInstallerTest, RemoveRemovesEachItem)
 {
     const std::vector<ItemVersion> removeItems = {{"item0", "1.0.0"}, {"item1", "2.0.0"}};
 
     EXPECT_CALL(mImageManager, RemoveItem(String("item0"), String("1.0.0"))).WillOnce(Return(ErrorEnum::eNotFound));
     EXPECT_CALL(mImageManager, RemoveItem(String("item1"), String("2.0.0"))).WillOnce(Return(ErrorEnum::eNone));
 
-    mInstaller.RemoveItems(Array<ItemVersion>(removeItems.data(), removeItems.size()));
+    mInstaller->Remove(Array<ItemVersion>(removeItems.data(), removeItems.size()));
 }
 
-TEST_F(ItemInstallerTest, CanceledInstallerRejectsInstallsUntilStarted)
+TEST_F(UpdateItemInstallerTest, CanceledInstallerRejectsInstallsUntilStarted)
 {
     EXPECT_CALL(mImageManager, Cancel).WillOnce(Return(ErrorEnum::eNone));
 
-    mInstaller.Cancel();
+    mInstaller->Cancel();
 
-    imagemanager::UpdateItemInfo item {"item0", UpdateItemTypeEnum::eService, "1.0.0", ""};
+    EXPECT_TRUE(InstallItemOf(CreateInstanceInfo("item0", 0)).Is(ErrorEnum::eCanceled));
 
-    EXPECT_TRUE(mInstaller.Install(item).Is(ErrorEnum::eCanceled));
-
-    mInstaller.Start();
+    mInstaller->Start();
 
     EXPECT_CALL(mImageManager, InstallItem).WillOnce(Return(ErrorEnum::eNone));
 
-    EXPECT_TRUE(mInstaller.Install(item).IsNone());
+    EXPECT_TRUE(InstallItemOf(CreateInstanceInfo("item0", 0)).IsNone());
 }
 
-TEST_F(ItemInstallerTest, CancelWaitsForInstallInProgress)
+TEST_F(UpdateItemInstallerTest, CancelWaitsForInstallInProgress)
 {
     std::promise<void> installStarted;
     std::promise<void> canceled;
@@ -222,19 +241,56 @@ TEST_F(ItemInstallerTest, CancelWaitsForInstallInProgress)
         return ErrorEnum::eNone;
     }));
 
-    imagemanager::UpdateItemInfo item {"item0", UpdateItemTypeEnum::eService, "1.0.0", ""};
-    Error                        installErr;
+    Error installErr;
 
-    std::thread installThread([&]() { installErr = mInstaller.Install(item); });
+    std::thread installThread([&]() { installErr = InstallItemOf(CreateInstanceInfo("item0", 0)); });
 
     installStarted.get_future().wait();
 
-    mInstaller.Cancel();
+    mInstaller->Cancel();
 
     // Cancel returns only after the install in progress returned.
     installThread.join();
 
     EXPECT_TRUE(installErr.Is(ErrorEnum::eCanceled));
+}
+
+TEST_F(UpdateItemInstallerTest, RepairsItemOnceUntilNextRequest)
+{
+    EXPECT_CALL(mImageManager, InstallItem).WillOnce(Return(ErrorEnum::eNone));
+
+    auto repaired = Repair("item0");
+
+    ASSERT_EQ(repaired.Size(), 1);
+    EXPECT_TRUE(repaired[0].mError.IsNone()) << tests::utils::ErrorToStr(repaired[0].mError);
+
+    // The repaired item isn't repaired again.
+    EXPECT_TRUE(Repair("item0").IsEmpty());
+
+    // The next request for the installed item allows to repair it again.
+    EXPECT_CALL(mItemStatusProvider, GetItemsStatuses).WillOnce(Invoke([](Array<UpdateItemStatus>& statuses) {
+        statuses.PushBack(CreateItemStatus("item0", "1.0.0", ItemStateEnum::eInstalled));
+
+        return ErrorEnum::eNone;
+    }));
+
+    EXPECT_TRUE(InstallItemOf(CreateInstanceInfo("item0", 0)).IsNone());
+
+    EXPECT_CALL(mImageManager, InstallItem).WillOnce(Return(ErrorEnum::eIntegrity));
+
+    repaired = Repair("item0");
+
+    ASSERT_EQ(repaired.Size(), 1);
+    EXPECT_TRUE(repaired[0].mError.Is(ErrorEnum::eIntegrity)) << tests::utils::ErrorToStr(repaired[0].mError);
+}
+
+TEST_F(UpdateItemInstallerTest, DoesNotRepairItemFailedToInstall)
+{
+    EXPECT_CALL(mImageManager, InstallItem).WillOnce(Return(ErrorEnum::eIntegrity));
+
+    EXPECT_TRUE(InstallItemOf(CreateInstanceInfo("item0", 0)).Is(ErrorEnum::eIntegrity));
+
+    EXPECT_TRUE(Repair("item0").IsEmpty());
 }
 
 } // namespace aos::sm::launcher

@@ -91,7 +91,7 @@ classDiagram
     class InstanceRegistry ["aos::sm::launcher::InstanceRegistry"] {
     }
 
-    class InstanceLauncher ["aos::sm::launcher::InstanceLauncher"] {
+    class InstanceRunner ["aos::sm::launcher::InstanceRunner"] {
     }
 
     class ItemConfigLoader ["aos::sm::launcher::ItemConfigLoader"] {
@@ -100,10 +100,20 @@ classDiagram
     class InstanceNetwork ["aos::sm::launcher::InstanceNetwork"] {
     }
 
-    class ItemInstaller ["aos::sm::launcher::ItemInstaller"] {
+    class UpdateItemInstaller ["aos::sm::launcher::UpdateItemInstaller"] {
     }
 
     class RuntimeManager ["aos::sm::launcher::RuntimeManager"] {
+    }
+
+    class OfflineHandler ["aos::sm::launcher::OfflineHandler"] {
+    }
+
+    class StatusNotifier ["aos::sm::launcher::StatusNotifier"] {
+    }
+
+    class CloudConnectionItf ["aos::cloudconnection::CloudConnectionItf"] {
+        <<interface>>
     }
 
     class InstanceIDProviderItf ["aos::sm::launcher::InstanceIDProviderItf"] {
@@ -121,52 +131,57 @@ classDiagram
 
     Launcher *-- RuntimeManager
     RuntimeManager "1" --> "*" RuntimeItf
-    Launcher ..> SenderItf
     Launcher ..> StorageItf
     Launcher *-- InstanceRegistry
-    Launcher *-- InstanceLauncher
-    Launcher *-- ItemInstaller
-    InstanceLauncher *-- ItemConfigLoader
-    InstanceLauncher *-- InstanceNetwork
-    InstanceLauncher ..> RuntimeManager
-    InstanceLauncher ..> StorageItf
+    Launcher *-- InstanceRunner
+    Launcher *-- UpdateItemInstaller
+    Launcher *-- OfflineHandler
+    Launcher *-- StatusNotifier
+    InstanceRunner *-- ItemConfigLoader
+    InstanceRunner *-- InstanceNetwork
+    InstanceRunner ..> RuntimeManager
+    InstanceRunner ..> StorageItf
     InstanceRegistry ..> InstanceIDProviderItf
+    OfflineHandler ..> CloudConnectionItf
+    StatusNotifier ..> SenderItf
 ```
 
 ## Internal structure
 
+The launcher orchestrates the classes below. It decides which instances to stop, install, start and repair; the
+classes perform the steps.
+
 The launcher keeps the data of the node instances in
 [aos::sm::launcher::InstanceRegistry](instanceregistry.hpp). For each instance, the registry stores the instance
-info, the instance status, the instance ID, the offline TTL and whether the item configs are loaded. It adds an
-instance in the `eInactive` state, gets its instance ID from `InstanceIDProviderItf`, finds an instance by ident or
-by instance ID, removes it, and returns the instances statuses and the minimal offline TTL of the active and
-activating instances.
+info, the instance status, the instance ID, the offline TTL, whether the item configs are loaded and whether the
+instance is prepared. It adds an instance in the `eInactive` state, gets its instance ID from `InstanceIDProviderItf`,
+finds an instance by ident or by instance ID, removes it, and returns the instances statuses and the minimal offline
+TTL of the active and activating instances.
 
-The registry isn't thread safe: the launcher serializes the access to it with its own lock. The pointers to the
-instance data stay valid until the instance is removed, so the launch stages pass them to the thread pool tasks.
+The registry isn't thread safe: the launcher serializes the access to it with its own lock. Only the launcher thread
+adds and removes instances, so it passes the pointers to the instance data to the classes which process them.
 
-The launcher performs the steps which start and stop an instance with
-[aos::sm::launcher::InstanceLauncher](instancelauncher.hpp):
+[aos::sm::launcher::InstanceRunner](instancerunner.hpp) starts and stops the instances given by the launcher, in
+parallel in its own thread pool:
 
-* prepare: stores the instance and, for a service, loads its item configs and creates its network;
-* start network and stop network;
-* start: starts the instance in its runtime. The configs of a service which weren't loaded on module start are loaded
-  first, and only a broken content fails the start, with `eIntegrity`. An already started instance isn't an error;
-* stop: stops the instance in its runtime. A not found instance isn't an error;
-* release: removes the instance from the storage and releases its network.
+* start: stores the not prepared instance and, for a service, loads its item configs and creates its network; then
+  starts the networks of the services in a network batch, and starts the instances in their runtimes. The configs of a
+  service which weren't loaded on module start are loaded first, and only a broken content fails the start, with
+  `eIntegrity`. An already started instance isn't an error;
+* stop: stops the instances in their runtimes, then stops the networks of the services in a network batch. A not found
+  instance isn't an error;
+* release: removes the instances from the storage and releases their networks.
 
-The instance launcher finds the runtime of the instance in `RuntimeManager` and doesn't change the instance state: it
-returns the error of the step, and the launcher decides about the instance, including the integrity recovery. The
-launcher runs the steps of all instances of a stage in its thread pool, and the network starts and stops within a
-network batch, which it begins and flushes through the instance launcher.
+Each step sets the instance state under the launcher lock: `eActivating` and `eActive` on start, `eInactive` on stop
+and `eFailed` with the error of the failed step. A failed instance is skipped by the next steps.
 
-The instance launcher loads the item config and the image config of a service instance with
+The instance runner loads the item config and the image config of a service instance with
 [aos::sm::launcher::ItemConfigLoader](itemconfigloader.hpp). The loader gets the image manifest blob by the manifest
 digest of the instance, then the item config and image config blobs referenced by the manifest. It gets the blob paths
 from `ItemInfoProviderItf` and parses the blobs with `OCISpecItf`. A manifest without an item config fails with
 `eNotFound`, and a broken blob fails with the error of `OCISpecItf`, for example `eIntegrity`.
 
-The instance launcher manages the instance networks with
+The instance runner manages the instance networks with
 [aos::sm::launcher::InstanceNetwork](instancenetwork.hpp), which calls `NetworkManagerItf` with the instance ID and the
 owner ID of the instance. It creates the instance network configured by the item and image configs: the hostname, the
 traffic quotas, the allowed connections, the exposed ports of the image and the hosts of the resources used by the
@@ -174,18 +189,37 @@ instance, which it gets from `ResourceInfoProviderItf`. It also starts, stops an
 begins and flushes the network batch. An existing network on create or start and a not found network on stop aren't
 errors.
 
-The launcher installs and removes the update items with [aos::sm::launcher::ItemInstaller](iteminstaller.hpp). The
-installer finds the item versions used by the stopped instances and not used by the started ones, removes them, and
-installs the items of the started instances which `ItemStatusProviderItf` doesn't report as installed, once per item
-ID and version. It also installs a single item for the integrity recovery. The installer runs the installs and
-removals in the launcher thread pool. It counts the installs in progress under its own lock: on launcher stop, it
-rejects the new installs with `eCanceled` and cancels `ImageManagerItf` until all installs in progress return.
+[aos::sm::launcher::UpdateItemInstaller](updateiteminstaller.hpp) installs, repairs and removes the update items, in
+parallel in its own thread pool. It finds the item versions used by the stopped instances and not used by the started
+ones and removes them. It installs the items of the started instances which `ItemStatusProviderItf` doesn't report as
+installed, once per item ID and version. It repairs the broken items by installing them again, and remembers the
+repaired item versions: see [Integrity recovery](#integrity-recovery). It counts the installs in progress under its
+own lock: on launcher stop, it rejects the new installs with `eCanceled` and cancels `ImageManagerItf` until all
+installs in progress return.
 
 The launcher keeps the node runtimes in [aos::sm::launcher::RuntimeManager](runtimemanager.hpp). On start, the runtime
 manager starts the runtimes, reads their runtime IDs and passes to each runtime the stored instances which run on it.
-The launcher finds the runtime of an instance by its runtime ID. On stop, the runtime manager stops all runtimes, even
-if some of them fail to stop. Like the instance registry, it isn't thread safe and the launcher serializes the access
-to it. The launcher queues the runtimes which require reboot and reboots them when no launch is in progress.
+It finds the runtime of an instance by its runtime ID and reboots the runtimes. On stop, it stops all runtimes, even
+if some of them fail to stop.
+
+[aos::sm::launcher::OfflineHandler](offlinehandler.hpp) tracks the time the node is offline: see
+[Offline TTL](#offline-ttl).
+
+[aos::sm::launcher::StatusNotifier](statusnotifier.hpp) sends the node instances statuses and the changed instances
+statuses to the CM with `SenderItf`, and notifies the instance status listeners.
+
+## Launcher jobs
+
+The launcher runs one job at a time on its thread:
+
+* update: the request received with `UpdateInstances`, and the start of the stored instances on module start;
+* repair: the repair of the instances which their runtime reported failed with `eIntegrity`;
+* offline check: the stop of the instances whose offline TTL expired;
+* reboot: the reboot of the runtimes which require it.
+
+The jobs never overlap, so a reboot or an offline TTL never interrupts a launch. The pending update runs first, then
+the repair, the offline check and the reboot. When the launcher stops, the job in progress is finished and the pending
+jobs are dropped. After each job, the launcher arms the offline handler again.
 
 ## Initialization
 
@@ -217,8 +251,10 @@ Launcher processes instances in parallel using a thread pool.
 
 ## Update instances
 
-On update instances request, launcher checks if previous launch is still in progress. If so, it returns
-`eWrongState` error. Otherwise, it stops the requested instances and removes them from storage and local cache.
+On update instances request, launcher checks if a previous request is queued or still launched. If so, it returns
+`eWrongState` error. Otherwise, it queues the request and returns: a request received during the repair which ends a
+previous request is processed after it. The update job stops the requested instances and removes them from storage
+and local cache.
 It then removes unused update items and installs required items, once per item ID and version.
 If reading the item statuses fails, launcher logs the error and attempts to install all required items.
 
@@ -240,9 +276,9 @@ sequenceDiagram
     participant storage
 
     smclient ->> launcher: UpdateInstances
-    alt Previous launch is in progress
+    alt Previous request is queued or launched
         launcher ->> smclient: eWrongState
-    else Previous launch completed
+    else Previous request launched
         loop Stop instances
             launcher ->> runtimes: StopInstance
             launcher ->> launcher: Stop instance network
@@ -281,8 +317,9 @@ sequenceDiagram
     end
 ```
 
-Launcher processes instances in parallel using a thread pool. Installation, preparation, network startup, and
-runtime startup are separate stages; each stage completes before the next one starts.
+The update item installer and the instance runner process the items and the instances in parallel using their thread
+pools. Installation, preparation, network startup, and runtime startup are separate stages; each stage completes before
+the next one starts.
 
 The network stop and start stages run within a network manager batch: the batch is flushed once all instances of
 the stage are processed. An instance whose network fails to start in the batch is set `eFailed` and its network is
@@ -296,15 +333,16 @@ Launcher repairs the update items whose content is broken by installing them aga
 instances statuses: an instance fails with `eIntegrity` when its item configs fail to read on prepare or start, when
 its runtime fails to start it, or when its runtime reports it failed with `eIntegrity` while it runs.
 
-The repair runs on the launch thread:
+The repair runs:
 
-* at the end of each request and of the module start launch, before the node instances statuses are sent;
-* when a runtime reports an instance failed with `eIntegrity` outside a launch. A failure reported during a launch is
-  repaired by this launch before it is finished.
+* in place, at the end of each update job, before the node instances statuses are sent. It repairs the instances
+  failed by the job and the ones reported failed by their runtime meanwhile;
+* as a repair job, when a runtime reports an instance failed with `eIntegrity` outside an update job.
 
-The repair installs again once each item of the failed instances, then prepares, starts the networks of and starts again
-the failed instances of the repaired items. The instances of an item which can't be repaired stay failed with the
-repair error, and an instance which fails again stays failed with the error of this attempt.
+The repair asks the update item installer to install again once each item of the failed instances, then the instance
+runner prepares and starts again the failed instances of the repaired items. The instances of an item which can't be
+repaired stay failed with the repair error, and an instance which fails again stays failed with the error of this
+attempt.
 
 An item version is repaired once until the next request for it: its instances which fail again, including the ones
 reported by the runtime later, stay failed. The new or failed instances of an item whose installation failed in a
@@ -315,6 +353,13 @@ The repair may wait for the CM, which may be not connected yet on module start a
 it connects. So the instances statuses request doesn't wait for the repair, a request received during the repair is
 processed after it, and the node instances statuses are sent after the repair. On module start, they are sent only if
 the repair changes them. A failure reported while the launcher stops doesn't start a repair.
+
+## Offline TTL
+
+The offline handler subscribes to `CloudConnectionItf` and keeps the time the cloud disconnected. The disconnect
+requests an offline check job, which stops the active and activating instances whose offline TTL expired. After each
+job, the launcher arms the offline handler with the minimal offline TTL of the running instances: when it expires, the
+handler requests the next offline check. The cloud connect resets the offline time and cancels the armed check.
 
 ## aos::sm::launcher::InstanceStatusReceiverItf
 

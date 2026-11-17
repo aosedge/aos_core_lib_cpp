@@ -1549,20 +1549,13 @@ TEST_F(LauncherTest, ModuleStartRepairDoesNotBlockStatusesAndRequests)
     EXPECT_EQ(repairStatuses[0].mState, InstanceStateEnum::eFailed);
     EXPECT_TRUE(repairStatuses[0].mError.Is(ErrorEnum::eIntegrity)) << repairStatuses[0];
 
-    // The request received during the repair waits for it instead of being rejected.
+    // The request received during the repair is accepted and processed after it.
     EXPECT_CALL(mItemStatusProvider, GetItemsStatuses).WillOnce(Invoke(ItemsInstalled({"item0"})));
 
-    auto request = std::async(
-        std::launch::async, [this, &cStartInstances]() { return mLauncher.UpdateInstances({}, cStartInstances); });
-
-    EXPECT_EQ(request.wait_for(std::chrono::milliseconds(200)), std::future_status::timeout);
+    err = mLauncher.UpdateInstances({}, cStartInstances);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     installReleased.set_value();
-
-    ASSERT_EQ(request.wait_for(std::chrono::seconds(5)), std::future_status::ready);
-
-    err = request.get();
-    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     // The statuses of the repair, then of the request.
     for (size_t i = 0; i < 2; ++i) {
