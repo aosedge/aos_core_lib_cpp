@@ -10,7 +10,7 @@ set(TARGET_NAME launcher_test)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES instancenetwork.cpp instanceregistry.cpp itemconfigloader.cpp iteminstaller.cpp launcher.cpp)
+set(SOURCES instancenetwork.cpp instanceregistry.cpp itemconfigloader.cpp iteminstaller.cpp launcher.cpp runtimemanager.cpp)
 
 # ######################################################################################################################
 # Libraries

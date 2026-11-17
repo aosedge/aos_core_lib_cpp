@@ -34,6 +34,7 @@
 #include "itf/sender.hpp"
 #include "itf/storage.hpp"
 #include "launchpool.hpp"
+#include "runtimemanager.hpp"
 
 namespace aos::sm::launcher {
 
@@ -214,11 +215,9 @@ private:
     template <typename AddTasks, typename HandleFailedIDs>
     void RunNetworkBatch(AddTasks addTasks, HandleFailedIDs handleFailedIDs);
 
-    RuntimeItf* FindInstanceRuntime(const String& runtimeID);
-    void        StartTTLTimer();
-    void        StopExpiredInstances(UniqueLock<Mutex>& lock);
-    void        SendNodeInstancesStatuses();
-    Error       InitInstances(const Array<InstanceInfo>& instancesInfo);
+    void StartTTLTimer();
+    void StopExpiredInstances(UniqueLock<Mutex>& lock);
+    void SendNodeInstancesStatuses();
 
     AllocatorItf*                                                         mAllocator {};
     StaticArray<instancestatusprovider::ListenerItf*, cMaxNumSubscribers> mSubscribers;
@@ -234,7 +233,7 @@ private:
     ItemConfigLoader                                                      mItemConfigLoader;
     InstanceNetwork                                                       mNetwork;
     ItemInstaller                                                         mItemInstaller;
-    StaticMap<RuntimeItf*, StaticString<cIDLen>, cMaxNumNodeRuntimes>     mRuntimes;
+    RuntimeManager                                                        mRuntimes;
     StaticArray<StaticString<cIDLen>, cMaxNumNodeRuntimes>                mRebootQueue;
     StorageItf*                                                           mStorage {};
     SenderItf*                                                            mSender {};

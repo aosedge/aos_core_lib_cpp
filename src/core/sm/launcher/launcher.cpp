@@ -40,10 +40,8 @@ Error Launcher::Init(AllocatorItf& allocator, const Array<RuntimeItf*>& runtimes
 
     mAllocator = &allocator;
 
-    for (auto* runtime : runtimes) {
-        if (auto err = mRuntimes.Set(runtime, ""); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
+    if (auto err = mRuntimes.Init(allocator, runtimes); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     mStorage         = &storage;
@@ -62,28 +60,11 @@ Error Launcher::Start()
 {
     LOG_DBG() << "Start launcher";
 
-    for (auto& it : mRuntimes) {
-        if (auto err = it.mFirst->Start(); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
+    if (auto err = mRuntimes.Start(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     UniqueLock lock {mMutex};
-
-    for (auto& it : mRuntimes) {
-        RuntimeInfo runtimeInfo;
-
-        if (auto err = it.mFirst->GetRuntimeInfo(runtimeInfo); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        if (auto err = it.mSecond.Assign(runtimeInfo.mRuntimeID); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        LOG_INF() << "Registered runtime" << Log::Field("runtimeID", runtimeInfo.mRuntimeID)
-                  << Log::Field("type", runtimeInfo.mRuntimeType);
-    }
 
     mIsRunning = true;
 
@@ -102,7 +83,7 @@ Error Launcher::Start()
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = InitInstances(*storedInstances); !err.IsNone()) {
+    if (auto err = mRuntimes.InitInstances(*storedInstances); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -160,11 +141,8 @@ Error Launcher::Stop()
             stopErr = AOS_ERROR_WRAP(err);
         }
 
-        for (auto& it : mRuntimes) {
-            err = it.mFirst->Stop();
-            if (!err.IsNone() && stopErr.IsNone()) {
-                stopErr = AOS_ERROR_WRAP(err);
-            }
+        if (err = mRuntimes.Stop(); !err.IsNone() && stopErr.IsNone()) {
+            stopErr = err;
         }
 
         (void)lock.Lock();
@@ -375,7 +353,7 @@ Error Launcher::GetInstanceMonitoringData(
         return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance not found"));
     }
 
-    if (auto* runtime = FindInstanceRuntime(instanceData->mStatus.mRuntimeID); runtime != nullptr) {
+    if (auto* runtime = mRuntimes.Find(instanceData->mStatus.mRuntimeID); runtime != nullptr) {
         if (auto err = runtime->GetInstanceMonitoringData(instanceIdent, monitoringData); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
@@ -395,14 +373,8 @@ Error Launcher::GetRuntimesInfos(Array<RuntimeInfo>& runtimes) const
 
     LOG_DBG() << "Get runtimes infos";
 
-    for (const auto& runtime : mRuntimes) {
-        if (auto err = runtimes.EmplaceBack(); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
-
-        if (auto err = runtime.mFirst->GetRuntimeInfo(runtimes.Back()); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
+    if (auto err = mRuntimes.GetRuntimesInfos(runtimes); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
@@ -462,38 +434,6 @@ void Launcher::OnDisconnect()
     StartTTLTimer();
 }
 
-Error Launcher::InitInstances(const Array<InstanceInfo>& instancesInfo)
-{
-    LOG_DBG() << "Init instances" << Log::Field("numInstances", instancesInfo.Size());
-
-    for (auto& it : mRuntimes) {
-        auto runtimeInstances = MakeUnique<InstanceInfoArray>(mAllocator);
-        if (!runtimeInstances) {
-            return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
-        }
-
-        for (const auto& instanceInfo : instancesInfo) {
-            if (instanceInfo.mRuntimeID != it.mSecond) {
-                continue;
-            }
-
-            if (auto err = runtimeInstances->PushBack(instanceInfo); !err.IsNone()) {
-                LOG_ERR() << "Failed to add instance to runtime init list" << Log::Field("instance", instanceInfo)
-                          << Log::Field(AOS_ERROR_WRAP(err));
-
-                break;
-            }
-        }
-
-        if (auto err = it.mFirst->InitInstances(*runtimeInstances); !err.IsNone()) {
-            LOG_ERR() << "Failed to init instances" << Log::Field("runtimeID", it.mSecond)
-                      << Log::Field(AOS_ERROR_WRAP(err));
-        }
-    }
-
-    return ErrorEnum::eNone;
-}
-
 void Launcher::RunRebootThread()
 {
     while (true) {
@@ -513,14 +453,14 @@ void Launcher::RunRebootThread()
             }
 
             for (const auto& runtimeID : mRebootQueue) {
-                auto* runtime = mRuntimes.FindIf([&runtimeID](const auto& pair) { return pair.mSecond == runtimeID; });
-                if (runtime == mRuntimes.end()) {
+                auto* runtime = mRuntimes.Find(runtimeID);
+                if (runtime == nullptr) {
                     LOG_ERR() << "Runtime for reboot not found" << Log::Field("runtimeID", runtimeID);
 
                     continue;
                 }
 
-                if (auto err = runtimesToReboot.EmplaceBack(runtime->mFirst); !err.IsNone()) {
+                if (auto err = runtimesToReboot.EmplaceBack(runtime); !err.IsNone()) {
                     LOG_ERR() << "Failed to add runtime to reboot list" << Log::Field(AOS_ERROR_WRAP(err));
                 }
             }
@@ -597,7 +537,7 @@ void Launcher::StopExpiredInstances(UniqueLock<Mutex>& lock)
             continue;
         }
 
-        auto* runtime = FindInstanceRuntime(instance.mStatus.mRuntimeID);
+        auto* runtime = mRuntimes.Find(instance.mStatus.mRuntimeID);
         if (!runtime) {
             LOG_ERR() << "Runtime not found for expired TTL instance" << Log::Field("instance", instance.mInfo);
             continue;
@@ -881,7 +821,7 @@ void Launcher::StopInstances(const Array<InstanceIdent>& stopInstances)
 
 Error Launcher::AddStopInstanceTask(InstanceData& instanceData)
 {
-    auto runtime = FindInstanceRuntime(instanceData.mStatus.mRuntimeID);
+    auto runtime = mRuntimes.Find(instanceData.mStatus.mRuntimeID);
     if (runtime == nullptr) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "runtime not found"));
     }
@@ -1377,7 +1317,7 @@ void Launcher::RepairModuleStartInstances()
 
 Error Launcher::AddStartInstanceTask(InstanceData& instanceData)
 {
-    auto runtime = FindInstanceRuntime(instanceData.mInfo.mRuntimeID);
+    auto runtime = mRuntimes.Find(instanceData.mInfo.mRuntimeID);
     if (runtime == nullptr) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "runtime not found"));
     }
@@ -1480,16 +1420,6 @@ void Launcher::FinishLaunch()
     if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
         LOG_ERR() << "Can't notify launcher" << Log::Field(AOS_ERROR_WRAP(err));
     }
-}
-
-RuntimeItf* Launcher::FindInstanceRuntime(const String& runtimeID)
-{
-    if (auto it = mRuntimes.FindIf([&runtimeID](const auto& it) { return it.mSecond == runtimeID; });
-        it != mRuntimes.end()) {
-        return it->mFirst;
-    }
-
-    return nullptr;
 }
 
 RetWithError<InstanceData*> Launcher::AddInstanceData(const InstanceInfo& instanceInfo)

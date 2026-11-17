@@ -100,6 +100,9 @@ classDiagram
     class ItemInstaller ["aos::sm::launcher::ItemInstaller"] {
     }
 
+    class RuntimeManager ["aos::sm::launcher::RuntimeManager"] {
+    }
+
     class InstanceIDProviderItf ["aos::sm::launcher::InstanceIDProviderItf"] {
         <<interface>>
     }
@@ -113,7 +116,8 @@ classDiagram
     InstanceInfoProviderItf ..|> InstanceMonitoringProviderItf
     RuntimeItf ..|> InstanceMonitoringProviderItf
 
-    Launcher "1" --> "*" RuntimeItf
+    Launcher *-- RuntimeManager
+    RuntimeManager "1" --> "*" RuntimeItf
     Launcher ..> SenderItf
     Launcher ..> StorageItf
     Launcher *-- InstanceRegistry
@@ -154,6 +158,12 @@ installs the items of the started instances which `ItemStatusProviderItf` doesn'
 ID and version. It also installs a single item for the integrity recovery. The installer runs the installs and
 removals in the launcher thread pool. It counts the installs in progress under its own lock: on launcher stop, it
 rejects the new installs with `eCanceled` and cancels `ImageManagerItf` until all installs in progress return.
+
+The launcher keeps the node runtimes in [aos::sm::launcher::RuntimeManager](runtimemanager.hpp). On start, the runtime
+manager starts the runtimes, reads their runtime IDs and passes to each runtime the stored instances which run on it.
+The launcher finds the runtime of an instance by its runtime ID. On stop, the runtime manager stops all runtimes, even
+if some of them fail to stop. Like the instance registry, it isn't thread safe and the launcher serializes the access
+to it. The launcher queues the runtimes which require reboot and reboots them when no launch is in progress.
 
 ## Initialization
 
