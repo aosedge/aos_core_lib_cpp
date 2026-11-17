@@ -235,6 +235,8 @@ protected:
                 auto space = MakeUnique<NiceMock<spaceallocator::SpaceMock>>(&mAllocator);
 
                 ON_CALL(*space, Accept()).WillByDefault(Invoke([this, size]() {
+                    std::lock_guard lock {mMutex};
+
                     mAcceptedAllocations.push_back(size);
 
                     return ErrorEnum::eNone;
