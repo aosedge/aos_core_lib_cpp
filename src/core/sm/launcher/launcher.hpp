@@ -22,6 +22,7 @@
 #include <core/sm/networkmanager/itf/networkmanager.hpp>
 #include <core/sm/resourcemanager/itf/resourceinfoprovider.hpp>
 
+#include "instanceregistry.hpp"
 #include "itf/instanceidprovider.hpp"
 #include "itf/instancestatusreceiver.hpp"
 #include "itf/launcher.hpp"
@@ -162,14 +163,6 @@ public:
     Error GetRuntimesInfos(Array<RuntimeInfo>& runtimes) const override;
 
 private:
-    struct InstanceData {
-        InstanceInfo         mInfo;
-        InstanceStatus       mStatus;
-        StaticString<cIDLen> mInstanceID;
-        Duration             mOfflineTTL;
-        bool                 mConfigsLoaded {};
-    };
-
     struct ItemVersion {
         StaticString<cIDLen>      mItemID;
         StaticString<cVersionLen> mVersion;
@@ -237,15 +230,11 @@ private:
     Error CreateNetwork(
         const InstanceData& instanceData, const oci::ItemConfig& itemConfig, const oci::ImageConfig& imageConfig);
 
-    InstanceData*       FindInstanceData(const InstanceIdent& instanceIdent);
-    const InstanceData* FindInstanceData(const InstanceIdent& instanceIdent) const;
-    InstanceData*       FindInstanceDataByID(const String& instanceID);
-    RuntimeItf*         FindInstanceRuntime(const String& runtimeID);
-    Optional<Duration>  GetMinOfflineTTL() const;
-    void                StartTTLTimer();
-    void                StopExpiredInstances(UniqueLock<Mutex>& lock);
-    void                SendNodeInstancesStatuses();
-    Error               InitInstances(const Array<InstanceInfo>& instancesInfo);
+    RuntimeItf* FindInstanceRuntime(const String& runtimeID);
+    void        StartTTLTimer();
+    void        StopExpiredInstances(UniqueLock<Mutex>& lock);
+    void        SendNodeInstancesStatuses();
+    Error       InitInstances(const Array<InstanceInfo>& instancesInfo);
 
     AllocatorItf*                                                         mAllocator {};
     StaticArray<instancestatusprovider::ListenerItf*, cMaxNumSubscribers> mSubscribers;
@@ -259,7 +248,7 @@ private:
     mutable ConditionalVariable                                           mCondVar;
     size_t                                                                mNumInstalls {};
     bool                                                                  mInstallsCanceled {};
-    StaticArray<InstanceData, cMaxNumInstances>                           mInstances;
+    InstanceRegistry                                                      mInstances;
     StaticMap<RuntimeItf*, StaticString<cIDLen>, cMaxNumNodeRuntimes>     mRuntimes;
     StaticArray<StaticString<cIDLen>, cMaxNumNodeRuntimes>                mRebootQueue;
     imagemanager::ImageManagerItf*                                        mImageManager {};
@@ -270,7 +259,6 @@ private:
     common::imagemanager::ItemInfoProviderItf*                            mItemInfoProvider {};
     cloudconnection::CloudConnectionItf*                                  mCloudConnection {};
     networkmanager::NetworkManagerItf*                                    mNetworkManager {};
-    InstanceIDProviderItf*                                                mInstanceIDProvider {};
     resourcemanager::ResourceInfoProviderItf*                             mResourceInfoProvider {};
     bool                                                                  mLaunchInProgress {};
     bool                                                                  mIsRunning {};

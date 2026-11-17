@@ -33,7 +33,9 @@ It requires the following interfaces:
 * [aos::common::imagemanager::ItemStatusProviderItf](../../common/imagemanager/itf/itemstatusprovider.hpp) - provides
   the states of the stored update items;
 * [aos::common::imagemanager::ItemInfoProviderItf](../../common/imagemanager/itf/iteminfoprovider.hpp) - provides the
-  local paths of the blobs.
+  local paths of the blobs;
+* [aos::sm::launcher::InstanceIDProviderItf](itf/instanceidprovider.hpp) - provides the instance ID used to identify
+  the instance network.
 
 ```mermaid
 classDiagram
@@ -82,6 +84,13 @@ classDiagram
         <<interface>>
     }
 
+    class InstanceRegistry ["aos::sm::launcher::InstanceRegistry"] {
+    }
+
+    class InstanceIDProviderItf ["aos::sm::launcher::InstanceIDProviderItf"] {
+        <<interface>>
+    }
+
     Launcher ..|> LauncherItf
     Launcher ..|> InstanceStatusReceiverItf
     Launcher ..|> RuntimeInfoProviderItf
@@ -94,7 +103,21 @@ classDiagram
     Launcher "1" --> "*" RuntimeItf
     Launcher ..> SenderItf
     Launcher ..> StorageItf
+    Launcher *-- InstanceRegistry
+    InstanceRegistry ..> InstanceIDProviderItf
 ```
+
+## Internal structure
+
+The launcher keeps the data of the node instances in
+[aos::sm::launcher::InstanceRegistry](instanceregistry.hpp). For each instance, the registry stores the instance
+info, the instance status, the instance ID, the offline TTL and whether the item configs are loaded. It adds an
+instance in the `eInactive` state, gets its instance ID from `InstanceIDProviderItf`, finds an instance by ident or
+by instance ID, removes it, and returns the instances statuses and the minimal offline TTL of the active and
+activating instances.
+
+The registry isn't thread safe: the launcher serializes the access to it with its own lock. The pointers to the
+instance data stay valid until the instance is removed, so the launch stages pass them to the thread pool tasks.
 
 ## Initialization
 
@@ -190,6 +213,11 @@ sequenceDiagram
 
 Launcher processes instances in parallel using a thread pool. Installation, preparation, network startup, and
 runtime startup are separate stages; each stage completes before the next one starts.
+
+The network stop and start stages run within a network manager batch: the batch is flushed once all instances of
+the stage are processed. An instance whose network fails to start in the batch is set `eFailed` and its network is
+stopped. A network which fails to stop in the batch is only logged. If the batch can't be started, the networks are
+still processed, and no failures are collected from the batch.
 
 ## Integrity recovery
 

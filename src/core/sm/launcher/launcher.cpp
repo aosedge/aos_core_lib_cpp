@@ -54,8 +54,9 @@ Error Launcher::Init(AllocatorItf& allocator, const Array<RuntimeItf*>& runtimes
     mItemInfoProvider     = &itemInfoProvider;
     mCloudConnection      = &cloudConnection;
     mNetworkManager       = &networkManager;
-    mInstanceIDProvider   = &instanceIDProvider;
     mResourceInfoProvider = &resourceInfoProvider;
+
+    mInstances.Init(instanceIDProvider);
 
     return ErrorEnum::eNone;
 }
@@ -313,12 +314,8 @@ Error Launcher::GetInstancesStatuses(Array<InstanceStatus>& statuses)
 
     LOG_DBG() << "Get instances statuses" << Log::Field("count", mInstances.Size());
 
-    statuses.Clear();
-
-    for (const auto& instance : mInstances) {
-        if (auto err = statuses.EmplaceBack(instance.mStatus); !err.IsNone()) {
-            return AOS_ERROR_WRAP(err);
-        }
+    if (auto err = mInstances.GetStatuses(statuses); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
@@ -356,7 +353,7 @@ Error Launcher::GetInstanceMonitoringParams(const InstanceIdent& instanceIdent, 
 
     LOG_DBG() << "Get instance monitoring params" << Log::Field("instance", instanceIdent);
 
-    const auto* const instanceData = FindInstanceData(instanceIdent);
+    const auto* const instanceData = mInstances.Find(instanceIdent);
     if (!instanceData) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance not found"));
     }
@@ -375,7 +372,7 @@ Error Launcher::GetInstanceMonitoringData(
 {
     LockGuard lock {mMutex};
 
-    const auto* const instanceData = FindInstanceData(instanceIdent);
+    const auto* const instanceData = mInstances.Find(instanceIdent);
     if (!instanceData) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance not found"));
     }
@@ -568,36 +565,13 @@ void Launcher::HandleOfflineTTLs()
     StartTTLTimer();
 }
 
-Optional<Duration> Launcher::GetMinOfflineTTL() const
-{
-    Optional<Duration> earliest;
-
-    for (const auto& instance : mInstances) {
-        if (!instance.mOfflineTTL
-            || (instance.mStatus.mState != InstanceStateEnum::eActive
-                && instance.mStatus.mState != InstanceStateEnum::eActivating)) {
-            continue;
-        }
-
-        if (!earliest.HasValue()) {
-            earliest = instance.mOfflineTTL;
-
-            continue;
-        }
-
-        earliest = Min(*earliest, instance.mOfflineTTL);
-    }
-
-    return earliest;
-}
-
 void Launcher::StartTTLTimer()
 {
     if (!mOfflineTime.HasValue()) {
         return;
     }
 
-    auto earliestDeadline = GetMinOfflineTTL();
+    auto earliestDeadline = mInstances.GetMinOfflineTTL();
     if (!earliestDeadline.HasValue()) {
         return;
     }
@@ -694,9 +668,7 @@ Error Launcher::HandleComponentStatus(const aos::InstanceStatus& status)
         return ErrorEnum::eNone;
     }
 
-    if (mInstances.ContainsIf([&status](const auto& instance) {
-            return static_cast<const InstanceIdent&>(instance.mStatus) == static_cast<const InstanceIdent&>(status);
-        })) {
+    if (mInstances.Find(status) != nullptr) {
         return ErrorEnum::eNone;
     }
 
@@ -794,7 +766,7 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
     LOG_INF() << "[profiling] Update instances begin" << Log::Field("stopCount", stopInstances.Size())
               << Log::Field("startCount", startInstances.Size());
 
-    auto sendStatus = DeferRelease(&mInstances, [this](Array<InstanceData>*) {
+    auto sendStatus = DeferRelease(&mInstances, [this](InstanceRegistry*) {
         LockGuard lock {mMutex};
 
         if (!mFirstStart) {
@@ -891,7 +863,7 @@ void Launcher::StopInstances(const Array<InstanceIdent>& stopInstances)
     LOG_INF() << "[profiling] Stop instances begin" << Log::Field("count", stopInstances.Size());
 
     for (const auto& instance : stopInstances) {
-        auto instanceData = FindInstanceData(instance);
+        auto instanceData = mInstances.Find(instance);
         if (!instanceData) {
             LOG_ERR() << "Failed to stop instance" << Log::Field("instance", instance)
                       << Log::Field(AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance data not found")));
@@ -1025,7 +997,7 @@ void Launcher::PrepareInstances(const Array<InstanceInfo>& startInstances, const
     LOG_INF() << "[profiling] Prepare instances begin" << Log::Field("count", startInstances.Size());
 
     for (const auto& instance : startInstances) {
-        auto instanceData = FindInstanceData(instance);
+        auto instanceData = mInstances.Find(instance);
         // The running instance whose configs failed to load on module start is prepared again to load them.
         auto existingInstance = instanceData && instanceData->mStatus.mState != InstanceStateEnum::eFailed
             && (instanceData->mInfo.mType != UpdateItemTypeEnum::eService || instanceData->mConfigsLoaded);
@@ -1123,7 +1095,7 @@ void Launcher::StartNetworks(const Array<InstanceInfo>& startInstances)
     RunNetworkBatch(
         [this, &startInstances]() {
             for (const auto& instance : startInstances) {
-                auto instanceData = FindInstanceData(instance);
+                auto instanceData = mInstances.Find(instance);
                 if (!instanceData) {
                     LOG_ERR() << "Failed to start network" << Log::Field("instance", instance)
                               << Log::Field(AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance data not found")));
@@ -1149,7 +1121,7 @@ void Launcher::StartNetworks(const Array<InstanceInfo>& startInstances)
         },
         [this](const Array<StaticString<cIDLen>>& failedIDs) {
             for (const auto& failedID : failedIDs) {
-                auto instanceData = FindInstanceDataByID(failedID);
+                auto instanceData = mInstances.FindByID(failedID);
                 if (!instanceData) {
                     continue;
                 }
@@ -1191,7 +1163,7 @@ void Launcher::StopNetworks(const Array<InstanceIdent>& stopInstances)
     RunNetworkBatch(
         [this, &stopInstances]() {
             for (const auto& instance : stopInstances) {
-                auto instanceData = FindInstanceData(instance);
+                auto instanceData = mInstances.Find(instance);
                 if (!instanceData) {
                     LOG_DBG() << "Instance already removed" << Log::Field("instance", instance);
 
@@ -1217,7 +1189,7 @@ void Launcher::StartInstances(const Array<InstanceInfo>& startInstances, Array<I
     LOG_INF() << "[profiling] Start instances begin" << Log::Field("count", startInstances.Size());
 
     for (const auto& instance : startInstances) {
-        auto instanceData = FindInstanceData(instance);
+        auto instanceData = mInstances.Find(instance);
         if (!instanceData) {
             LOG_ERR() << "Failed to start instance" << Log::Field("instance", instance)
                       << Log::Field(AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance data not found")));
@@ -1270,7 +1242,7 @@ void Launcher::RepairInstances(
         LockGuard lock {mMutex};
 
         for (const auto& instance : instances) {
-            auto instanceData = FindInstanceData(instance);
+            auto instanceData = mInstances.Find(instance);
             if (!instanceData || !isBroken(*instanceData) || findItem(instanceData->mInfo) != repairedItems.end()) {
                 continue;
             }
@@ -1317,7 +1289,7 @@ void Launcher::RepairInstances(
         {
             LockGuard lock {mMutex};
 
-            instanceData = FindInstanceData(instance);
+            instanceData = mInstances.Find(instance);
             if (!instanceData || !isBroken(*instanceData)) {
                 continue;
             }
@@ -1462,7 +1434,7 @@ Error Launcher::AppendInstancesWithModifiedParams(
     const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& stopInstances)
 {
     for (const auto& startInstance : startInstances) {
-        const auto* const instanceData = FindInstanceData(startInstance);
+        const auto* const instanceData = mInstances.Find(startInstance);
         if (!instanceData) {
             continue;
         }
@@ -1565,40 +1537,6 @@ void Launcher::FinishLaunch()
     }
 }
 
-Launcher::InstanceData* Launcher::FindInstanceData(const InstanceIdent& instanceIdent)
-{
-    if (auto it = mInstances.FindIf([&instanceIdent](const auto& instance) {
-            return static_cast<const InstanceIdent&>(instance.mInfo) == instanceIdent;
-        });
-        it != mInstances.end()) {
-        return it;
-    }
-
-    return nullptr;
-}
-
-const Launcher::InstanceData* Launcher::FindInstanceData(const InstanceIdent& instanceIdent) const
-{
-    if (auto it = mInstances.FindIf([&instanceIdent](const auto& instance) {
-            return static_cast<const InstanceIdent&>(instance.mInfo) == instanceIdent;
-        });
-        it != mInstances.end()) {
-        return it;
-    }
-
-    return nullptr;
-}
-
-Launcher::InstanceData* Launcher::FindInstanceDataByID(const String& instanceID)
-{
-    if (auto it = mInstances.FindIf([&instanceID](const auto& instance) { return instance.mInstanceID == instanceID; });
-        it != mInstances.end()) {
-        return it;
-    }
-
-    return nullptr;
-}
-
 RuntimeItf* Launcher::FindInstanceRuntime(const String& runtimeID)
 {
     if (auto it = mRuntimes.FindIf([&runtimeID](const auto& it) { return it.mSecond == runtimeID; });
@@ -1613,7 +1551,7 @@ void Launcher::GetRemoveUpdateItems(const Array<InstanceIdent>& stopInstances,
     const Array<InstanceInfo>& startInstances, Array<ItemVersion>& removeItems)
 {
     for (const auto& instanceIdent : stopInstances) {
-        const auto* const instanceData = FindInstanceData(instanceIdent);
+        const auto* const instanceData = mInstances.Find(instanceIdent);
         if (!instanceData) {
             LOG_ERR() << "Instance not found, skip removing update item" << Log::Field("instance", instanceIdent);
 
@@ -1720,32 +1658,13 @@ Error Launcher::InstallUpdateItems(const Array<InstanceInfo>& startInstances, Ar
     return ErrorEnum::eNone;
 }
 
-RetWithError<Launcher::InstanceData*> Launcher::AddInstanceData(const InstanceInfo& instanceInfo)
+RetWithError<InstanceData*> Launcher::AddInstanceData(const InstanceInfo& instanceInfo)
 {
     LockGuard lock {mMutex};
 
     LOG_DBG() << "Add instance data" << Log::Field("instance", instanceInfo);
 
-    if (auto err = mInstances.EmplaceBack(); !err.IsNone()) {
-        return {nullptr, AOS_ERROR_WRAP(err)};
-    }
-
-    auto itInstance = &mInstances.Back();
-
-    itInstance->mInfo = instanceInfo;
-    static_cast<InstanceIdent&>(itInstance->mStatus)
-        = instanceInfo; // NOSONAR cpp:S5912 - intentional copy of InstanceIdent base only
-    itInstance->mStatus.mVersion   = instanceInfo.mVersion;
-    itInstance->mStatus.mRuntimeID = instanceInfo.mRuntimeID;
-    itInstance->mStatus.mState     = InstanceStateEnum::eInactive;
-
-    if (auto err = mInstanceIDProvider->GetInstanceID(instanceInfo, itInstance->mInstanceID); !err.IsNone()) {
-        (void)mInstances.Erase(itInstance);
-
-        return {nullptr, AOS_ERROR_WRAP(err)};
-    }
-
-    return itInstance;
+    return mInstances.Add(instanceInfo);
 }
 
 Error Launcher::ReleaseInstance(const InstanceData& instanceData)
@@ -1767,7 +1686,7 @@ Error Launcher::ReleaseInstance(const InstanceData& instanceData)
 void Launcher::RemoveInstances(const Array<InstanceIdent>& instances)
 {
     for (const auto& instanceIdent : instances) {
-        auto instanceData = FindInstanceData(instanceIdent);
+        auto instanceData = mInstances.Find(instanceIdent);
         if (!instanceData) {
             LOG_ERR() << "Instance data not found, skip removing" << Log::Field("instance", instanceIdent);
 
@@ -1791,9 +1710,7 @@ void Launcher::RemoveInstances(const Array<InstanceIdent>& instances)
     for (const auto& instanceIdent : instances) {
         LOG_DBG() << "Remove instance data" << Log::Field("instance", instanceIdent);
 
-        (void)mInstances.RemoveIf([this, &instanceIdent](const auto& instance) {
-            return static_cast<const InstanceIdent&>(instance.mInfo) == instanceIdent;
-        });
+        mInstances.Remove(instanceIdent);
     }
 }
 
