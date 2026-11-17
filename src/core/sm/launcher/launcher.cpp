@@ -50,13 +50,12 @@ Error Launcher::Init(AllocatorItf& allocator, const Array<RuntimeItf*>& runtimes
     mItemStatusProvider   = &itemStatusProvider;
     mStorage              = &storage;
     mSender               = &sender;
-    mOCISpec              = &ociSpec;
-    mItemInfoProvider     = &itemInfoProvider;
     mCloudConnection      = &cloudConnection;
     mNetworkManager       = &networkManager;
     mResourceInfoProvider = &resourceInfoProvider;
 
     mInstances.Init(instanceIDProvider);
+    mItemConfigLoader.Init(allocator, itemInfoProvider, ociSpec);
 
     return ErrorEnum::eNone;
 }
@@ -711,7 +710,7 @@ Error Launcher::LoadInstanceData(InstanceData& instanceData)
 
 Error Launcher::LoadInstanceData(InstanceData& instanceData, oci::ItemConfig& itemConfig, oci::ImageConfig& imageConfig)
 {
-    if (auto err = LoadInstanceConfigs(instanceData.mInfo, itemConfig, imageConfig); !err.IsNone()) {
+    if (auto err = mItemConfigLoader.Load(instanceData.mInfo.mManifestDigest, itemConfig, imageConfig); !err.IsNone()) {
         return err;
     }
 
@@ -1752,51 +1751,6 @@ void Launcher::WaitLaunchPool()
     if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
         LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
-}
-
-Error Launcher::LoadInstanceConfigs(
-    const InstanceInfo& instance, oci::ItemConfig& itemConfig, oci::ImageConfig& imageConfig)
-{
-
-    auto path = MakeUnique<StaticString<cFilePathLen>>(mAllocator);
-    if (!path) {
-        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
-    }
-
-    if (auto err = mItemInfoProvider->GetBlobPath(instance.mManifestDigest, *path); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    auto manifest = MakeUnique<oci::ImageManifest>(mAllocator);
-    if (!manifest) {
-        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
-    }
-
-    if (auto err = mOCISpec->LoadImageManifest(*path, *manifest); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (!manifest->mItemConfig.HasValue()) {
-        return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "item config not found in manifest"));
-    }
-
-    if (auto err = mItemInfoProvider->GetBlobPath(manifest->mItemConfig->mDigest, *path); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (auto err = mOCISpec->LoadItemConfig(*path, itemConfig); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (auto err = mItemInfoProvider->GetBlobPath(manifest->mConfig.mDigest, *path); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    if (auto err = mOCISpec->LoadImageConfig(*path, imageConfig); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    return ErrorEnum::eNone;
 }
 
 Error Launcher::GetInstanceNetworkConfig(const InstanceInfo& instance, const oci::ItemConfig& itemConfig,

@@ -23,6 +23,7 @@
 #include <core/sm/resourcemanager/itf/resourceinfoprovider.hpp>
 
 #include "instanceregistry.hpp"
+#include "itemconfigloader.hpp"
 #include "itf/instanceidprovider.hpp"
 #include "itf/instancestatusreceiver.hpp"
 #include "itf/launcher.hpp"
@@ -225,7 +226,6 @@ private:
     void WaitLaunchPool();
     template <typename AddTasks, typename HandleFailedIDs>
     void  RunNetworkBatch(AddTasks addTasks, HandleFailedIDs handleFailedIDs);
-    Error LoadInstanceConfigs(const InstanceInfo& instance, oci::ItemConfig& itemConfig, oci::ImageConfig& imageConfig);
     Error GetInstanceNetworkConfig(const InstanceInfo& instance, const oci::ItemConfig& itemConfig,
         const oci::ImageConfig& imageConfig, networkmanager::InstanceNetworkConfig& networkConfig);
     Error CreateNetwork(
@@ -250,14 +250,13 @@ private:
     size_t                                                                mNumInstalls {};
     bool                                                                  mInstallsCanceled {};
     InstanceRegistry                                                      mInstances;
+    ItemConfigLoader                                                      mItemConfigLoader;
     StaticMap<RuntimeItf*, StaticString<cIDLen>, cMaxNumNodeRuntimes>     mRuntimes;
     StaticArray<StaticString<cIDLen>, cMaxNumNodeRuntimes>                mRebootQueue;
     imagemanager::ImageManagerItf*                                        mImageManager {};
     common::imagemanager::ItemStatusProviderItf*                          mItemStatusProvider {};
     StorageItf*                                                           mStorage {};
     SenderItf*                                                            mSender {};
-    oci::OCISpecItf*                                                      mOCISpec {};
-    common::imagemanager::ItemInfoProviderItf*                            mItemInfoProvider {};
     cloudconnection::CloudConnectionItf*                                  mCloudConnection {};
     networkmanager::NetworkManagerItf*                                    mNetworkManager {};
     resourcemanager::ResourceInfoProviderItf*                             mResourceInfoProvider {};

@@ -87,6 +87,9 @@ classDiagram
     class InstanceRegistry ["aos::sm::launcher::InstanceRegistry"] {
     }
 
+    class ItemConfigLoader ["aos::sm::launcher::ItemConfigLoader"] {
+    }
+
     class InstanceIDProviderItf ["aos::sm::launcher::InstanceIDProviderItf"] {
         <<interface>>
     }
@@ -104,6 +107,7 @@ classDiagram
     Launcher ..> SenderItf
     Launcher ..> StorageItf
     Launcher *-- InstanceRegistry
+    Launcher *-- ItemConfigLoader
     InstanceRegistry ..> InstanceIDProviderItf
 ```
 
@@ -118,6 +122,12 @@ activating instances.
 
 The registry isn't thread safe: the launcher serializes the access to it with its own lock. The pointers to the
 instance data stay valid until the instance is removed, so the launch stages pass them to the thread pool tasks.
+
+The launcher loads the item config and the image config of a service instance with
+[aos::sm::launcher::ItemConfigLoader](itemconfigloader.hpp). The loader gets the image manifest blob by the manifest
+digest of the instance, then the item config and image config blobs referenced by the manifest. It gets the blob paths
+from `ItemInfoProviderItf` and parses the blobs with `OCISpecItf`. A manifest without an item config fails with
+`eNotFound`, and a broken blob fails with the error of `OCISpecItf`, for example `eIntegrity`.
 
 ## Initialization
 
