@@ -167,8 +167,6 @@ public:
     Error GetRuntimesInfos(Array<RuntimeInfo>& runtimes) const override;
 
 private:
-    using AddInstanceTaskFunc = Error (Launcher::*)(InstanceData& instanceData);
-
     static constexpr auto cThreadTaskSize    = 512;
     static constexpr auto cMaxNumSubscribers = 4;
 
@@ -185,20 +183,21 @@ private:
     Error AddStopNetworkTask(InstanceData& instanceData);
     void  StopAllInstances();
     void  StopAllNetworks();
-    void  PrepareInstances(const Array<InstanceInfo>& startInstances, const Array<InstallItem>& installItems,
-         const Error& installError, Array<InstanceIdent>& preparedInstances);
+    void  PrepareInstances(
+         const Array<InstanceInfo>& startInstances, const Array<InstallItem>& installItems, const Error& installError);
     Error AddPrepareInstanceTask(InstanceData& instanceData);
     void  StartNetworks(const Array<InstanceInfo>& startInstances);
     Error AddStartNetworkTask(InstanceData& instanceData);
-    void  StartInstances(const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& startedInstances);
-    void  RepairInstances(
-         const Array<InstanceIdent>& instances, Array<InstallItem>& repairedItems, AddInstanceTaskFunc addRetryTask);
-    void  RepairModuleStartInstances();
+    void  StartInstances(const Array<InstanceInfo>& startInstances);
+    bool  RepairBrokenInstances();
+    void  HandleBrokenInstance(const InstanceStatus& status);
+    void  StartPendingRepair();
     Error AddStartInstanceTask(InstanceData& instanceData);
     Error AppendInstancesWithModifiedParams(
         const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& stopInstances);
     Error                       StartLaunch();
     void                        FinishLaunch();
+    bool                        TryFinishLaunch(bool sendStatuses);
     RetWithError<InstanceData*> AddInstanceData(const InstanceInfo& instanceInfo);
     void                        RemoveInstances(const Array<InstanceIdent>& instances);
     void SetInstanceState(InstanceData& instance, const InstanceState& state, const Error& error = ErrorEnum::eNone);
@@ -233,7 +232,9 @@ private:
     bool                                                                  mLaunchInProgress {};
     bool                                                                  mIsRunning {};
     bool                                                                  mFirstStart {true};
-    bool                                                                  mModuleStartRepair {};
+    bool                                                                  mRepairInProgress {};
+    bool                                                                  mRepairRequested {};
+    StaticArray<ItemVersion, cMaxNumUpdateItems>                          mRepairedItems;
     Optional<Time>                                                        mOfflineTime {};
 };
 

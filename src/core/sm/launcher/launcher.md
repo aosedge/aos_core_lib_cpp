@@ -292,25 +292,29 @@ still processed, and no failures are collected from the batch.
 ## Integrity recovery
 
 Launcher repairs the update items whose content is broken by installing them again with
-`ImageManagerItf::InstallItem`, which validates the item and downloads only the broken blobs. An item is repaired at
-most once per request:
+`ImageManagerItf::InstallItem`, which validates the item and downloads only the broken blobs. Launcher watches the
+instances statuses: an instance fails with `eIntegrity` when its item configs fail to read on prepare or start, when
+its runtime fails to start it, or when its runtime reports it failed with `eIntegrity` while it runs.
 
-* after the instances of a request are prepared, launcher installs again once each item that has an instance whose
-  item configs failed to read with `eIntegrity`. Then it prepares again the failed instances of the repaired items;
-* after the instances of a request are started, launcher installs again once each item that has an instance failed to
-  start with `eIntegrity`, unless the item was already repaired at the prepare stage. Then it starts again the failed
-  instances of the repaired items.
+The repair runs on the launch thread:
 
-The instances of an item which can't be repaired stay failed with the repair error, and an instance which fails the
-second prepare or start stays failed with the error of this attempt.
+* at the end of each request and of the module start launch, before the node instances statuses are sent;
+* when a runtime reports an instance failed with `eIntegrity` outside a launch. A failure reported during a launch is
+  repaired by this launch before it is finished.
 
-The repair needs the CM, which may be not connected on module start, so the stored instances are read and started
-without the repair. The first request handles the broken content: it prepares and starts again the instances failed
-with `eIntegrity`, and prepares again the running instances whose item configs failed to read on module start.
+The repair installs again once each item of the failed instances, then prepares, starts the networks of and starts again
+the failed instances of the repaired items. The instances of an item which can't be repaired stay failed with the
+repair error, and an instance which fails again stays failed with the error of this attempt.
 
-Any other error doesn't trigger the repair. The new or failed instances of an item whose installation failed aren't
-started, so they aren't repaired either: they stay failed with the installation error until the next request. A
-running instance of such an item keeps running.
+An item version is repaired once until the next request for it: its instances which fail again, including the ones
+reported by the runtime later, stay failed. The new or failed instances of an item whose installation failed in a
+request aren't started and aren't repaired either: they stay failed with the installation error until the next request.
+A running instance of such an item keeps running.
+
+The repair may wait for the CM, which may be not connected yet on module start and gets the instances statuses when
+it connects. So the instances statuses request doesn't wait for the repair, a request received during the repair is
+processed after it, and the node instances statuses are sent after the repair. On module start, they are sent only if
+the repair changes them. A failure reported while the launcher stops doesn't start a repair.
 
 ## aos::sm::launcher::InstanceStatusReceiverItf
 

@@ -114,6 +114,17 @@ Error Launcher::Stop()
         stopErr = AOS_ERROR_WRAP(err);
     }
 
+    // A failure reported during the stop doesn't start a repair, as the launcher isn't running anymore.
+    {
+        LockGuard lock {mMutex};
+
+        mIsRunning = false;
+
+        if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+            LOG_ERR() << "Can't notify launcher" << Log::Field(AOS_ERROR_WRAP(err));
+        }
+    }
+
     // Don't wait for the items being installed by the launch in progress.
     mItemInstaller.Cancel();
 
@@ -143,14 +154,6 @@ Error Launcher::Stop()
 
         if (err = mRuntimes.Stop(); !err.IsNone() && stopErr.IsNone()) {
             stopErr = err;
-        }
-
-        (void)lock.Lock();
-
-        mIsRunning = false;
-
-        if (auto notifyErr = mCondVar.NotifyAll(); !notifyErr.IsNone()) {
-            LOG_ERR() << "Can't notify launcher" << Log::Field(AOS_ERROR_WRAP(notifyErr));
         }
     }
 
@@ -207,11 +210,12 @@ Error Launcher::UpdateInstances(const Array<InstanceIdent>& stopInstances, const
 
         UpdateInstancesImpl(*stop, *start);
 
-        if (moduleStart) {
-            RepairModuleStartInstances();
-        }
+        // On module start, the node instances statuses are sent only if the repair changes them.
+        auto repaired = false;
 
-        FinishLaunch();
+        do {
+            repaired = RepairBrokenInstances() || repaired;
+        } while (!TryFinishLaunch(!moduleStart || repaired));
     });
     if (!err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -237,7 +241,11 @@ Error Launcher::OnInstancesStatusesReceived(const Array<InstanceStatus>& statuse
             if (auto storeErr = HandleComponentStatus(status); err.IsNone() && !storeErr.IsNone()) {
                 err = AOS_ERROR_WRAP(storeErr);
             }
+
+            HandleBrokenInstance(status);
         }
+
+        StartPendingRepair();
 
         if (!mFirstStart) {
             if (auto sendErr = mSender->SendUpdateInstancesStatuses(statuses); err.IsNone() && !sendErr.IsNone()) {
@@ -282,9 +290,9 @@ Error Launcher::GetInstancesStatuses(Array<InstanceStatus>& statuses)
 {
     UniqueLock lock {mMutex};
 
-    // The module start repair may wait for the CM, which is connected by the modules that get the statuses: don't wait
-    // for it. The statuses changed by the repair are sent when it is finished.
-    if (auto err = mCondVar.Wait(lock, [this]() { return !mLaunchInProgress || mModuleStartRepair; }); !err.IsNone()) {
+    // The repair may wait for the CM, which is connected by the modules that get the statuses: don't wait for it. The
+    // statuses changed by the repair are sent when it is finished.
+    if (auto err = mCondVar.Wait(lock, [this]() { return !mLaunchInProgress || mRepairInProgress; }); !err.IsNone()) {
         LOG_ERR() << "Can't wait for launch finish" << Log::Field(AOS_ERROR_WRAP(err));
     }
 
@@ -500,6 +508,7 @@ void Launcher::HandleOfflineTTLs()
         LOG_ERR() << "Can't notify launcher" << Log::Field(AOS_ERROR_WRAP(err));
     }
 
+    StartPendingRepair();
     StartTTLTimer();
 }
 
@@ -668,17 +677,22 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
     LOG_INF() << "[profiling] Update instances begin" << Log::Field("stopCount", stopInstances.Size())
               << Log::Field("startCount", startInstances.Size());
 
-    auto sendStatus = DeferRelease(&mInstances, [this](InstanceRegistry*) {
+    auto clearFirstStart = DeferRelease(&mInstances, [this](InstanceRegistry*) {
         LockGuard lock {mMutex};
-
-        if (!mFirstStart) {
-            SendNodeInstancesStatuses();
-
-            return;
-        }
 
         mFirstStart = false;
     });
+
+    {
+        LockGuard lock {mMutex};
+
+        // An item version requested again can be repaired again.
+        for (const auto& instance : startInstances) {
+            mRepairedItems.RemoveIf([&instance](const ItemVersion& item) {
+                return item.mItemID == instance.mItemID && item.mVersion == instance.mVersion;
+            });
+        }
+    }
 
     // The buffers are allocated before the thread pool is started, so an allocation failure doesn't leave it running.
     auto removeItems = MakeUnique<StaticArray<ItemVersion, cMaxNumUpdateItems>>(mAllocator);
@@ -691,21 +705,6 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
     auto installItems = MakeUnique<StaticArray<InstallItem, cMaxNumUpdateItems>>(mAllocator);
     if (!installItems) {
         LOG_ERR() << "Failed to allocate install items" << Log::Field(ErrorEnum::eNoMemory);
-
-        return;
-    }
-
-    // An item is repaired at most once per request, so the repaired items are shared by the prepare and start stages.
-    auto repairedItems = MakeUnique<StaticArray<InstallItem, cMaxNumUpdateItems>>(mAllocator);
-    if (!repairedItems) {
-        LOG_ERR() << "Failed to allocate repaired items" << Log::Field(ErrorEnum::eNoMemory);
-
-        return;
-    }
-
-    auto processedInstances = MakeUnique<StaticArray<InstanceIdent, cMaxNumInstances>>(mAllocator);
-    if (!processedInstances) {
-        LOG_ERR() << "Failed to allocate processed instances" << Log::Field(ErrorEnum::eNoMemory);
 
         return;
     }
@@ -737,21 +736,30 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
 
         LOG_INF() << "[profiling] Install items end";
 
-        PrepareInstances(startInstances, *installItems, installError, *processedInstances);
-        RepairInstances(*processedInstances, *repairedItems, &Launcher::AddPrepareInstanceTask);
+        {
+            LockGuard lock {mMutex};
+
+            // The instances of an item which failed to install stay failed with the install error until the next
+            // request for the item: the item isn't installed again by the repair.
+            for (const auto& item : *installItems) {
+                if (item.mError.IsNone() || mRepairedItems.ContainsIf([&item](const ItemVersion& repaired) {
+                        return repaired.mItemID == item.mID && repaired.mVersion == item.mVersion;
+                    })) {
+                    continue;
+                }
+
+                if (auto err = mRepairedItems.EmplaceBack(ItemVersion {item.mID, item.mVersion}); !err.IsNone()) {
+                    LOG_ERR() << "Failed to add repaired item" << Log::Field("itemID", item.mID)
+                              << Log::Field("version", item.mVersion) << Log::Field(AOS_ERROR_WRAP(err));
+                }
+            }
+        }
+
+        PrepareInstances(startInstances, *installItems, installError);
     }
 
     StartNetworks(startInstances);
-
-    processedInstances->Clear();
-
-    StartInstances(startInstances, *processedInstances);
-
-    // On module start, the items are repaired after the launch by RepairModuleStartInstances: the repair may wait for
-    // the CM, which needs the modules started after the launcher.
-    if (!mFirstStart) {
-        RepairInstances(*processedInstances, *repairedItems, &Launcher::AddStartInstanceTask);
-    }
+    StartInstances(startInstances);
 
     if (auto err = mLaunchPool.Shutdown(); !err.IsNone()) {
         LOG_ERR() << "Thread pool shutdown failed" << Log::Field(AOS_ERROR_WRAP(err));
@@ -841,8 +849,8 @@ void Launcher::StopAllNetworks()
     LOG_INF() << "[profiling] Stop all networks end";
 }
 
-void Launcher::PrepareInstances(const Array<InstanceInfo>& startInstances, const Array<InstallItem>& installItems,
-    const Error& installError, Array<InstanceIdent>& preparedInstances)
+void Launcher::PrepareInstances(
+    const Array<InstanceInfo>& startInstances, const Array<InstallItem>& installItems, const Error& installError)
 {
     LOG_INF() << "[profiling] Prepare instances begin" << Log::Field("count", startInstances.Size());
 
@@ -893,11 +901,6 @@ void Launcher::PrepareInstances(const Array<InstanceInfo>& startInstances, const
             FailInstance(*instanceData, "Failed to prepare instance", AOS_ERROR_WRAP(err));
 
             continue;
-        }
-
-        if (err = preparedInstances.PushBack(static_cast<const InstanceIdent&>(instance)); !err.IsNone()) {
-            LOG_ERR() << "Failed to add prepared instance" << Log::Field("instance", instance)
-                      << Log::Field(AOS_ERROR_WRAP(err));
         }
     }
 
@@ -1030,7 +1033,7 @@ void Launcher::StopNetworks(const Array<InstanceIdent>& stopInstances)
     LOG_INF() << "[profiling] Stop networks end";
 }
 
-void Launcher::StartInstances(const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& startedInstances)
+void Launcher::StartInstances(const Array<InstanceInfo>& startInstances)
 {
     LOG_INF() << "[profiling] Start instances begin" << Log::Field("count", startInstances.Size());
 
@@ -1052,13 +1055,6 @@ void Launcher::StartInstances(const Array<InstanceInfo>& startInstances, Array<I
 
         if (auto err = AddStartInstanceTask(*instanceData); !err.IsNone()) {
             FailInstance(*instanceData, "Failed to start instance", AOS_ERROR_WRAP(err));
-
-            continue;
-        }
-
-        if (auto err = startedInstances.PushBack(static_cast<const InstanceIdent&>(instance)); !err.IsNone()) {
-            LOG_ERR() << "Failed to add started instance" << Log::Field("instance", instance)
-                      << Log::Field(AOS_ERROR_WRAP(err));
         }
     }
 
@@ -1067,120 +1063,36 @@ void Launcher::StartInstances(const Array<InstanceInfo>& startInstances, Array<I
     LOG_INF() << "[profiling] Start instances end";
 }
 
-void Launcher::RepairInstances(
-    const Array<InstanceIdent>& instances, Array<InstallItem>& repairedItems, AddInstanceTaskFunc addRetryTask)
+bool Launcher::RepairBrokenInstances()
 {
-    const auto isBroken = [](const InstanceData& instanceData) {
-        return instanceData.mStatus.mState == InstanceStateEnum::eFailed
-            && instanceData.mStatus.mError.Is(ErrorEnum::eIntegrity);
-    };
+    auto brokenInstances = MakeUnique<InstanceInfoArray>(mAllocator);
+    if (!brokenInstances) {
+        LOG_ERR() << "Failed to allocate broken instances" << Log::Field(ErrorEnum::eNoMemory);
 
-    const auto findItem = [&repairedItems](const InstanceInfo& instance) {
-        return repairedItems.FindIf([&instance](const InstallItem& item) {
+        return false;
+    }
+
+    auto repairItems = MakeUnique<StaticArray<InstallItem, cMaxNumUpdateItems>>(mAllocator);
+    if (!repairItems) {
+        LOG_ERR() << "Failed to allocate repair items" << Log::Field(ErrorEnum::eNoMemory);
+
+        return false;
+    }
+
+    const auto findItem = [&repairItems](const InstanceInfo& instance) {
+        return repairItems->FindIf([&instance](const InstallItem& item) {
             return item.mID == instance.mItemID && item.mVersion == instance.mVersion;
         });
     };
 
-    // The items repaired by the previous stage of the request are not repaired again.
-    const auto firstNewItem = repairedItems.Size();
-
     {
         LockGuard lock {mMutex};
 
-        for (const auto& instance : instances) {
-            auto instanceData = mInstances.Find(instance);
-            if (!instanceData || !isBroken(*instanceData) || findItem(instanceData->mInfo) != repairedItems.end()) {
-                continue;
-            }
+        mRepairRequested = false;
 
-            const auto& info = instanceData->mInfo;
-
-            if (auto err = repairedItems.EmplaceBack(
-                    InstallItem {{info.mItemID, info.mType, info.mVersion, info.mManifestDigest}, {}});
-                !err.IsNone()) {
-                LOG_ERR() << "Failed to add repair item" << Log::Field("itemID", info.mItemID)
-                          << Log::Field("version", info.mVersion) << Log::Field(AOS_ERROR_WRAP(err));
-            }
+        if (!mIsRunning) {
+            return false;
         }
-    }
-
-    if (repairedItems.Size() == firstNewItem) {
-        return;
-    }
-
-    LOG_INF() << "[profiling] Repair instances begin" << Log::Field("itemCount", repairedItems.Size() - firstNewItem);
-
-    // Each item is repaired once per request, the instances which still fail stay failed.
-    for (auto item = repairedItems.begin() + firstNewItem; item != repairedItems.end(); ++item) {
-        if (auto err = mLaunchPool.AddTask([this, item](void*) {
-                LOG_WRN() << "Repair update item" << Log::Field("itemID", item->mID)
-                          << Log::Field("version", item->mVersion);
-
-                item->mError = mItemInstaller.Install(*item);
-                if (!item->mError.IsNone()) {
-                    LOG_ERR() << "Repair update item failed" << Log::Field("itemID", item->mID)
-                              << Log::Field("version", item->mVersion) << Log::Field(AOS_ERROR_WRAP(item->mError));
-                }
-            });
-            !err.IsNone()) {
-            item->mError = AOS_ERROR_WRAP(err);
-        }
-    }
-
-    WaitLaunchPool();
-
-    for (const auto& instance : instances) {
-        InstanceData* instanceData = nullptr;
-
-        {
-            LockGuard lock {mMutex};
-
-            instanceData = mInstances.Find(instance);
-            if (!instanceData || !isBroken(*instanceData)) {
-                continue;
-            }
-
-            auto item = findItem(instanceData->mInfo);
-            if (item == repairedItems.end() || item < repairedItems.begin() + firstNewItem) {
-                continue;
-            }
-
-            // The instance of an item which can't be repaired fails with the repair error.
-            if (!item->mError.IsNone()) {
-                instanceData->mStatus.mError = item->mError;
-
-                continue;
-            }
-        }
-
-        if (auto err = (this->*addRetryTask)(*instanceData); !err.IsNone()) {
-            FailInstance(*instanceData, "Failed to retry instance", AOS_ERROR_WRAP(err));
-        }
-    }
-
-    WaitLaunchPool();
-
-    LOG_INF() << "[profiling] Repair instances end";
-}
-
-void Launcher::RepairModuleStartInstances()
-{
-    auto brokenInstances = MakeUnique<StaticArray<InstanceIdent, cMaxNumInstances>>(mAllocator);
-    if (!brokenInstances) {
-        LOG_ERR() << "Failed to allocate broken instances" << Log::Field(ErrorEnum::eNoMemory);
-
-        return;
-    }
-
-    auto repairedItems = MakeUnique<StaticArray<InstallItem, cMaxNumUpdateItems>>(mAllocator);
-    if (!repairedItems) {
-        LOG_ERR() << "Failed to allocate repaired items" << Log::Field(ErrorEnum::eNoMemory);
-
-        return;
-    }
-
-    {
-        LockGuard lock {mMutex};
 
         for (const auto& instance : mInstances) {
             if (instance.mStatus.mState != InstanceStateEnum::eFailed
@@ -1188,43 +1100,179 @@ void Launcher::RepairModuleStartInstances()
                 continue;
             }
 
-            if (auto err = brokenInstances->PushBack(static_cast<const InstanceIdent&>(instance.mInfo));
-                !err.IsNone()) {
-                LOG_ERR() << "Failed to add broken instance" << Log::Field("instance", instance.mInfo)
+            const auto& info = instance.mInfo;
+
+            // An item version is repaired once until the next request for it: its instances which still fail stay
+            // failed.
+            if (mRepairedItems.ContainsIf([&info](const ItemVersion& item) {
+                    return item.mItemID == info.mItemID && item.mVersion == info.mVersion;
+                })) {
+                continue;
+            }
+
+            if (auto err = brokenInstances->PushBack(info); !err.IsNone()) {
+                LOG_ERR() << "Failed to add broken instance" << Log::Field("instance", info)
                           << Log::Field(AOS_ERROR_WRAP(err));
+
+                continue;
+            }
+
+            if (findItem(info) != repairItems->end()) {
+                continue;
+            }
+
+            if (auto err = repairItems->EmplaceBack(
+                    InstallItem {{info.mItemID, info.mType, info.mVersion, info.mManifestDigest}, {}});
+                !err.IsNone()) {
+                LOG_ERR() << "Failed to add repair item" << Log::Field("itemID", info.mItemID)
+                          << Log::Field("version", info.mVersion) << Log::Field(AOS_ERROR_WRAP(err));
             }
         }
 
-        if (brokenInstances->IsEmpty()) {
-            return;
+        if (repairItems->IsEmpty()) {
+            return false;
         }
 
-        mModuleStartRepair = true;
+        for (const auto& item : *repairItems) {
+            if (auto err = mRepairedItems.EmplaceBack(ItemVersion {item.mID, item.mVersion}); !err.IsNone()) {
+                LOG_ERR() << "Failed to add repaired item" << Log::Field("itemID", item.mID)
+                          << Log::Field("version", item.mVersion) << Log::Field(AOS_ERROR_WRAP(err));
+            }
+        }
+
+        // The repair may wait for the CM, which gets the instances statuses when it connects: the statuses aren't
+        // blocked by the repair, and a request received meanwhile is processed after it.
+        mRepairInProgress = true;
 
         if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
             LOG_ERR() << "Can't notify launcher" << Log::Field(AOS_ERROR_WRAP(err));
         }
     }
 
-    LOG_INF() << "[profiling] Module start repair begin" << Log::Field("count", brokenInstances->Size());
+    LOG_INF() << "[profiling] Repair instances begin" << Log::Field("itemCount", repairItems->Size())
+              << Log::Field("instanceCount", brokenInstances->Size());
 
-    if (auto err = mLaunchPool.Run(); err.IsNone()) {
-        RepairInstances(*brokenInstances, *repairedItems, &Launcher::AddStartInstanceTask);
-
-        if (err = mLaunchPool.Shutdown(); !err.IsNone()) {
-            LOG_ERR() << "Thread pool shutdown failed" << Log::Field(AOS_ERROR_WRAP(err));
-        }
-    } else {
+    if (auto err = mLaunchPool.Run(); !err.IsNone()) {
         LOG_ERR() << "Can't start thread pool" << Log::Field(AOS_ERROR_WRAP(err));
+
+        return true;
     }
 
-    LOG_INF() << "[profiling] Module start repair end";
+    for (auto& item : *repairItems) {
+        if (auto err = mLaunchPool.AddTask([this, &item](void*) {
+                LOG_WRN() << "Repair update item" << Log::Field("itemID", item.mID)
+                          << Log::Field("version", item.mVersion);
 
-    // mModuleStartRepair is reset by FinishLaunch, so a request waiting for the repair starts after the launch is
-    // finished.
-    LockGuard lock {mMutex};
+                item.mError = mItemInstaller.Install(item);
+                if (!item.mError.IsNone()) {
+                    LOG_ERR() << "Repair update item failed" << Log::Field("itemID", item.mID)
+                              << Log::Field("version", item.mVersion) << Log::Field(AOS_ERROR_WRAP(item.mError));
+                }
+            });
+            !err.IsNone()) {
+            item.mError = AOS_ERROR_WRAP(err);
+        }
+    }
 
-    SendNodeInstancesStatuses();
+    WaitLaunchPool();
+
+    {
+        LockGuard lock {mMutex};
+
+        // The instances of an item which can't be repaired stay failed with the repair error.
+        brokenInstances->RemoveIf([&](const InstanceInfo& info) {
+            auto item = findItem(info);
+            if (item == repairItems->end()) {
+                return true;
+            }
+
+            if (item->mError.IsNone()) {
+                return false;
+            }
+
+            if (auto* instance = mInstances.Find(info); instance != nullptr) {
+                instance->mStatus.mError = item->mError;
+            }
+
+            return true;
+        });
+    }
+
+    // The instances of the repaired items are launched again: an instance which fails again stays failed with the
+    // error of this attempt.
+    for (const auto& info : *brokenInstances) {
+        auto* instance = mInstances.Find(info);
+        if (instance == nullptr) {
+            continue;
+        }
+
+        if (auto err = AddPrepareInstanceTask(*instance); !err.IsNone()) {
+            FailInstance(*instance, "Failed to prepare instance", AOS_ERROR_WRAP(err));
+        }
+    }
+
+    WaitLaunchPool();
+
+    StartNetworks(*brokenInstances);
+    StartInstances(*brokenInstances);
+
+    if (auto err = mLaunchPool.Shutdown(); !err.IsNone()) {
+        LOG_ERR() << "Thread pool shutdown failed" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    LOG_INF() << "[profiling] Repair instances end";
+
+    return true;
+}
+
+void Launcher::HandleBrokenInstance(const InstanceStatus& status)
+{
+    if (status.mState != InstanceStateEnum::eFailed || !status.mError.Is(ErrorEnum::eIntegrity)) {
+        return;
+    }
+
+    auto* instance = mInstances.Find(status);
+    if (instance == nullptr || instance->mInfo.mVersion != status.mVersion) {
+        return;
+    }
+
+    LOG_WRN() << "Instance content is broken" << Log::Field("instance", instance->mInfo) << Log::Field(status.mError);
+
+    instance->mStatus.mState = InstanceStateEnum::eFailed;
+    instance->mStatus.mError = status.mError;
+    mRepairRequested         = true;
+}
+
+void Launcher::StartPendingRepair()
+{
+    // The launch in progress repairs the instances before it is finished.
+    if (!mRepairRequested || !mIsRunning || mLaunchInProgress) {
+        return;
+    }
+
+    mLaunchInProgress = true;
+
+    if (auto err = mThread.Join(); !err.IsNone()) {
+        LOG_ERR() << "Can't join launcher thread" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    if (auto err = mThread.Run([this](void*) {
+            auto repaired = false;
+
+            do {
+                repaired = RepairBrokenInstances() || repaired;
+            } while (!TryFinishLaunch(repaired));
+        });
+        !err.IsNone()) {
+        LOG_ERR() << "Can't start repair" << Log::Field(AOS_ERROR_WRAP(err));
+
+        mLaunchInProgress = false;
+        mRepairRequested  = false;
+
+        if (auto notifyErr = mCondVar.NotifyAll(); !notifyErr.IsNone()) {
+            LOG_ERR() << "Can't notify launcher" << Log::Field(AOS_ERROR_WRAP(notifyErr));
+        }
+    }
 }
 
 Error Launcher::AddStartInstanceTask(InstanceData& instanceData)
@@ -1281,8 +1329,8 @@ Error Launcher::StartLaunch()
 {
     UniqueLock lock {mMutex};
 
-    // The request received while the module start repair waits for the CM is processed after the repair.
-    if (auto err = mCondVar.Wait(lock, [this]() { return !mModuleStartRepair; }); !err.IsNone()) {
+    // The request received while the repair waits for the CM is processed after the repair.
+    if (auto err = mCondVar.Wait(lock, [this]() { return !mRepairInProgress; }); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1299,12 +1347,37 @@ void Launcher::FinishLaunch()
 {
     LockGuard lock {mMutex};
 
-    mLaunchInProgress  = false;
-    mModuleStartRepair = false;
+    mLaunchInProgress = false;
+    mRepairInProgress = false;
 
     if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
         LOG_ERR() << "Can't notify launcher" << Log::Field(AOS_ERROR_WRAP(err));
     }
+
+    StartPendingRepair();
+}
+
+bool Launcher::TryFinishLaunch(bool sendStatuses)
+{
+    LockGuard lock {mMutex};
+
+    // The failure reported while the launch is finishing is repaired by this launch.
+    if (mRepairRequested && mIsRunning) {
+        return false;
+    }
+
+    if (sendStatuses) {
+        SendNodeInstancesStatuses();
+    }
+
+    mLaunchInProgress = false;
+    mRepairInProgress = false;
+
+    if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+        LOG_ERR() << "Can't notify launcher" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    return true;
 }
 
 RetWithError<InstanceData*> Launcher::AddInstanceData(const InstanceInfo& instanceInfo)
