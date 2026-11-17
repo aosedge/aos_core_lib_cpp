@@ -91,6 +91,9 @@ classDiagram
     class InstanceRegistry ["aos::sm::launcher::InstanceRegistry"] {
     }
 
+    class InstanceLauncher ["aos::sm::launcher::InstanceLauncher"] {
+    }
+
     class ItemConfigLoader ["aos::sm::launcher::ItemConfigLoader"] {
     }
 
@@ -121,9 +124,12 @@ classDiagram
     Launcher ..> SenderItf
     Launcher ..> StorageItf
     Launcher *-- InstanceRegistry
-    Launcher *-- ItemConfigLoader
-    Launcher *-- InstanceNetwork
+    Launcher *-- InstanceLauncher
     Launcher *-- ItemInstaller
+    InstanceLauncher *-- ItemConfigLoader
+    InstanceLauncher *-- InstanceNetwork
+    InstanceLauncher ..> RuntimeManager
+    InstanceLauncher ..> StorageItf
     InstanceRegistry ..> InstanceIDProviderItf
 ```
 
@@ -139,18 +145,34 @@ activating instances.
 The registry isn't thread safe: the launcher serializes the access to it with its own lock. The pointers to the
 instance data stay valid until the instance is removed, so the launch stages pass them to the thread pool tasks.
 
-The launcher loads the item config and the image config of a service instance with
+The launcher performs the steps which start and stop an instance with
+[aos::sm::launcher::InstanceLauncher](instancelauncher.hpp):
+
+* prepare: stores the instance and, for a service, loads its item configs and creates its network;
+* start network and stop network;
+* start: starts the instance in its runtime. The configs of a service which weren't loaded on module start are loaded
+  first, and only a broken content fails the start, with `eIntegrity`. An already started instance isn't an error;
+* stop: stops the instance in its runtime. A not found instance isn't an error;
+* release: removes the instance from the storage and releases its network.
+
+The instance launcher finds the runtime of the instance in `RuntimeManager` and doesn't change the instance state: it
+returns the error of the step, and the launcher decides about the instance, including the integrity recovery. The
+launcher runs the steps of all instances of a stage in its thread pool, and the network starts and stops within a
+network batch, which it begins and flushes through the instance launcher.
+
+The instance launcher loads the item config and the image config of a service instance with
 [aos::sm::launcher::ItemConfigLoader](itemconfigloader.hpp). The loader gets the image manifest blob by the manifest
 digest of the instance, then the item config and image config blobs referenced by the manifest. It gets the blob paths
 from `ItemInfoProviderItf` and parses the blobs with `OCISpecItf`. A manifest without an item config fails with
 `eNotFound`, and a broken blob fails with the error of `OCISpecItf`, for example `eIntegrity`.
 
-The launcher manages the instance networks with [aos::sm::launcher::InstanceNetwork](instancenetwork.hpp), which calls
-`NetworkManagerItf` with the instance ID and the owner ID of the instance. It creates the instance network configured
-by the item and image configs: the hostname, the traffic quotas, the allowed connections, the exposed ports of the
-image and the hosts of the resources used by the instance, which it gets from `ResourceInfoProviderItf`. It also
-starts, stops and releases the instance network, and begins and flushes the network batch. An existing network on
-create or start and a not found network on stop aren't errors.
+The instance launcher manages the instance networks with
+[aos::sm::launcher::InstanceNetwork](instancenetwork.hpp), which calls `NetworkManagerItf` with the instance ID and the
+owner ID of the instance. It creates the instance network configured by the item and image configs: the hostname, the
+traffic quotas, the allowed connections, the exposed ports of the image and the hosts of the resources used by the
+instance, which it gets from `ResourceInfoProviderItf`. It also starts, stops and releases the instance network, and
+begins and flushes the network batch. An existing network on create or start and a not found network on stop aren't
+errors.
 
 The launcher installs and removes the update items with [aos::sm::launcher::ItemInstaller](iteminstaller.hpp). The
 installer finds the item versions used by the stopped instances and not used by the started ones, removes them, and

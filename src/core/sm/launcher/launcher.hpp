@@ -22,9 +22,8 @@
 #include <core/sm/networkmanager/itf/networkmanager.hpp>
 #include <core/sm/resourcemanager/itf/resourceinfoprovider.hpp>
 
-#include "instancenetwork.hpp"
+#include "instancelauncher.hpp"
 #include "instanceregistry.hpp"
-#include "itemconfigloader.hpp"
 #include "iteminstaller.hpp"
 #include "itf/instanceidprovider.hpp"
 #include "itf/instancestatusreceiver.hpp"
@@ -177,8 +176,6 @@ private:
     void  OnDisconnect() override;
     void  RunRebootThread();
     void  HandleOfflineTTLs();
-    Error LoadInstanceData(InstanceData& instanceData);
-    Error LoadInstanceData(InstanceData& instanceData, oci::ItemConfig& itemConfig, oci::ImageConfig& imageConfig);
     void  LoadInstancesData(const Array<InstanceInfo>& storedInstances);
     Error HandleComponentStatus(const aos::InstanceStatus& status);
     void  UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances);
@@ -186,10 +183,8 @@ private:
     Error AddStopInstanceTask(InstanceData& instanceData);
     void  StopNetworks(const Array<InstanceIdent>& stopInstances);
     Error AddStopNetworkTask(InstanceData& instanceData);
-    Error StopInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData) const;
     void  StopAllInstances();
     void  StopAllNetworks();
-    Error PrepareInstance(InstanceData& instanceData);
     void  PrepareInstances(const Array<InstanceInfo>& startInstances, const Array<InstallItem>& installItems,
          const Error& installError, Array<InstanceIdent>& preparedInstances);
     Error AddPrepareInstanceTask(InstanceData& instanceData);
@@ -200,13 +195,11 @@ private:
          const Array<InstanceIdent>& instances, Array<InstallItem>& repairedItems, AddInstanceTaskFunc addRetryTask);
     void  RepairModuleStartInstances();
     Error AddStartInstanceTask(InstanceData& instanceData);
-    Error StartInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData) const;
     Error AppendInstancesWithModifiedParams(
         const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& stopInstances);
     Error                       StartLaunch();
     void                        FinishLaunch();
     RetWithError<InstanceData*> AddInstanceData(const InstanceInfo& instanceInfo);
-    Error                       ReleaseInstance(const InstanceData& instanceData);
     void                        RemoveInstances(const Array<InstanceIdent>& instances);
     void SetInstanceState(InstanceData& instance, const InstanceState& state, const Error& error = ErrorEnum::eNone);
     void ResetFailedInstance(InstanceData& instance);
@@ -230,8 +223,7 @@ private:
     Mutex                                                                 mSubscribersMutex;
     mutable ConditionalVariable                                           mCondVar;
     InstanceRegistry                                                      mInstances;
-    ItemConfigLoader                                                      mItemConfigLoader;
-    InstanceNetwork                                                       mNetwork;
+    InstanceLauncher                                                      mInstanceLauncher;
     ItemInstaller                                                         mItemInstaller;
     RuntimeManager                                                        mRuntimes;
     StaticArray<StaticString<cIDLen>, cMaxNumNodeRuntimes>                mRebootQueue;
