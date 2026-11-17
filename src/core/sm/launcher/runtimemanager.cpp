@@ -123,4 +123,23 @@ Error RuntimeManager::InitInstances(const Array<InstanceInfo>& instances)
     return ErrorEnum::eNone;
 }
 
+void RuntimeManager::Reboot(const Array<StaticString<cIDLen>>& runtimeIDs)
+{
+    for (const auto& runtimeID : runtimeIDs) {
+        auto* runtime = Find(runtimeID);
+        if (runtime == nullptr) {
+            LOG_ERR() << "Runtime for reboot not found" << Log::Field("runtimeID", runtimeID);
+
+            continue;
+        }
+
+        LOG_INF() << "Reboot runtime" << Log::Field("runtimeID", runtimeID);
+
+        if (auto err = runtime->Reboot(); !err.IsNone()) {
+            LOG_ERR() << "Reboot runtime failed" << Log::Field("runtimeID", runtimeID)
+                      << Log::Field(AOS_ERROR_WRAP(err));
+        }
+    }
+}
+
 } // namespace aos::sm::launcher

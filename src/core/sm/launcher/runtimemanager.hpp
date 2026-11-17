@@ -76,6 +76,13 @@ public:
      */
     Error InitInstances(const Array<InstanceInfo>& instances);
 
+    /**
+     * Reboots the runtimes. An unknown runtime and a reboot failure are logged.
+     *
+     * @param runtimeIDs IDs of the runtimes to reboot.
+     */
+    void Reboot(const Array<StaticString<cIDLen>>& runtimeIDs);
+
 private:
     AllocatorItf*                                                     mAllocator {};
     StaticMap<RuntimeItf*, StaticString<cIDLen>, cMaxNumNodeRuntimes> mRuntimes;

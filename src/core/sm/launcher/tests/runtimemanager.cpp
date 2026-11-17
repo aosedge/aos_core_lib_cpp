@@ -169,4 +169,17 @@ TEST_F(RuntimeManagerTest, InitInstancesPassesEachRuntimeItsInstances)
     EXPECT_EQ(runtime1Items, (std::vector<std::string> {"item1"}));
 }
 
+TEST_F(RuntimeManagerTest, RebootRebootsKnownRuntimes)
+{
+    ASSERT_TRUE(mRuntimes.Start().IsNone());
+
+    const std::vector<StaticString<cIDLen>> runtimeIDs = {"runtime0", "unknown", "runtime1"};
+
+    // The failure of a runtime and an unknown runtime are logged and don't stop the others.
+    EXPECT_CALL(mRuntime0, Reboot).WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mRuntime1, Reboot).WillOnce(Return(ErrorEnum::eNone));
+
+    mRuntimes.Reboot(Array<StaticString<cIDLen>>(runtimeIDs.data(), runtimeIDs.size()));
+}
+
 } // namespace aos::sm::launcher
