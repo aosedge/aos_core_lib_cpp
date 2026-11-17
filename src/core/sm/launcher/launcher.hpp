@@ -170,7 +170,7 @@ private:
         bool                 mConfigsLoaded {};
     };
 
-    struct UpdateItemInfo {
+    struct ItemVersion {
         StaticString<cIDLen>      mItemID;
         StaticString<cVersionLen> mVersion;
     };
@@ -181,7 +181,6 @@ private:
 
     using AddInstanceTaskFunc = Error (Launcher::*)(InstanceData& instanceData);
 
-    static constexpr auto cOIDNamespace         = "6ba7b812-9dad-11d1-80b4-00c04fd430c8";
     static constexpr auto cThreadTaskSize       = 512;
     static constexpr auto cMaxNumSubscribers    = 4;
     static constexpr auto cCancelInstallsPeriod = Time::cMilliseconds * 100;
@@ -191,6 +190,7 @@ private:
     void  RunRebootThread();
     void  HandleOfflineTTLs();
     Error LoadInstanceData(InstanceData& instanceData);
+    Error LoadInstanceData(InstanceData& instanceData, oci::ItemConfig& itemConfig, oci::ImageConfig& imageConfig);
     void  LoadInstancesData(const Array<InstanceInfo>& storedInstances);
     Error HandleComponentStatus(const aos::InstanceStatus& status);
     void  UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances);
@@ -218,15 +218,19 @@ private:
     Error StartLaunch();
     void  FinishLaunch();
     void  GetRemoveUpdateItems(const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances,
-         Array<UpdateItemInfo>& removeItems);
-    void  RemoveUpdateItems(const Array<UpdateItemInfo>& removeItems);
+         Array<ItemVersion>& removeItems);
+    void  RemoveUpdateItems(const Array<ItemVersion>& removeItems);
     Error InstallUpdateItems(const Array<InstanceInfo>& startInstances, Array<InstallItem>& installItems);
     Error InstallUpdateItem(const imagemanager::UpdateItemInfo& item);
     void  CancelInstalls();
     RetWithError<InstanceData*> AddInstanceData(const InstanceInfo& instanceInfo);
     Error                       ReleaseInstance(const InstanceData& instanceData);
     void                        RemoveInstances(const Array<InstanceIdent>& instances);
-    void  SetInstanceState(InstanceData& instance, const InstanceState& state, const Error& error = ErrorEnum::eNone);
+    void SetInstanceState(InstanceData& instance, const InstanceState& state, const Error& error = ErrorEnum::eNone);
+    void FailInstance(InstanceData& instance, const char* message, const Error& error);
+    void WaitLaunchPool();
+    template <typename AddTasks, typename HandleFailedIDs>
+    void  RunNetworkBatch(AddTasks addTasks, HandleFailedIDs handleFailedIDs);
     Error LoadInstanceConfigs(const InstanceInfo& instance, oci::ItemConfig& itemConfig, oci::ImageConfig& imageConfig);
     Error GetInstanceNetworkConfig(const InstanceInfo& instance, const oci::ItemConfig& itemConfig,
         const oci::ImageConfig& imageConfig, networkmanager::InstanceNetworkConfig& networkConfig);
@@ -237,9 +241,6 @@ private:
     const InstanceData* FindInstanceData(const InstanceIdent& instanceIdent) const;
     InstanceData*       FindInstanceDataByID(const String& instanceID);
     RuntimeItf*         FindInstanceRuntime(const String& runtimeID);
-    const RuntimeItf*   FindInstanceRuntime(const String& runtimeID) const;
-    RuntimeItf*         FindInstanceRuntime(const InstanceIdent& instanceIdent);
-    const RuntimeItf*   FindInstanceRuntime(const InstanceIdent& instanceIdent) const;
     Optional<Duration>  GetMinOfflineTTL() const;
     void                StartTTLTimer();
     void                StopExpiredInstances(UniqueLock<Mutex>& lock);

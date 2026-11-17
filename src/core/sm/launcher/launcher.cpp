@@ -10,6 +10,21 @@
 
 namespace aos::sm::launcher {
 
+namespace {
+
+/***********************************************************************************************************************
+ * Static
+ **********************************************************************************************************************/
+
+void LogNetworkStopFailures(const Array<StaticString<cIDLen>>& failedIDs)
+{
+    if (!failedIDs.IsEmpty()) {
+        LOG_WRN() << "Network stop batch partially failed" << Log::Field("count", failedIDs.Size());
+    }
+}
+
+} // namespace
+
 /***********************************************************************************************************************
  * Public
  **********************************************************************************************************************/
@@ -402,6 +417,36 @@ Error Launcher::GetRuntimesInfos(Array<RuntimeInfo>& runtimes) const
  * Private
  **********************************************************************************************************************/
 
+template <typename AddTasks, typename HandleFailedIDs>
+void Launcher::RunNetworkBatch(AddTasks addTasks, HandleFailedIDs handleFailedIDs)
+{
+    auto errBegin = mNetworkManager->BeginBatch();
+    if (!errBegin.IsNone()) {
+        LOG_ERR() << "Failed to begin network batch" << Log::Field(AOS_ERROR_WRAP(errBegin));
+    }
+
+    addTasks();
+
+    WaitLaunchPool();
+
+    if (!errBegin.IsNone()) {
+        return;
+    }
+
+    auto failedIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(mAllocator);
+    if (!failedIDs) {
+        LOG_ERR() << "Failed to allocate failed network IDs" << Log::Field(ErrorEnum::eNoMemory);
+
+        return;
+    }
+
+    if (auto err = mNetworkManager->FlushBatch(*failedIDs); !err.IsNone()) {
+        LOG_ERR() << "Can't flush network batch" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    handleFailedIDs(*failedIDs);
+}
+
 void Launcher::OnConnect()
 {
     LockGuard lock {mMutex};
@@ -689,11 +734,16 @@ Error Launcher::LoadInstanceData(InstanceData& instanceData)
     // If the configs aren't loaded on module start, the start of the instance loads them again: the broken content
     // fails the instance with eIntegrity and is repaired. Otherwise the next UpdateInstances prepares the instance
     // again.
-    if (auto err = LoadInstanceConfigs(instanceData.mInfo, *itemConfig, *imageConfig); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+    return LoadInstanceData(instanceData, *itemConfig, *imageConfig);
+}
+
+Error Launcher::LoadInstanceData(InstanceData& instanceData, oci::ItemConfig& itemConfig, oci::ImageConfig& imageConfig)
+{
+    if (auto err = LoadInstanceConfigs(instanceData.mInfo, itemConfig, imageConfig); !err.IsNone()) {
+        return err;
     }
 
-    instanceData.mOfflineTTL    = itemConfig->mOfflineTTL;
+    instanceData.mOfflineTTL    = itemConfig.mOfflineTTL;
     instanceData.mConfigsLoaded = true;
 
     return ErrorEnum::eNone;
@@ -757,7 +807,7 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
     });
 
     // The buffers are allocated before the thread pool is started, so an allocation failure doesn't leave it running.
-    auto removeItems = MakeUnique<StaticArray<UpdateItemInfo, cMaxNumUpdateItems>>(mAllocator);
+    auto removeItems = MakeUnique<StaticArray<ItemVersion, cMaxNumUpdateItems>>(mAllocator);
     if (!removeItems) {
         LOG_ERR() << "Failed to allocate remove update items" << Log::Field(ErrorEnum::eNoMemory);
 
@@ -850,15 +900,11 @@ void Launcher::StopInstances(const Array<InstanceIdent>& stopInstances)
         }
 
         if (auto err = AddStopInstanceTask(*instanceData); !err.IsNone()) {
-            LOG_ERR() << "Failed to stop instance" << Log::Field("instance", instance) << Log::Field(err);
-
-            SetInstanceState(*instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+            FailInstance(*instanceData, "Failed to stop instance", AOS_ERROR_WRAP(err));
         }
     }
 
-    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
-        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
-    }
+    WaitLaunchPool();
 
     LOG_INF() << "[profiling] Stop instances end";
 }
@@ -872,10 +918,7 @@ Error Launcher::AddStopInstanceTask(InstanceData& instanceData)
 
     if (auto err = mLaunchPool.AddTask([this, runtime, &instanceData](void*) {
             if (auto err = StopInstance(runtime, instanceData); !err.IsNone()) {
-                LOG_ERR() << "Failed to stop instance" << Log::Field("instance", instanceData.mInfo)
-                          << Log::Field(AOS_ERROR_WRAP(err));
-
-                SetInstanceState(instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+                FailInstance(instanceData, "Failed to stop instance", AOS_ERROR_WRAP(err));
 
                 return;
             }
@@ -912,15 +955,11 @@ void Launcher::StopAllInstances()
         }
 
         if (auto err = AddStopInstanceTask(instance); !err.IsNone()) {
-            LOG_ERR() << "Failed to stop instance" << Log::Field("instance", instance.mInfo) << Log::Field(err);
-
-            SetInstanceState(instance, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+            FailInstance(instance, "Failed to stop instance", AOS_ERROR_WRAP(err));
         }
     }
 
-    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
-        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
-    }
+    WaitLaunchPool();
 
     LOG_INF() << "[profiling] Stop all instances end";
 }
@@ -929,43 +968,19 @@ void Launcher::StopAllNetworks()
 {
     LOG_INF() << "[profiling] Stop all networks begin" << Log::Field("count", mInstances.Size());
 
-    auto errBegin = mNetworkManager->BeginBatch();
-    if (!errBegin.IsNone()) {
-        LOG_ERR() << "Failed to begin network batch" << Log::Field(AOS_ERROR_WRAP(errBegin));
-    }
+    RunNetworkBatch(
+        [this]() {
+            for (auto& instance : mInstances) {
+                if (instance.mInfo.mType != UpdateItemTypeEnum::eService) {
+                    continue;
+                }
 
-    for (auto& instance : mInstances) {
-        if (instance.mInfo.mType != UpdateItemTypeEnum::eService) {
-            continue;
-        }
-
-        if (auto err = AddStopNetworkTask(instance); !err.IsNone()) {
-            LOG_ERR() << "Failed to stop network" << Log::Field("instance", instance.mInfo) << Log::Field(err);
-
-            SetInstanceState(instance, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
-        }
-    }
-
-    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
-        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
-    }
-
-    if (errBegin.IsNone()) {
-        auto failedIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(mAllocator);
-        if (!failedIDs) {
-            LOG_ERR() << "Failed to allocate failed network IDs" << Log::Field(ErrorEnum::eNoMemory);
-
-            return;
-        }
-
-        if (auto err = mNetworkManager->FlushBatch(*failedIDs); !err.IsNone()) {
-            LOG_ERR() << "Can't flush network batch" << Log::Field(AOS_ERROR_WRAP(err));
-        }
-
-        if (!failedIDs->IsEmpty()) {
-            LOG_WRN() << "Network stop batch partially failed" << Log::Field("count", failedIDs->Size());
-        }
-    }
+                if (auto err = AddStopNetworkTask(instance); !err.IsNone()) {
+                    FailInstance(instance, "Failed to stop network", AOS_ERROR_WRAP(err));
+                }
+            }
+        },
+        LogNetworkStopFailures);
 
     LOG_INF() << "[profiling] Stop all networks end";
 }
@@ -993,12 +1008,9 @@ Error Launcher::PrepareInstance(InstanceData& instanceData)
     }
 
     // The broken content is repaired by RepairInstances once per item after all instances are prepared.
-    if (auto err = LoadInstanceConfigs(instanceData.mInfo, *itemConfig, *imageConfig); !err.IsNone()) {
+    if (auto err = LoadInstanceData(instanceData, *itemConfig, *imageConfig); !err.IsNone()) {
         return err;
     }
-
-    instanceData.mOfflineTTL    = itemConfig->mOfflineTTL;
-    instanceData.mConfigsLoaded = true;
 
     if (auto err = CreateNetwork(instanceData, *itemConfig, *imageConfig); !err.IsNone()) {
         return err;
@@ -1056,10 +1068,7 @@ void Launcher::PrepareInstances(const Array<InstanceInfo>& startInstances, const
         }
 
         if (err = AddPrepareInstanceTask(*instanceData); !err.IsNone()) {
-            LOG_ERR() << "Failed to prepare instance" << Log::Field("instance", instance)
-                      << Log::Field(AOS_ERROR_WRAP(err));
-
-            SetInstanceState(*instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+            FailInstance(*instanceData, "Failed to prepare instance", AOS_ERROR_WRAP(err));
 
             continue;
         }
@@ -1070,9 +1079,7 @@ void Launcher::PrepareInstances(const Array<InstanceInfo>& startInstances, const
         }
     }
 
-    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
-        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
-    }
+    WaitLaunchPool();
 
     LOG_INF() << "[profiling] Prepare instances end";
 }
@@ -1084,10 +1091,7 @@ Error Launcher::AddPrepareInstanceTask(InstanceData& instanceData)
             SetInstanceState(instanceData, InstanceStateEnum::eInactive);
 
             if (auto err = PrepareInstance(instanceData); !err.IsNone()) {
-                LOG_ERR() << "Failed to prepare instance" << Log::Field("instance", instanceData.mInfo)
-                          << Log::Field(AOS_ERROR_WRAP(err));
-
-                SetInstanceState(instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+                FailInstance(instanceData, "Failed to prepare instance", AOS_ERROR_WRAP(err));
             }
         });
         !err.IsNone()) {
@@ -1102,10 +1106,7 @@ Error Launcher::AddStartNetworkTask(InstanceData& instanceData)
     if (auto err = mLaunchPool.AddTask([this, &instanceData](void*) {
             if (auto err = mNetworkManager->StartInstanceNetwork(instanceData.mInstanceID, instanceData.mInfo.mOwnerID);
                 !err.IsNone() && !err.Is(ErrorEnum::eAlreadyExist)) {
-                LOG_ERR() << "Failed to start network" << Log::Field("instance", instanceData.mInfo)
-                          << Log::Field(AOS_ERROR_WRAP(err));
-
-                SetInstanceState(instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+                FailInstance(instanceData, "Failed to start network", AOS_ERROR_WRAP(err));
             }
         });
         !err.IsNone()) {
@@ -1119,72 +1120,51 @@ void Launcher::StartNetworks(const Array<InstanceInfo>& startInstances)
 {
     LOG_INF() << "[profiling] Start networks begin" << Log::Field("count", startInstances.Size());
 
-    auto errBegin = mNetworkManager->BeginBatch();
-    if (!errBegin.IsNone()) {
-        LOG_ERR() << "Failed to begin network batch" << Log::Field(AOS_ERROR_WRAP(errBegin));
-    }
+    RunNetworkBatch(
+        [this, &startInstances]() {
+            for (const auto& instance : startInstances) {
+                auto instanceData = FindInstanceData(instance);
+                if (!instanceData) {
+                    LOG_ERR() << "Failed to start network" << Log::Field("instance", instance)
+                              << Log::Field(AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance data not found")));
 
-    for (const auto& instance : startInstances) {
-        auto instanceData = FindInstanceData(instance);
-        if (!instanceData) {
-            LOG_ERR() << "Failed to start network" << Log::Field("instance", instance)
-                      << Log::Field(AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance data not found")));
+                    continue;
+                }
 
-            continue;
-        }
+                if (instanceData->mInfo.mType != UpdateItemTypeEnum::eService) {
+                    continue;
+                }
 
-        if (instanceData->mInfo.mType != UpdateItemTypeEnum::eService) {
-            continue;
-        }
+                if (instanceData->mStatus.mState != InstanceStateEnum::eInactive) {
+                    LOG_ERR() << "Failed to start network" << Log::Field("instance", instance)
+                              << Log::Field(AOS_ERROR_WRAP(Error(ErrorEnum::eWrongState, "instance not inactive")));
 
-        if (instanceData->mStatus.mState != InstanceStateEnum::eInactive) {
-            LOG_ERR() << "Failed to start network" << Log::Field("instance", instance)
-                      << Log::Field(AOS_ERROR_WRAP(Error(ErrorEnum::eWrongState, "instance not inactive")));
+                    continue;
+                }
 
-            continue;
-        }
-
-        if (auto err = AddStartNetworkTask(*instanceData); !err.IsNone()) {
-            LOG_ERR() << "Failed to start network" << Log::Field("instance", instanceData->mInfo)
-                      << Log::Field(AOS_ERROR_WRAP(err));
-
-            SetInstanceState(*instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
-        }
-    }
-
-    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
-        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
-    }
-
-    if (errBegin.IsNone()) {
-        auto failedIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(mAllocator);
-        if (!failedIDs) {
-            LOG_ERR() << "Failed to allocate failed network IDs" << Log::Field(ErrorEnum::eNoMemory);
-
-            return;
-        }
-
-        if (auto err = mNetworkManager->FlushBatch(*failedIDs); !err.IsNone()) {
-            LOG_ERR() << "Can't flush network batch" << Log::Field(AOS_ERROR_WRAP(err));
-        }
-
-        for (const auto& failedID : *failedIDs) {
-            auto instanceData = FindInstanceDataByID(failedID);
-            if (!instanceData) {
-                continue;
+                if (auto err = AddStartNetworkTask(*instanceData); !err.IsNone()) {
+                    FailInstance(*instanceData, "Failed to start network", AOS_ERROR_WRAP(err));
+                }
             }
+        },
+        [this](const Array<StaticString<cIDLen>>& failedIDs) {
+            for (const auto& failedID : failedIDs) {
+                auto instanceData = FindInstanceDataByID(failedID);
+                if (!instanceData) {
+                    continue;
+                }
 
-            SetInstanceState(*instanceData, InstanceStateEnum::eFailed,
-                AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "network batch apply failed")));
+                SetInstanceState(*instanceData, InstanceStateEnum::eFailed,
+                    AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "network batch apply failed")));
 
-            if (auto err
-                = mNetworkManager->StopInstanceNetwork(instanceData->mInstanceID, instanceData->mInfo.mOwnerID);
-                !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
-                LOG_ERR() << "Failed to stop network" << Log::Field("instance", instanceData->mInfo)
-                          << Log::Field(AOS_ERROR_WRAP(err));
+                if (auto err
+                    = mNetworkManager->StopInstanceNetwork(instanceData->mInstanceID, instanceData->mInfo.mOwnerID);
+                    !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+                    LOG_ERR() << "Failed to stop network" << Log::Field("instance", instanceData->mInfo)
+                              << Log::Field(AOS_ERROR_WRAP(err));
+                }
             }
-        }
-    }
+        });
 
     LOG_INF() << "[profiling] Start networks end";
 }
@@ -1194,10 +1174,7 @@ Error Launcher::AddStopNetworkTask(InstanceData& instanceData)
     if (auto err = mLaunchPool.AddTask([this, &instanceData](void*) {
             if (auto err = mNetworkManager->StopInstanceNetwork(instanceData.mInstanceID, instanceData.mInfo.mOwnerID);
                 !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
-                LOG_ERR() << "Failed to stop network" << Log::Field("instance", instanceData.mInfo)
-                          << Log::Field(AOS_ERROR_WRAP(err));
-
-                SetInstanceState(instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+                FailInstance(instanceData, "Failed to stop network", AOS_ERROR_WRAP(err));
             }
         });
         !err.IsNone()) {
@@ -1211,51 +1188,26 @@ void Launcher::StopNetworks(const Array<InstanceIdent>& stopInstances)
 {
     LOG_INF() << "[profiling] Stop networks begin" << Log::Field("count", stopInstances.Size());
 
-    auto errBegin = mNetworkManager->BeginBatch();
-    if (!errBegin.IsNone()) {
-        LOG_ERR() << "Failed to begin network batch" << Log::Field(AOS_ERROR_WRAP(errBegin));
-    }
+    RunNetworkBatch(
+        [this, &stopInstances]() {
+            for (const auto& instance : stopInstances) {
+                auto instanceData = FindInstanceData(instance);
+                if (!instanceData) {
+                    LOG_DBG() << "Instance already removed" << Log::Field("instance", instance);
 
-    for (const auto& instance : stopInstances) {
-        auto instanceData = FindInstanceData(instance);
-        if (!instanceData) {
-            LOG_DBG() << "Instance already removed" << Log::Field("instance", instance);
+                    continue;
+                }
 
-            continue;
-        }
+                if (instanceData->mInfo.mType != UpdateItemTypeEnum::eService) {
+                    continue;
+                }
 
-        if (instanceData->mInfo.mType != UpdateItemTypeEnum::eService) {
-            continue;
-        }
-
-        if (auto err = AddStopNetworkTask(*instanceData); !err.IsNone()) {
-            LOG_ERR() << "Failed to stop network" << Log::Field("instance", instanceData->mInfo)
-                      << Log::Field(AOS_ERROR_WRAP(err));
-
-            SetInstanceState(*instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
-        }
-    }
-
-    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
-        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
-    }
-
-    if (errBegin.IsNone()) {
-        auto failedIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumInstances>>(mAllocator);
-        if (!failedIDs) {
-            LOG_ERR() << "Failed to allocate failed network IDs" << Log::Field(ErrorEnum::eNoMemory);
-
-            return;
-        }
-
-        if (auto err = mNetworkManager->FlushBatch(*failedIDs); !err.IsNone()) {
-            LOG_ERR() << "Can't flush network batch" << Log::Field(AOS_ERROR_WRAP(err));
-        }
-
-        if (!failedIDs->IsEmpty()) {
-            LOG_WRN() << "Network stop batch partially failed" << Log::Field("count", failedIDs->Size());
-        }
-    }
+                if (auto err = AddStopNetworkTask(*instanceData); !err.IsNone()) {
+                    FailInstance(*instanceData, "Failed to stop network", AOS_ERROR_WRAP(err));
+                }
+            }
+        },
+        LogNetworkStopFailures);
 
     LOG_INF() << "[profiling] Stop networks end";
 }
@@ -1281,10 +1233,7 @@ void Launcher::StartInstances(const Array<InstanceInfo>& startInstances, Array<I
         }
 
         if (auto err = AddStartInstanceTask(*instanceData); !err.IsNone()) {
-            LOG_ERR() << "Failed to start instance" << Log::Field("instance", instance)
-                      << Log::Field(AOS_ERROR_WRAP(err));
-
-            SetInstanceState(*instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+            FailInstance(*instanceData, "Failed to start instance", AOS_ERROR_WRAP(err));
 
             continue;
         }
@@ -1295,9 +1244,7 @@ void Launcher::StartInstances(const Array<InstanceInfo>& startInstances, Array<I
         }
     }
 
-    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
-        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
-    }
+    WaitLaunchPool();
 
     LOG_INF() << "[profiling] Start instances end";
 }
@@ -1362,9 +1309,7 @@ void Launcher::RepairInstances(
         }
     }
 
-    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
-        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
-    }
+    WaitLaunchPool();
 
     for (const auto& instance : instances) {
         InstanceData* instanceData = nullptr;
@@ -1391,16 +1336,11 @@ void Launcher::RepairInstances(
         }
 
         if (auto err = (this->*addRetryTask)(*instanceData); !err.IsNone()) {
-            LOG_ERR() << "Failed to retry instance" << Log::Field("instance", instance)
-                      << Log::Field(AOS_ERROR_WRAP(err));
-
-            SetInstanceState(*instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+            FailInstance(*instanceData, "Failed to retry instance", AOS_ERROR_WRAP(err));
         }
     }
 
-    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
-        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
-    }
+    WaitLaunchPool();
 
     LOG_INF() << "[profiling] Repair instances end";
 }
@@ -1483,20 +1423,14 @@ Error Launcher::AddStartInstanceTask(InstanceData& instanceData)
             // content fails the instance with eIntegrity, so the item is repaired and the instance is started again.
             if (instanceData.mInfo.mType == UpdateItemTypeEnum::eService && !instanceData.mConfigsLoaded) {
                 if (auto err = LoadInstanceData(instanceData); err.Is(ErrorEnum::eIntegrity)) {
-                    LOG_ERR() << "Failed to start instance" << Log::Field("instance", instanceData.mInfo)
-                              << Log::Field(AOS_ERROR_WRAP(err));
-
-                    SetInstanceState(instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+                    FailInstance(instanceData, "Failed to start instance", AOS_ERROR_WRAP(err));
 
                     return;
                 }
             }
 
             if (auto err = StartInstance(runtime, instanceData); !err.IsNone()) {
-                LOG_ERR() << "Failed to start instance" << Log::Field("instance", instanceData.mInfo)
-                          << Log::Field(AOS_ERROR_WRAP(err));
-
-                SetInstanceState(instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+                FailInstance(instanceData, "Failed to start instance", AOS_ERROR_WRAP(err));
 
                 return;
             }
@@ -1675,38 +1609,8 @@ RuntimeItf* Launcher::FindInstanceRuntime(const String& runtimeID)
     return nullptr;
 }
 
-const RuntimeItf* Launcher::FindInstanceRuntime(const String& runtimeID) const
-{
-    if (auto it = mRuntimes.FindIf([&runtimeID](const auto& it) { return it.mSecond == runtimeID; });
-        it != mRuntimes.end()) {
-        return it->mFirst;
-    }
-
-    return nullptr;
-}
-
-RuntimeItf* Launcher::FindInstanceRuntime(const InstanceIdent& instanceIdent)
-{
-    const auto* const instanceData = FindInstanceData(instanceIdent);
-    if (!instanceData) {
-        return nullptr;
-    }
-
-    return FindInstanceRuntime(instanceData->mInfo.mRuntimeID);
-}
-
-const RuntimeItf* Launcher::FindInstanceRuntime(const InstanceIdent& instanceIdent) const
-{
-    const auto* const instanceData = FindInstanceData(instanceIdent);
-    if (!instanceData) {
-        return nullptr;
-    }
-
-    return FindInstanceRuntime(instanceData->mInfo.mRuntimeID);
-}
-
 void Launcher::GetRemoveUpdateItems(const Array<InstanceIdent>& stopInstances,
-    const Array<InstanceInfo>& startInstances, Array<UpdateItemInfo>& removeItems)
+    const Array<InstanceInfo>& startInstances, Array<ItemVersion>& removeItems)
 {
     for (const auto& instanceIdent : stopInstances) {
         const auto* const instanceData = FindInstanceData(instanceIdent);
@@ -1727,12 +1631,12 @@ void Launcher::GetRemoveUpdateItems(const Array<InstanceIdent>& stopInstances,
                 return item.mItemID == instanceData->mInfo.mItemID && item.mVersion == instanceData->mInfo.mVersion;
             });
             it == removeItems.end()) {
-            (void)removeItems.EmplaceBack(UpdateItemInfo {instanceData->mInfo.mItemID, instanceData->mInfo.mVersion});
+            (void)removeItems.EmplaceBack(ItemVersion {instanceData->mInfo.mItemID, instanceData->mInfo.mVersion});
         }
     }
 }
 
-void Launcher::RemoveUpdateItems(const Array<UpdateItemInfo>& removeItems)
+void Launcher::RemoveUpdateItems(const Array<ItemVersion>& removeItems)
 {
     for (const auto& updateItem : removeItems) {
         if (auto err = mLaunchPool.AddTask([this, &updateItem](void*) {
@@ -1750,9 +1654,7 @@ void Launcher::RemoveUpdateItems(const Array<UpdateItemInfo>& removeItems)
         }
     }
 
-    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
-        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
-    }
+    WaitLaunchPool();
 }
 
 Error Launcher::InstallUpdateItems(const Array<InstanceInfo>& startInstances, Array<InstallItem>& installItems)
@@ -1874,23 +1776,15 @@ void Launcher::RemoveInstances(const Array<InstanceIdent>& instances)
 
         if (auto err = mLaunchPool.AddTask([this, instanceData](void*) {
                 if (auto err = ReleaseInstance(*instanceData); !err.IsNone()) {
-                    LOG_ERR() << "Failed to remove instance" << Log::Field("instance", instanceData->mInfo)
-                              << Log::Field(AOS_ERROR_WRAP(err));
-
-                    SetInstanceState(*instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+                    FailInstance(*instanceData, "Failed to remove instance", AOS_ERROR_WRAP(err));
                 }
             });
             !err.IsNone()) {
-            LOG_ERR() << "Failed to remove instance" << Log::Field("instance", instanceData->mInfo)
-                      << Log::Field(AOS_ERROR_WRAP(err));
-
-            SetInstanceState(*instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+            FailInstance(*instanceData, "Failed to remove instance", AOS_ERROR_WRAP(err));
         }
     }
 
-    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
-        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
-    }
+    WaitLaunchPool();
 
     LockGuard lock {mMutex};
 
@@ -1913,6 +1807,20 @@ void Launcher::SetInstanceState(InstanceData& instance, const InstanceState& sta
 
     instance.mStatus.mState = state;
     instance.mStatus.mError = error;
+}
+
+void Launcher::FailInstance(InstanceData& instance, const char* message, const Error& error)
+{
+    LOG_ERR() << message << Log::Field("instance", instance.mInfo) << Log::Field(error);
+
+    SetInstanceState(instance, InstanceStateEnum::eFailed, error);
+}
+
+void Launcher::WaitLaunchPool()
+{
+    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
+        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 }
 
 Error Launcher::LoadInstanceConfigs(
