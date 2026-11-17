@@ -14,7 +14,7 @@ set(TARGET_NAME launcher)
 # Sources
 # ######################################################################################################################
 
-set(SOURCES instancelauncher.cpp instancenetwork.cpp instanceregistry.cpp itemconfigloader.cpp iteminstaller.cpp launcher.cpp offlinehandler.cpp runtimemanager.cpp)
+set(SOURCES instancelauncher.cpp instancenetwork.cpp instanceregistry.cpp itemconfigloader.cpp iteminstaller.cpp launcher.cpp offlinehandler.cpp runtimemanager.cpp statusnotifier.cpp)
 
 # ######################################################################################################################
 # Headers
