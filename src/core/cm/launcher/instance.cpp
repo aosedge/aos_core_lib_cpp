@@ -11,6 +11,24 @@
 
 namespace aos::cm::launcher {
 
+namespace {
+
+/***********************************************************************************************************************
+ * Static
+ **********************************************************************************************************************/
+
+// UID is shared by all versions of the same instance, so the version isn't part of the UID pool key.
+InstanceIdent GetUIDKey(const InstanceIdent& instanceIdent)
+{
+    auto key = instanceIdent;
+
+    key.mVersion.Clear();
+
+    return key;
+}
+
+} // namespace
+
 /***********************************************************************************************************************
  * Instance implementation
  **********************************************************************************************************************/
@@ -25,7 +43,6 @@ Instance::Instance(
     static_cast<InstanceIdent&>(mStatus) = info.mInstanceIdent; // NOSONAR cpp:S3230 - needs Clear() calls below, not
                                                                 // just an init-list
 
-    mStatus.mVersion        = info.mVersion;
     mStatus.mPreinstalled   = false;
     mStatus.mNodeID         = info.mNodeID;
     mStatus.mRuntimeID      = info.mRuntimeID;
@@ -302,8 +319,7 @@ Error ComponentInstance::Remove()
 {
     LOG_DBG() << "Remove instance" << Log::Field("instanceID", mInfo.mInstanceIdent);
 
-    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent, mInfo.mVersion);
-        !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -360,7 +376,6 @@ Error ComponentInstance::Schedule(NodeItf& node, const String& runtimeID)
 Error ComponentInstance::LoadSMInfo(NodeItf& node, const String& runtimeID)
 {
     static_cast<InstanceIdent&>(mSMInfo) = mInfo.mInstanceIdent;
-    mSMInfo.mVersion                     = mInfo.mVersion;
     mSMInfo.mManifestDigest              = mInfo.mManifestDigest;
     mSMInfo.mRuntimeID                   = runtimeID;
     mSMInfo.mOwnerID                     = mInfo.mOwnerID;
@@ -399,7 +414,7 @@ Error ServiceInstance::Init()
     Error uidErr;
     Error gidErr;
 
-    Tie(mInfo.mUID, uidErr) = mUIDPool.Acquire(mInfo.mInstanceIdent, mInfo.mUID);
+    Tie(mInfo.mUID, uidErr) = mUIDPool.Acquire(GetUIDKey(mInfo.mInstanceIdent), mInfo.mUID);
     if (!uidErr.IsNone()) {
         return AOS_ERROR_WRAP(uidErr);
     }
@@ -421,12 +436,12 @@ Error ServiceInstance::Remove()
         firstErr = AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent, mInfo.mVersion);
+    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent);
         !err.IsNone() && !err.Is(ErrorEnum::eNotFound) && firstErr.IsNone()) {
         firstErr = AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mUIDPool.Release(mInfo.mInstanceIdent);
+    if (auto err = mUIDPool.Release(GetUIDKey(mInfo.mInstanceIdent));
         !err.IsNone() && !err.Is(ErrorEnum::eNotFound) && firstErr.IsNone()) {
         firstErr = AOS_ERROR_WRAP(err);
     }
@@ -525,7 +540,6 @@ Error ServiceInstance::LoadSMInfo(NodeItf& node, const String& runtimeID)
     assert(mItemConfig);
 
     static_cast<InstanceIdent&>(mSMInfo) = mInfo.mInstanceIdent;
-    mSMInfo.mVersion                     = mInfo.mVersion;
     mSMInfo.mManifestDigest              = mInfo.mManifestDigest;
     mSMInfo.mRuntimeID                   = runtimeID;
     mSMInfo.mOwnerID                     = mInfo.mOwnerID;

@@ -281,11 +281,10 @@ Error Node::SendScheduledInstances(
     }
 
     for (const auto& status : FilterActiveNodeInstances(runningInstances, mInfo.mNodeID)) {
-        // Check if the instance is scheduled on this node (ident, runtime, node, and service version must match).
+        // Check if the instance is scheduled on this node (ident, runtime and node must match).
         auto isScheduled = scheduledInstances.ContainsIf([&status, this](const SharedPtr<Instance>& item) {
             return static_cast<const InstanceIdent&>(status) == item->GetInfo().mInstanceIdent
-                && status.mRuntimeID == item->GetInfo().mRuntimeID && item->GetInfo().mNodeID == mInfo.mNodeID
-                && status.mVersion == item->GetInfo().mVersion;
+                && status.mRuntimeID == item->GetInfo().mRuntimeID && item->GetInfo().mNodeID == mInfo.mNodeID;
         });
 
         if (!isScheduled) {
@@ -309,12 +308,12 @@ Error Node::SendScheduledInstances(
 
     for (const auto& instance : *stopInstances) {
         LOG_INF() << "Update node stop instance" << Log::Field("instance", static_cast<const InstanceIdent&>(instance))
-                  << Log::Field("version", instance.mVersion) << Log::Field("runtimeID", instance.mRuntimeID);
+                  << Log::Field("runtimeID", instance.mRuntimeID);
     }
 
     for (const auto& instance : *startInstances) {
         LOG_INF() << "Update node start instance" << Log::Field("instance", static_cast<const InstanceIdent&>(instance))
-                  << Log::Field("version", instance.mVersion) << Log::Field("runtimeID", instance.mRuntimeID);
+                  << Log::Field("runtimeID", instance.mRuntimeID);
     }
 
     if (auto err = mInstanceRunner->UpdateInstances(mInfo.mNodeID, *stopInstances, *startInstances); !err.IsNone()) {
@@ -344,7 +343,7 @@ RetWithError<bool> Node::ResendInstances(
 
         auto isActive = activeInstances.ContainsIf([&status](const SharedPtr<Instance>& item) {
             return static_cast<const InstanceIdent&>(status) == item->GetInfo().mInstanceIdent
-                && status.mRuntimeID == item->GetInfo().mRuntimeID && status.mVersion == item->GetInfo().mVersion;
+                && status.mRuntimeID == item->GetInfo().mRuntimeID;
         });
 
         if (!isActive || forceRestart) {
@@ -374,12 +373,12 @@ RetWithError<bool> Node::ResendInstances(
 
     for (const auto& instance : *stopInstances) {
         LOG_INF() << "Update node stop instance" << Log::Field("instance", static_cast<const InstanceIdent&>(instance))
-                  << Log::Field("version", instance.mVersion) << Log::Field("runtimeID", instance.mRuntimeID);
+                  << Log::Field("runtimeID", instance.mRuntimeID);
     }
 
     for (const auto& instance : *startInstances) {
         LOG_INF() << "Update node start instance" << Log::Field("instance", static_cast<const InstanceIdent&>(instance))
-                  << Log::Field("version", instance.mVersion) << Log::Field("runtimeID", instance.mRuntimeID);
+                  << Log::Field("runtimeID", instance.mRuntimeID);
     }
 
     if (auto err = mInstanceRunner->UpdateInstances(mInfo.mNodeID, *stopInstances, *startInstances); !err.IsNone()) {
@@ -484,7 +483,7 @@ void Node::Convert(const InstanceStatus& status, aos::InstanceInfo& info) const
 {
     static_cast<InstanceIdent&>(info) = static_cast<const InstanceIdent&>(status);
     info.mRuntimeID                   = status.mRuntimeID;
-    info.mVersion                     = status.mVersion;
+    info.mPreinstalled                = status.mPreinstalled;
 }
 
 } // namespace aos::cm::launcher

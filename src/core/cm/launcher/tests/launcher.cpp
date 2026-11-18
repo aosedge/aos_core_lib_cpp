@@ -193,7 +193,12 @@ InstanceInfo CreateInstanceInfo(const InstanceIdent& instance, StaticString<oci:
 {
     InstanceInfo result;
 
-    result.mInstanceIdent  = instance;
+    result.mInstanceIdent = instance;
+
+    if (!version.IsEmpty()) {
+        result.mInstanceIdent.mVersion = version;
+    }
+
     result.mManifestDigest = manifestDigest;
     result.mRuntimeID      = runtimeID;
     result.mNodeID         = nodeID;
@@ -202,12 +207,12 @@ InstanceInfo CreateInstanceInfo(const InstanceIdent& instance, StaticString<oci:
     result.mGID            = gid;
     result.mTimestamp      = timestamp;
     result.mState          = instanceState;
-    result.mVersion        = version;
-    result.mIndexDigest    = imagemanager::ImageStoreStub::BuildIndexDigest(instance.mItemID, version);
-    result.mIsUnitSubject  = isUnitSubject;
-    result.mOwnerID        = ownerID;
-    result.mSubjectType    = subjectType;
-    result.mPriority       = priority;
+    result.mIndexDigest
+        = imagemanager::ImageStoreStub::BuildIndexDigest(instance.mItemID, result.mInstanceIdent.mVersion);
+    result.mIsUnitSubject = isUnitSubject;
+    result.mOwnerID       = ownerID;
+    result.mSubjectType   = subjectType;
+    result.mPriority      = priority;
 
     return result;
 }
@@ -224,9 +229,13 @@ InstanceStatus CreateInstanceStatus(const InstanceIdent& instance, const std::st
     result.mRuntimeID                   = runtimeID.c_str();
     result.mState                       = state;
     result.mError                       = error;
-    result.mVersion                     = version.c_str();
     result.mPreinstalled                = preinstalled;
-    result.mManifestDigest              = manifestDigest.c_str();
+
+    if (!version.empty()) {
+        result.mVersion = version.c_str();
+    }
+
+    result.mManifestDigest = manifestDigest.c_str();
 
     if (!error.IsNone()) {
         result.mState = aos::InstanceStateEnum::eFailed;
@@ -238,7 +247,7 @@ InstanceStatus CreateInstanceStatus(const InstanceIdent& instance, const std::st
 InstanceIdent CreateInstanceIdent(const std::string& itemID, const std::string& subjectID = "", uint64_t instance = 0,
     UpdateItemType updateItemType = UpdateItemTypeEnum::eService)
 {
-    return InstanceIdent {itemID.c_str(), subjectID.c_str(), instance, updateItemType};
+    return InstanceIdent {itemID.c_str(), "", subjectID.c_str(), instance, updateItemType};
 }
 
 RunInstanceRequest CreateRunRequest(const std::string& itemID, const std::string& subjectID = "", uint64_t priority = 0,
@@ -280,7 +289,10 @@ aos::InstanceInfo CreateServiceRunInfo(const InstanceIdent& id, const std::strin
 
     static_cast<InstanceIdent&>(result) = id;
 
-    result.mVersion        = version.c_str();
+    if (!version.empty()) {
+        result.mVersion = version.c_str();
+    }
+
     result.mManifestDigest = BuildManifestDigest(id.mItemID.CStr(), imageID);
     result.mRuntimeID      = runtimeID.c_str();
     result.mOwnerID        = ownerID.c_str();
@@ -324,7 +336,10 @@ aos::InstanceInfo CreateComponentRunInfo(const InstanceIdent& id, const std::str
 
     static_cast<InstanceIdent&>(result) = id;
 
-    result.mVersion        = version.c_str();
+    if (!version.empty()) {
+        result.mVersion = version.c_str();
+    }
+
     result.mManifestDigest = BuildManifestDigest(id.mItemID.CStr(), imageID);
     result.mRuntimeID      = runtimeID.c_str();
     result.mPriority       = priority;
@@ -2975,7 +2990,10 @@ TEST_F(CMLauncherTest, ReusedInstanceUpdatesIndexDigest)
     ASSERT_TRUE(mStorage.LoadActiveInstances(*storedInstances).IsNone());
 
     ASSERT_EQ(storedInstances->Size(), 1);
-    EXPECT_EQ((*storedInstances)[0].mInstanceIdent, CreateInstanceIdent(cService1, cSubject1, 0));
+    auto expectedIdent     = CreateInstanceIdent(cService1, cSubject1, 0);
+    expectedIdent.mVersion = cVersion;
+
+    EXPECT_EQ((*storedInstances)[0].mInstanceIdent, expectedIdent);
     EXPECT_EQ((*storedInstances)[0].mUID, cUID);
     EXPECT_EQ((*storedInstances)[0].mIndexDigest, imagemanager::ImageStoreStub::BuildIndexDigest(cService1, cVersion));
 }
