@@ -546,11 +546,11 @@ using SubjectType     = EnumStringer<SubjectTypeType>;
  * Instance identification.
  */
 struct InstanceIdent {
-    StaticString<cIDLen> mItemID;
-    StaticString<cIDLen> mSubjectID;
-    uint64_t             mInstance {};
-    UpdateItemType       mType;
-    bool                 mPreinstalled {};
+    StaticString<cIDLen>      mItemID;
+    StaticString<cVersionLen> mVersion;
+    StaticString<cIDLen>      mSubjectID;
+    uint64_t                  mInstance {};
+    UpdateItemType            mType;
 
     /**
      * Compares instance ident.
@@ -562,6 +562,10 @@ struct InstanceIdent {
     {
         if (lhs.mItemID != rhs.mItemID) {
             return lhs.mItemID < rhs.mItemID;
+        }
+
+        if (lhs.mVersion != rhs.mVersion) {
+            return lhs.mVersion < rhs.mVersion;
         }
 
         if (lhs.mSubjectID != rhs.mSubjectID) {
@@ -583,8 +587,8 @@ struct InstanceIdent {
      */
     friend bool operator==(const InstanceIdent& lhs, const InstanceIdent& rhs)
     {
-        return lhs.mItemID == rhs.mItemID && lhs.mSubjectID == rhs.mSubjectID && lhs.mInstance == rhs.mInstance
-            && lhs.mType == rhs.mType && lhs.mPreinstalled == rhs.mPreinstalled;
+        return lhs.mItemID == rhs.mItemID && lhs.mVersion == rhs.mVersion && lhs.mSubjectID == rhs.mSubjectID
+            && lhs.mInstance == rhs.mInstance && lhs.mType == rhs.mType;
     };
 
     /**
@@ -605,8 +609,8 @@ struct InstanceIdent {
      */
     friend Log& operator<<(Log& log, const InstanceIdent& instanceIdent)
     {
-        return log << "{" << instanceIdent.mType << ":" << instanceIdent.mPreinstalled << ":" << instanceIdent.mItemID
-                   << ":" << instanceIdent.mSubjectID << ":" << static_cast<int32_t>(instanceIdent.mInstance) << "}";
+        return log << "{" << instanceIdent.mType << ":" << instanceIdent.mItemID << ":" << instanceIdent.mSubjectID
+                   << ":" << static_cast<int32_t>(instanceIdent.mInstance) << ":" << instanceIdent.mVersion << "}";
     }
 };
 
