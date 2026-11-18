@@ -193,6 +193,8 @@ void Monitoring::OnInstancesStatusesChanged(const Array<InstanceStatus>& statuse
             it->mNodeID                      = status.mNodeID;
         }
 
+        it->mPreinstalled = status.mPreinstalled;
+
         if (!it->mStates.IsEmpty() && it->mStates.Back().mState == status.mState) {
             continue;
         }
