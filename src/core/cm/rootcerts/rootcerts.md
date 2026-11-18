@@ -53,11 +53,11 @@ classDiagram
 ## Root certificates reporting
 
 When the cloud connection is established, the module sends a full snapshot (`isPartial` is `false`) of SHA-256
-fingerprints of root certificates installed on all unit nodes. Nodes for which root certificates can't be obtained are
-skipped.
+fingerprints of root certificates installed on all connected unit nodes. Not connected nodes and nodes for which root
+certificates can't be obtained are skipped.
 
-When node info is changed while the cloud is connected, the module sends a partial report (`isPartial` is `true`)
-containing root certificate fingerprints of the changed node only.
+When node info of a connected node is changed while the cloud is connected, the module sends a partial report
+(`isPartial` is `true`) containing root certificate fingerprints of the changed node only.
 
 ## aos::cm::rootcerts::RootCerts
 
