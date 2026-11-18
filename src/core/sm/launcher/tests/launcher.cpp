@@ -632,6 +632,51 @@ TEST_F(LauncherTest, StopInstancesWithExpiredOfflineTTL)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
+TEST_F(LauncherTest, StopInstancesWithExpiredOfflineTTLOnModuleStart)
+{
+    const std::vector cStoredInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+    };
+
+    mItemConfig.mOfflineTTL = Time::cMilliseconds;
+    EXPECT_CALL(mOCISpec, LoadItemConfig)
+        .WillRepeatedly(DoAll(SetArgReferee<1>(mItemConfig), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mCloudConnection, IsConnected).WillRepeatedly(Return(false));
+
+    mStorage.Init(cStoredInfos);
+
+    auto err = mLauncher.Init(mAllocator, GetRuntimesArray(), mImageManager, mItemStatusProvider, mSender, mStorage,
+        mOCISpec, mItemInfoProvider, mCloudConnection, mNetworkManager, mInstanceIDProvider, mResourceInfoProvider);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    std::promise<void> stopPromise;
+
+    EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+        SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cStoredInfos[0]), _))
+        .WillOnce(Invoke([&](const InstanceIdent& instance, InstanceStatus& status) {
+            SetInstanceStatus(instance, InstanceStateEnum::eInactive, status);
+
+            stopPromise.set_value();
+
+            return ErrorEnum::eNone;
+        }))
+        .WillRepeatedly(Return(ErrorEnum::eNone));
+
+    // The unit is offline on module start, so the instance is stopped when its offline TTL expires.
+    err = mLauncher.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_TRUE(stopPromise.get_future().wait_for(std::chrono::seconds(5)) == std::future_status::ready)
+        << "Runtime0 StopInstance was not called";
+
+    err = mLauncher.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
 TEST_F(LauncherTest, InstallUpdateItemFailed)
 {
     const std::vector cInstanceInfos = {
