@@ -168,6 +168,7 @@ private:
         StaticString<cIDLen> mInstanceID;
         Duration             mOfflineTTL;
         bool                 mConfigsLoaded {};
+        bool                 mBrokenItem {};
     };
 
     struct UpdateItemInfo {
@@ -202,14 +203,13 @@ private:
     void  StopAllNetworks();
     Error PrepareInstance(InstanceData& instanceData);
     void  PrepareInstances(const Array<InstanceInfo>& startInstances, const Array<InstallItem>& installItems,
-         const Error& installError, Array<InstanceIdent>& preparedInstances);
+         Array<InstanceIdent>& preparedInstances);
     Error AddPrepareInstanceTask(InstanceData& instanceData);
     void  StartNetworks(const Array<InstanceInfo>& startInstances);
     Error AddStartNetworkTask(InstanceData& instanceData);
     void  StartInstances(const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& startedInstances);
-    void  RepairInstances(
-         const Array<InstanceIdent>& instances, Array<InstallItem>& repairedItems, AddInstanceTaskFunc addRetryTask);
-    void  RepairModuleStartInstances();
+    void  RecoverItems(
+         const Array<InstanceIdent>& instances, Array<InstallItem>& recoveredItems, AddInstanceTaskFunc addRetryTask);
     Error AddStartInstanceTask(InstanceData& instanceData);
     Error StartInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData) const;
     Error AppendInstancesWithModifiedParams(
@@ -219,13 +219,14 @@ private:
     void  GetRemoveUpdateItems(const Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances,
          Array<UpdateItemInfo>& removeItems);
     void  RemoveUpdateItems(const Array<UpdateItemInfo>& removeItems);
-    Error InstallUpdateItems(const Array<InstanceInfo>& startInstances, Array<InstallItem>& installItems);
+    void  InstallUpdateItems(const Array<InstanceInfo>& startInstances, Array<InstallItem>& installItems);
     Error InstallUpdateItem(const imagemanager::UpdateItemInfo& item);
     void  CancelInstalls();
     RetWithError<InstanceData*> AddInstanceData(const InstanceInfo& instanceInfo);
     Error                       ReleaseInstance(const InstanceData& instanceData);
     void                        RemoveInstances(const Array<InstanceIdent>& instances);
     void  SetInstanceState(InstanceData& instance, const InstanceState& state, const Error& error = ErrorEnum::eNone);
+    void  ScheduleRecoveryOrFail(InstanceData& instance, const Error& error);
     Error LoadInstanceConfigs(const InstanceInfo& instance, oci::ItemConfig& itemConfig, oci::ImageConfig& imageConfig);
     Error GetInstanceNetworkConfig(const InstanceInfo& instance, const oci::ItemConfig& itemConfig,
         const oci::ImageConfig& imageConfig, networkmanager::InstanceNetworkConfig& networkConfig);
@@ -273,7 +274,7 @@ private:
     bool                                                                  mLaunchInProgress {};
     bool                                                                  mIsRunning {};
     bool                                                                  mFirstStart {true};
-    bool                                                                  mModuleStartRepair {};
+    bool                                                                  mModuleStartRecovery {};
     Optional<Time>                                                        mOfflineTime {};
 };
 
