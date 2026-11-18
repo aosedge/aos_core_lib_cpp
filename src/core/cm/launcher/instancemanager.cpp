@@ -176,8 +176,7 @@ Error InstanceManager::UpdateStatus(const InstanceStatus& status)
     auto& statuses = status.mPreinstalled ? mPreinstalledComponents : mRunningInstances;
 
     auto existing = statuses.FindIf([&status](const InstanceStatus& item) {
-        return static_cast<const InstanceIdent&>(item) == static_cast<const InstanceIdent&>(status)
-            && item.mVersion == status.mVersion;
+        return static_cast<const InstanceIdent&>(item) == static_cast<const InstanceIdent&>(status);
     });
 
     bool missingStatus = existing == statuses.end();
@@ -189,7 +188,7 @@ Error InstanceManager::UpdateStatus(const InstanceStatus& status)
     bool missingActiveInstance = false;
 
     if (!status.mPreinstalled) {
-        auto instance = FindActiveInstance(static_cast<const InstanceIdent&>(status), status.mVersion);
+        auto instance = FindActiveInstance(static_cast<const InstanceIdent&>(status));
         if (instance) {
             if (auto err = ApplyNodeStatus(*instance, status); !err.IsNone()) {
                 firstErr = err;
@@ -203,8 +202,7 @@ Error InstanceManager::UpdateStatus(const InstanceStatus& status)
         LOG_WRN() << "Received status for instance missing in"
                   << (missingActiveInstance ? " \'active instance list\'" : "")
                   << (missingStatus ? " \'status list\'" : "")
-                  << Log::Field("instance", static_cast<const InstanceIdent&>(status))
-                  << Log::Field("version", status.mVersion);
+                  << Log::Field("instance", static_cast<const InstanceIdent&>(status));
     }
 
     return firstErr;
@@ -212,8 +210,9 @@ Error InstanceManager::UpdateStatus(const InstanceStatus& status)
 
 RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const RunInstanceRequest& request, uint64_t index)
 {
-    auto id = InstanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, index, request.mUpdateItemType};
-    if (auto instance = FindReadyInstance(id, request.mVersion); instance) {
+    auto id = InstanceIdent {
+        request.mItemID, request.mVersion, request.mSubjectInfo.mSubjectID, index, request.mUpdateItemType};
+    if (auto instance = FindReadyInstance(id); instance) {
         if (auto err = UpdateIndexDigest(*instance, request.mIndexDigest); !err.IsNone()) {
             return {nullptr, err};
         }
@@ -250,7 +249,8 @@ RetWithError<SharedPtr<Instance>> InstanceManager::CreateInstance(const RunInsta
     index      = Max(index,
              FindIndexForNewInstance(newInstances, request.mItemID, request.mSubjectInfo.mSubjectID, request.mVersion));
 
-    auto id = InstanceIdent {request.mItemID, request.mSubjectInfo.mSubjectID, index, request.mUpdateItemType};
+    auto id = InstanceIdent {
+        request.mItemID, request.mVersion, request.mSubjectInfo.mSubjectID, index, request.mUpdateItemType};
     auto instanceInfo = CreateInfo(id, nodeID, runtimeID, request);
     if (!instanceInfo) {
         return {nullptr, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
@@ -274,8 +274,8 @@ Error InstanceManager::RemoveGeneratedInstances(const RunInstanceRequest& reques
 
         return info.mInstanceIdent.mType == UpdateItemTypeEnum::eComponent
             && info.mInstanceIdent.mItemID == request.mItemID
-            && info.mInstanceIdent.mSubjectID == request.mSubjectInfo.mSubjectID && info.mVersion == request.mVersion
-            && info.mDisableRebalancing;
+            && info.mInstanceIdent.mSubjectID == request.mSubjectInfo.mSubjectID
+            && info.mInstanceIdent.mVersion == request.mVersion && info.mDisableRebalancing;
     };
 
     auto firstErr = RemoveInstances(mActiveInstances, matchRequest);
@@ -355,19 +355,19 @@ void InstanceManager::ClearCacheIfLimitReached()
     mCachedInstances.Clear();
 }
 
-SharedPtr<Instance> InstanceManager::FindActiveInstance(const InstanceIdent& id, const String& version)
+SharedPtr<Instance> InstanceManager::FindActiveInstance(const InstanceIdent& id)
 {
-    return FindInstance(mActiveInstances, id, version);
+    return FindInstance(mActiveInstances, id);
 }
 
-SharedPtr<Instance> InstanceManager::FindScheduledInstance(const InstanceIdent& id, const String& version)
+SharedPtr<Instance> InstanceManager::FindScheduledInstance(const InstanceIdent& id)
 {
-    return FindInstance(mScheduledInstances, id, version);
+    return FindInstance(mScheduledInstances, id);
 }
 
-SharedPtr<Instance> InstanceManager::FindCachedInstance(const InstanceIdent& id, const String& version)
+SharedPtr<Instance> InstanceManager::FindCachedInstance(const InstanceIdent& id)
 {
-    return FindInstance(mCachedInstances, id, version);
+    return FindInstance(mCachedInstances, id);
 }
 
 SharedPtr<Instance> InstanceManager::FindActiveInstanceByRuntime(const InstanceIdent& id, const String& runtimeID)
@@ -379,11 +379,10 @@ SharedPtr<Instance> InstanceManager::FindActiveInstanceByRuntime(const InstanceI
     return it != mActiveInstances.end() ? *it : SharedPtr<Instance>();
 }
 
-InstanceStatus* InstanceManager::FindPreinstalledComponent(const InstanceIdent& id, const String& version)
+InstanceStatus* InstanceManager::FindPreinstalledComponent(const InstanceIdent& id)
 {
-    auto component = mPreinstalledComponents.FindIf([&id, &version](const InstanceStatus& status) {
-        return static_cast<const InstanceIdent&>(status) == id && status.mVersion == version;
-    });
+    auto component = mPreinstalledComponents.FindIf(
+        [&id](const InstanceStatus& status) { return static_cast<const InstanceIdent&>(status) == id; });
 
     return component != mPreinstalledComponents.end() ? component : nullptr;
 }
@@ -405,8 +404,7 @@ void InstanceManager::UpdateMonitoringData(const Array<monitoring::InstanceMonit
 Error InstanceManager::SetStatus(Array<InstanceStatus>& statuses, const InstanceStatus& status) const
 {
     if (auto existing = statuses.FindIf([&status](const InstanceStatus& item) {
-            return static_cast<const InstanceIdent&>(item) == static_cast<const InstanceIdent&>(status)
-                && item.mVersion == status.mVersion;
+            return static_cast<const InstanceIdent&>(item) == static_cast<const InstanceIdent&>(status);
         });
         existing != statuses.end()) {
         *existing = status;
@@ -616,9 +614,9 @@ bool InstanceManager::IsSubjectEnabled(const Instance& instance) const
     return !instance.GetInfo().mIsUnitSubject || mSubjects.Contains(instance.GetInfo().mInstanceIdent.mSubjectID);
 }
 
-bool InstanceManager::IsScheduled(const InstanceIdent& id, const String& version)
+bool InstanceManager::IsScheduled(const InstanceIdent& id)
 {
-    return FindScheduledInstance(id, version).Get() != nullptr;
+    return FindScheduledInstance(id).Get() != nullptr;
 }
 
 Error InstanceManager::UpdateRunningInstances(const String& nodeID, const Array<InstanceStatus>& statuses)
@@ -648,14 +646,13 @@ Error InstanceManager::SetStatus(const InstanceStatus& status)
         firstErr = err;
     }
 
-    if (auto instance = FindActiveInstance(static_cast<const InstanceIdent&>(status), status.mVersion); instance) {
+    if (auto instance = FindActiveInstance(static_cast<const InstanceIdent&>(status)); instance) {
         if (auto err = ApplyNodeStatus(*instance, status); !err.IsNone() && firstErr.IsNone()) {
             firstErr = err;
         }
     } else {
         LOG_WRN() << "Received node instance status for not active instance"
-                  << Log::Field("instance", static_cast<const InstanceIdent&>(status))
-                  << Log::Field("version", status.mVersion);
+                  << Log::Field("instance", static_cast<const InstanceIdent&>(status));
     }
 
     return firstErr;
@@ -701,19 +698,19 @@ void InstanceManager::ScheduleInstance(SharedPtr<Instance>& instance, const Erro
     }
 }
 
-SharedPtr<Instance> InstanceManager::FindReadyInstance(const InstanceIdent& id, const String& version)
+SharedPtr<Instance> InstanceManager::FindReadyInstance(const InstanceIdent& id)
 {
-    auto instance = FindScheduledInstance(id, version);
+    auto instance = FindScheduledInstance(id);
     if (instance) {
         return instance;
     }
 
-    instance = FindActiveInstance(id, version);
+    instance = FindActiveInstance(id);
     if (instance) {
         return instance;
     }
 
-    instance = FindCachedInstance(id, version);
+    instance = FindCachedInstance(id);
     if (instance) {
         return instance;
     }
@@ -772,7 +769,6 @@ UniquePtr<InstanceInfo> InstanceManager::CreateInfo(
     info->mTimestamp          = Time::Now();
     info->mState              = InstanceStateEnum::eActive;
     info->mIsUnitSubject      = request.mSubjectInfo.mIsUnitSubject;
-    info->mVersion            = request.mVersion;
     info->mIndexDigest        = request.mIndexDigest;
     info->mOwnerID            = request.mOwnerID;
     info->mSubjectType        = request.mSubjectInfo.mSubjectType;
@@ -790,7 +786,7 @@ Error InstanceManager::UpdateIndexDigest(Instance& instance, const String& index
     }
 
     LOG_DBG() << "Update instance index digest" << Log::Field("instance", instance.GetInfo().mInstanceIdent)
-              << Log::Field("version", instance.GetInfo().mVersion) << Log::Field("indexDigest", indexDigest);
+              << Log::Field("indexDigest", indexDigest);
 
     instance.SetIndexDigest(indexDigest);
 
@@ -804,13 +800,10 @@ Error InstanceManager::UpdateIndexDigest(Instance& instance, const String& index
     return ErrorEnum::eNone;
 }
 
-SharedPtr<Instance> InstanceManager::FindInstance(
-    const Array<SharedPtr<Instance>>& instances, const InstanceIdent& id, const String& version)
+SharedPtr<Instance> InstanceManager::FindInstance(const Array<SharedPtr<Instance>>& instances, const InstanceIdent& id)
 {
-    auto it = instances.FindIf([&id, &version](const SharedPtr<Instance>& instance) {
-        const auto& info = instance->GetInfo();
-        return info.mInstanceIdent == id && info.mVersion == version;
-    });
+    auto it = instances.FindIf(
+        [&id](const SharedPtr<Instance>& instance) { return instance->GetInfo().mInstanceIdent == id; });
 
     return it != instances.end() ? *it : SharedPtr<Instance>();
 }
@@ -822,7 +815,7 @@ SharedPtr<Instance> InstanceManager::FindInstance(const Array<SharedPtr<Instance
         = instances.FindIf([&itemID, &subjectID, &nodeID, &runtimeID, &version](const SharedPtr<Instance>& instance) {
               const auto& info = instance->GetInfo();
               return info.mInstanceIdent.mItemID == itemID && info.mInstanceIdent.mSubjectID == subjectID
-                  && info.mNodeID == nodeID && info.mRuntimeID == runtimeID && info.mVersion == version;
+                  && info.mNodeID == nodeID && info.mRuntimeID == runtimeID && info.mInstanceIdent.mVersion == version;
           });
 
     return it != instances.end() ? *it : SharedPtr<Instance>();
@@ -836,7 +829,7 @@ uint64_t InstanceManager::FindIndexForNewInstance(const Array<SharedPtr<Instance
     for (auto it = instances.begin(); it != instances.end(); ++it) {
         const auto& info = (*it)->GetInfo();
         if (info.mInstanceIdent.mItemID == itemID && info.mInstanceIdent.mSubjectID == subjectID
-            && info.mVersion == version) {
+            && info.mInstanceIdent.mVersion == version) {
             newIndex = Max(newIndex, info.mInstanceIdent.mInstance + 1);
         }
     }

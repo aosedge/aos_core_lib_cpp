@@ -52,7 +52,6 @@ struct InstanceInfo {
     Time                          mTimestamp;
     InstanceState                 mState {};
     bool                          mIsUnitSubject {};
-    StaticString<cVersionLen>     mVersion;
     StaticString<oci::cDigestLen> mIndexDigest;
     StaticString<cIDLen>          mOwnerID;
     SubjectType                   mSubjectType;
@@ -71,7 +70,7 @@ struct InstanceInfo {
         return lhs.mInstanceIdent == rhs.mInstanceIdent && lhs.mManifestDigest == rhs.mManifestDigest
             && lhs.mNodeID == rhs.mNodeID && lhs.mPrevNodeID == rhs.mPrevNodeID && lhs.mRuntimeID == rhs.mRuntimeID
             && lhs.mUID == rhs.mUID && lhs.mGID == rhs.mGID && lhs.mTimestamp == rhs.mTimestamp
-            && lhs.mState == rhs.mState && lhs.mIsUnitSubject == rhs.mIsUnitSubject && lhs.mVersion == rhs.mVersion
+            && lhs.mState == rhs.mState && lhs.mIsUnitSubject == rhs.mIsUnitSubject
             && lhs.mIndexDigest == rhs.mIndexDigest && lhs.mOwnerID == rhs.mOwnerID
             && lhs.mSubjectType == rhs.mSubjectType && lhs.mLabels == rhs.mLabels && lhs.mPriority == rhs.mPriority
             && lhs.mDisableRebalancing == rhs.mDisableRebalancing;

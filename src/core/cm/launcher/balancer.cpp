@@ -86,7 +86,7 @@ Error Balancer::PerformNodeBalancing(Array<SharedPtr<Instance>>& instances)
 
         LOG_DBG() << "Perform node balancing" << Log::Field("instance", id);
 
-        if (mInstanceManager->IsScheduled(id, info.mVersion)) {
+        if (mInstanceManager->IsScheduled(id)) {
             LOG_DBG() << "Instance aready scheduled" << Log::Field("instance", id);
 
             continue;
@@ -409,9 +409,8 @@ Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
     }
 
     for (auto& instance : instances) {
-        const auto& info    = instance->GetInfo();
-        const auto& id      = info.mInstanceIdent;
-        const auto& version = info.mVersion;
+        const auto& info = instance->GetInfo();
+        const auto& id   = info.mInstanceIdent;
 
         // Check for running instance
         if (bool isInstanceRunning
@@ -422,7 +421,7 @@ Error Balancer::PerformPolicyBalancing(Array<SharedPtr<Instance>>& instances)
 
         // Load image descriptor
         if (auto err = mImageInfoProvider->GetImageIndex(info.mIndexDigest, *imageIndex); !err.IsNone()) {
-            LOG_ERR() << "Can't get image index" << Log::Field("instance", id) << Log::Field("version", version)
+            LOG_ERR() << "Can't get image index" << Log::Field("instance", id)
                       << Log::Field("indexDigest", info.mIndexDigest) << Log::Field(err);
 
             continue;
