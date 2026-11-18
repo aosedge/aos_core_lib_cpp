@@ -191,7 +191,6 @@ private:
     void  RunRebootThread();
     void  HandleOfflineTTLs();
     Error LoadInstanceData(InstanceData& instanceData);
-    void  LoadInstancesData(const Array<InstanceInfo>& storedInstances);
     Error HandleComponentStatus(const aos::InstanceStatus& status);
     void  UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances);
     void  StopInstances(const Array<InstanceIdent>& stopInstances);

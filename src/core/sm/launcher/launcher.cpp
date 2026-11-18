@@ -94,7 +94,13 @@ Error Launcher::Start()
 
     (void)lock.Unlock();
 
-    LoadInstancesData(*storedInstances);
+    // The configs of the stored instances are loaded by their start.
+    for (const auto& instanceInfo : *storedInstances) {
+        if (auto err = AddInstanceData(instanceInfo).mError; !err.IsNone()) {
+            LOG_ERR() << "Failed to add instance data" << Log::Field("instance", instanceInfo)
+                      << Log::Field(AOS_ERROR_WRAP(err));
+        }
+    }
 
     if (auto err = mCloudConnection->SubscribeListener(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -693,9 +699,6 @@ Error Launcher::LoadInstanceData(InstanceData& instanceData)
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    // If the configs aren't loaded on module start, the start of the instance loads them again: the broken content
-    // fails the instance with eIntegrity and is repaired. Otherwise the next UpdateInstances prepares the instance
-    // again.
     if (auto err = LoadInstanceConfigs(instanceData.mInfo, *itemConfig, *imageConfig); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -704,46 +707,6 @@ Error Launcher::LoadInstanceData(InstanceData& instanceData)
     instanceData.mConfigsLoaded = true;
 
     return ErrorEnum::eNone;
-}
-
-void Launcher::LoadInstancesData(const Array<InstanceInfo>& storedInstances)
-{
-    LOG_DBG() << "Load instances data" << Log::Field("count", storedInstances.Size());
-
-    if (auto err = mLaunchPool.Run(); !err.IsNone()) {
-        LOG_ERR() << "Can't start thread pool" << Log::Field(AOS_ERROR_WRAP(err));
-
-        return;
-    }
-
-    for (const auto& instanceInfo : storedInstances) {
-        auto [instanceData, err] = AddInstanceData(instanceInfo);
-        if (!err.IsNone()) {
-            LOG_ERR() << "Failed to add instance data" << Log::Field("instance", instanceInfo)
-                      << Log::Field(AOS_ERROR_WRAP(err));
-
-            continue;
-        }
-
-        if (instanceData->mInfo.mType != UpdateItemTypeEnum::eService) {
-            continue;
-        }
-
-        err = mLaunchPool.AddTask([this, data = instanceData](void*) {
-            if (auto err = LoadInstanceData(*data); !err.IsNone()) {
-                LOG_ERR() << "Failed to load instance data" << Log::Field("instance", data->mInfo)
-                          << Log::Field(AOS_ERROR_WRAP(err));
-            }
-        });
-        if (!err.IsNone()) {
-            LOG_ERR() << "Failed to load instance data" << Log::Field("instance", instanceInfo)
-                      << Log::Field(AOS_ERROR_WRAP(err));
-        }
-    }
-
-    if (auto err = mLaunchPool.Shutdown(); !err.IsNone()) {
-        LOG_ERR() << "Thread pool shutdown failed" << Log::Field(AOS_ERROR_WRAP(err));
-    }
 }
 
 void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Array<InstanceInfo>& startInstances)
@@ -1486,8 +1449,9 @@ Error Launcher::AddStartInstanceTask(InstanceData& instanceData)
     if (auto err = mLaunchPool.AddTask([this, runtime, &instanceData](void*) {
             SetInstanceState(instanceData, InstanceStateEnum::eActivating);
 
-            // The configs of the instance restored on module start aren't loaded if their read failed. The broken
-            // content fails the instance with eIntegrity, so the item is repaired and the instance is started again.
+            // The configs of the instance restored on module start are loaded by its start. The broken content fails
+            // the instance with eIntegrity, so the item is repaired and the instance is started again. Otherwise the
+            // next UpdateInstances prepares the instance again.
             if (instanceData.mInfo.mType == UpdateItemTypeEnum::eService && !instanceData.mConfigsLoaded) {
                 if (auto err = LoadInstanceData(instanceData); err.Is(ErrorEnum::eIntegrity)) {
                     LOG_ERR() << "Failed to start instance" << Log::Field("instance", instanceData.mInfo)
