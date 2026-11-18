@@ -407,6 +407,7 @@ TEST_F(LauncherTest, DoNotSendUpdateInstancesStatusesBeforeModuleStart)
 
     EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([&](const InstanceInfo& info, InstanceStatus& status) {
         EXPECT_EQ(static_cast<const InstanceIdent&>(info), cPreinstalledComponent);
+        EXPECT_TRUE(info.mPreinstalled);
 
         status = cRuntime0Components[0];
 
@@ -1888,7 +1889,7 @@ TEST_F(LauncherTest, GetInstanceMonitoringParams)
     params = std::make_unique<InstanceMonitoringParams>();
 
     err = mLauncher.GetInstanceMonitoringParams(
-        InstanceIdent {"unknown", "", 999, UpdateItemTypeEnum::eService}, *params);
+        InstanceIdent {"unknown", "1.0.0", "", 999, UpdateItemTypeEnum::eService}, *params);
     EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(startInstance), _))
@@ -1939,7 +1940,7 @@ TEST_F(LauncherTest, GetInstanceMonitoringData)
     EXPECT_EQ(cMonitoringData, *instanceMonitoringData);
 
     err = mLauncher.GetInstanceMonitoringData(
-        InstanceIdent {"unknown", "", 999, UpdateItemTypeEnum::eService}, *instanceMonitoringData);
+        InstanceIdent {"unknown", "1.0.0", "", 999, UpdateItemTypeEnum::eService}, *instanceMonitoringData);
     EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
 
     EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cInstanceInfo), _))

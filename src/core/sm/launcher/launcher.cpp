@@ -663,9 +663,8 @@ Error Launcher::HandleComponentStatus(const aos::InstanceStatus& status)
     static_cast<InstanceIdent&>(*instanceInfo)
         = status; // NOSONAR cpp:S5912 - intentional copy of InstanceIdent base only
     instanceInfo->mRuntimeID      = status.mRuntimeID;
-    instanceInfo->mType           = status.mType;
-    instanceInfo->mVersion        = status.mVersion;
     instanceInfo->mManifestDigest = status.mManifestDigest;
+    instanceInfo->mPreinstalled   = status.mPreinstalled;
 
     if (auto err = mStorage->UpdateInstanceInfo(*instanceInfo); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -1833,9 +1832,9 @@ RetWithError<Launcher::InstanceData*> Launcher::AddInstanceData(const InstanceIn
     itInstance->mInfo = instanceInfo;
     static_cast<InstanceIdent&>(itInstance->mStatus)
         = instanceInfo; // NOSONAR cpp:S5912 - intentional copy of InstanceIdent base only
-    itInstance->mStatus.mVersion   = instanceInfo.mVersion;
-    itInstance->mStatus.mRuntimeID = instanceInfo.mRuntimeID;
-    itInstance->mStatus.mState     = InstanceStateEnum::eInactive;
+    itInstance->mStatus.mRuntimeID    = instanceInfo.mRuntimeID;
+    itInstance->mStatus.mState        = InstanceStateEnum::eInactive;
+    itInstance->mStatus.mPreinstalled = instanceInfo.mPreinstalled;
 
     if (auto err = mInstanceIDProvider->GetInstanceID(instanceInfo, itInstance->mInstanceID); !err.IsNone()) {
         (void)mInstances.Erase(itInstance);
