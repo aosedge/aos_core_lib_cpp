@@ -96,16 +96,17 @@ Error Launcher::Start()
 
     LoadInstancesData(*storedInstances);
 
-    if (auto err = UpdateInstances({}, *storedInstances); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
     if (auto err = mCloudConnection->SubscribeListener(*this); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
+    // The offline time is set before the launch, so the offline TTL timer is started when the launch is finished.
     if (!mCloudConnection->IsConnected()) {
         OnDisconnect();
+    }
+
+    if (auto err = UpdateInstances({}, *storedInstances); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
@@ -409,6 +410,10 @@ void Launcher::OnConnect()
     LOG_DBG() << "Cloud connected event";
 
     mOfflineTime.Reset();
+
+    if (auto err = mOfflineTTLHandler.Stop(); !err.IsNone()) {
+        LOG_ERR() << "Can't stop offline TTL handler" << Log::Field(AOS_ERROR_WRAP(err));
+    }
 }
 
 void Launcher::OnDisconnect()
@@ -419,7 +424,10 @@ void Launcher::OnDisconnect()
 
     mOfflineTime = Time::Now();
 
-    StartTTLTimer();
+    // The launch in progress changes the instances, the timer is started when it is finished.
+    if (!mLaunchInProgress) {
+        StartTTLTimer();
+    }
 }
 
 Error Launcher::InitInstances(const Array<InstanceInfo>& instancesInfo)
@@ -1625,6 +1633,8 @@ void Launcher::FinishLaunch()
 
     mLaunchInProgress  = false;
     mModuleStartRepair = false;
+
+    StartTTLTimer();
 
     if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
         LOG_ERR() << "Can't notify launcher" << Log::Field(AOS_ERROR_WRAP(err));
