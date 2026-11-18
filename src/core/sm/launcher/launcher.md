@@ -193,25 +193,29 @@ runtime startup are separate stages; each stage completes before the next one st
 
 ## Integrity recovery
 
-Launcher repairs the update items whose content is broken by installing them again with
-`ImageManagerItf::InstallItem`, which validates the item and downloads only the broken blobs. An item is repaired at
+Launcher recovers the update items whose content is broken by installing them again with
+`ImageManagerItf::InstallItem`, which validates the item and downloads only the broken blobs. An item is recovered at
 most once per request:
 
 * after the instances of a request are prepared, launcher installs again once each item that has an instance whose
-  item configs failed to read with `eIntegrity`. Then it prepares again the failed instances of the repaired items;
+  item configs failed to read with `eIntegrity`. Then it prepares again the failed instances of the recovered items;
 * after the instances of a request are started, launcher installs again once each item that has an instance failed to
-  start with `eIntegrity`, unless the item was already repaired at the prepare stage. Then it starts again the failed
-  instances of the repaired items.
+  start with `eIntegrity`, unless the item was already recovered at the prepare stage. Then it starts again the failed
+  instances of the recovered items.
 
-The instances of an item which can't be repaired stay failed with the repair error, and an instance which fails the
-second prepare or start stays failed with the error of this attempt.
+An instance whose prepare or start fails with `eIntegrity` keeps its state until its item is recovered, so it isn't
+reported as failed while it is being recovered. It fails only if the recovery doesn't help: the instances of an item
+which can't be recovered fail with the recovery error, and an instance which fails the second prepare or start, or whose
+item was already recovered at the prepare stage, fails with `eIntegrity`.
 
-The repair needs the CM, which may be not connected on module start, so the stored instances are read and started
-without the repair. The first request handles the broken content: it prepares and starts again the instances failed
-with `eIntegrity`, and prepares again the running instances whose item configs failed to read on module start.
+On module start, the stored instances are recovered the same way after they are started. The recovery downloads the
+blobs from the CM, which connects only after the SM gets the instances statuses, so while the module start recovery is
+in progress the instances statuses are provided without waiting for the launch, and the first request waits for the
+recovery to finish instead of failing with `eWrongState`. The node instances statuses are sent after the module start
+recovery as they are changed by it.
 
-Any other error doesn't trigger the repair. The new or failed instances of an item whose installation failed aren't
-started, so they aren't repaired either: they stay failed with the installation error until the next request. A
+Any other error doesn't trigger the recovery. The new or failed instances of an item whose installation failed aren't
+started, so they aren't recovered either: they stay failed with the installation error until the next request. A
 running instance of such an item keeps running.
 
 ## aos::sm::launcher::InstanceStatusReceiverItf

@@ -217,15 +217,7 @@ Error Launcher::UpdateInstances(const Array<InstanceIdent>& stopInstances, const
     }
 
     err = mThread.Run([this, stop, start](void*) {
-        // mFirstStart is changed only by this thread.
-        const auto moduleStart = mFirstStart;
-
         UpdateInstancesImpl(*stop, *start);
-
-        if (moduleStart) {
-            RepairModuleStartInstances();
-        }
-
         FinishLaunch();
     });
     if (!err.IsNone()) {
@@ -297,9 +289,11 @@ Error Launcher::GetInstancesStatuses(Array<InstanceStatus>& statuses)
 {
     UniqueLock lock {mMutex};
 
-    // The module start repair may wait for the CM, which is connected by the modules that get the statuses: don't wait
-    // for it. The statuses changed by the repair are sent when it is finished.
-    if (auto err = mCondVar.Wait(lock, [this]() { return !mLaunchInProgress || mModuleStartRepair; }); !err.IsNone()) {
+    // The module start recovery may wait for the CM, which is connected by the modules that get the statuses: don't
+    // wait for it. The instances being recovered aren't reported as failed, the statuses changed by the recovery are
+    // sent when it is finished.
+    if (auto err = mCondVar.Wait(lock, [this]() { return !mLaunchInProgress || mModuleStartRecovery; });
+        !err.IsNone()) {
         LOG_ERR() << "Can't wait for launch finish" << Log::Field(AOS_ERROR_WRAP(err));
     }
 
@@ -714,13 +708,13 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
     LOG_INF() << "[profiling] Update instances begin" << Log::Field("stopCount", stopInstances.Size())
               << Log::Field("startCount", startInstances.Size());
 
+    // On module start, the statuses are got by the modules started after the launcher, so they are sent only if they
+    // are changed by the recovery.
     auto sendStatus = DeferRelease(&mInstances, [this](Array<InstanceData>*) {
         LockGuard lock {mMutex};
 
-        if (!mFirstStart) {
+        if (!mFirstStart || mModuleStartRecovery) {
             SendNodeInstancesStatuses();
-
-            return;
         }
 
         mFirstStart = false;
@@ -741,10 +735,10 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
         return;
     }
 
-    // An item is repaired at most once per request, so the repaired items are shared by the prepare and start stages.
-    auto repairedItems = MakeUnique<StaticArray<InstallItem, cMaxNumUpdateItems>>(mAllocator);
-    if (!repairedItems) {
-        LOG_ERR() << "Failed to allocate repaired items" << Log::Field(ErrorEnum::eNoMemory);
+    // An item is recovered at most once per request, so the recovered items are shared by the prepare and start stages.
+    auto recoveredItems = MakeUnique<StaticArray<InstallItem, cMaxNumUpdateItems>>(mAllocator);
+    if (!recoveredItems) {
+        LOG_ERR() << "Failed to allocate recovered items" << Log::Field(ErrorEnum::eNoMemory);
 
         return;
     }
@@ -779,12 +773,12 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
                   << Log::Field("installCount", startInstances.Size());
 
         RemoveUpdateItems(*removeItems);
-        auto installError = InstallUpdateItems(startInstances, *installItems);
+        InstallUpdateItems(startInstances, *installItems);
 
         LOG_INF() << "[profiling] Install items end";
 
-        PrepareInstances(startInstances, *installItems, installError, *processedInstances);
-        RepairInstances(*processedInstances, *repairedItems, &Launcher::AddPrepareInstanceTask);
+        PrepareInstances(startInstances, *installItems, *processedInstances);
+        RecoverItems(*processedInstances, *recoveredItems, &Launcher::AddPrepareInstanceTask);
     }
 
     StartNetworks(startInstances);
@@ -793,11 +787,21 @@ void Launcher::UpdateInstancesImpl(Array<InstanceIdent>& stopInstances, const Ar
 
     StartInstances(startInstances, *processedInstances);
 
-    // On module start, the items are repaired after the launch by RepairModuleStartInstances: the repair may wait for
-    // the CM, which needs the modules started after the launcher.
-    if (!mFirstStart) {
-        RepairInstances(*processedInstances, *repairedItems, &Launcher::AddStartInstanceTask);
+    // On module start, the recovery may wait for the CM, which needs the modules started after the launcher: they get
+    // the statuses while the recovery is in progress.
+    if (mFirstStart) {
+        LockGuard lock {mMutex};
+
+        if (mInstances.FindIf([](const InstanceData& instance) { return instance.mBrokenItem; }) != mInstances.end()) {
+            mModuleStartRecovery = true;
+
+            if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
+                LOG_ERR() << "Can't notify launcher" << Log::Field(AOS_ERROR_WRAP(err));
+            }
+        }
     }
+
+    RecoverItems(*processedInstances, *recoveredItems, &Launcher::AddStartInstanceTask);
 
     if (auto err = mLaunchPool.Shutdown(); !err.IsNone()) {
         LOG_ERR() << "Thread pool shutdown failed" << Log::Field(AOS_ERROR_WRAP(err));
@@ -962,7 +966,7 @@ Error Launcher::PrepareInstance(InstanceData& instanceData)
         return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
-    // The broken content is repaired by RepairInstances once per item after all instances are prepared.
+    // The broken content is recovered by RecoverItems once per item after all instances are prepared.
     if (auto err = LoadInstanceConfigs(instanceData.mInfo, *itemConfig, *imageConfig); !err.IsNone()) {
         return err;
     }
@@ -978,7 +982,7 @@ Error Launcher::PrepareInstance(InstanceData& instanceData)
 }
 
 void Launcher::PrepareInstances(const Array<InstanceInfo>& startInstances, const Array<InstallItem>& installItems,
-    const Error& installError, Array<InstanceIdent>& preparedInstances)
+    Array<InstanceIdent>& preparedInstances)
 {
     LOG_INF() << "[profiling] Prepare instances begin" << Log::Field("count", startInstances.Size());
 
@@ -1004,8 +1008,7 @@ void Launcher::PrepareInstances(const Array<InstanceInfo>& startInstances, const
         auto installItem = installItems.FindIf([&instance](const auto& item) {
             return item.mID == instance.mItemID && item.mVersion == instance.mVersion;
         });
-        err              = installError;
-        if (err.IsNone() && installItem != installItems.end()) {
+        if (installItem != installItems.end()) {
             err = installItem->mError;
         }
 
@@ -1050,14 +1053,14 @@ void Launcher::PrepareInstances(const Array<InstanceInfo>& startInstances, const
 Error Launcher::AddPrepareInstanceTask(InstanceData& instanceData)
 {
     if (auto err = mLaunchPool.AddTask([this, &instanceData](void*) {
-            // The instance which failed the previous prepare is prepared again after its item is repaired.
+            // The instance which failed the previous prepare is prepared again after its item is recovered.
             SetInstanceState(instanceData, InstanceStateEnum::eInactive);
 
             if (auto err = PrepareInstance(instanceData); !err.IsNone()) {
                 LOG_ERR() << "Failed to prepare instance" << Log::Field("instance", instanceData.mInfo)
                           << Log::Field(AOS_ERROR_WRAP(err));
 
-                SetInstanceState(instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+                ScheduleRecoveryOrFail(instanceData, AOS_ERROR_WRAP(err));
             }
         });
         !err.IsNone()) {
@@ -1272,58 +1275,76 @@ void Launcher::StartInstances(const Array<InstanceInfo>& startInstances, Array<I
     LOG_INF() << "[profiling] Start instances end";
 }
 
-void Launcher::RepairInstances(
-    const Array<InstanceIdent>& instances, Array<InstallItem>& repairedItems, AddInstanceTaskFunc addRetryTask)
+void Launcher::RecoverItems(
+    const Array<InstanceIdent>& instances, Array<InstallItem>& recoveredItems, AddInstanceTaskFunc addRetryTask)
 {
-    const auto isBroken = [](const InstanceData& instanceData) {
-        return instanceData.mStatus.mState == InstanceStateEnum::eFailed
-            && instanceData.mStatus.mError.Is(ErrorEnum::eIntegrity);
-    };
+    const auto isBroken = [](const InstanceData& instanceData) { return instanceData.mBrokenItem; };
 
-    const auto findItem = [&repairedItems](const InstanceInfo& instance) {
-        return repairedItems.FindIf([&instance](const InstallItem& item) {
+    const auto findItem = [&recoveredItems](const InstanceInfo& instance) {
+        return recoveredItems.FindIf([&instance](const InstallItem& item) {
             return item.mID == instance.mItemID && item.mVersion == instance.mVersion;
         });
     };
 
-    // The items repaired by the previous stage of the request are not repaired again.
-    const auto firstNewItem = repairedItems.Size();
+    // The instance which can't be recovered fails: the instance of an item which can't be installed fails with the
+    // install error, the instance of an item which was recovered by the previous stage of the request and the instance
+    // which fails again after the recovery fail with the integrity error.
+    auto failBroken = DeferRelease([this, &instances, &isBroken, &findItem, &recoveredItems]() {
+        LockGuard lock {mMutex};
+
+        for (const auto& instance : instances) {
+            auto instanceData = FindInstanceData(instance);
+            if (!instanceData || !isBroken(*instanceData)) {
+                continue;
+            }
+
+            auto item = findItem(instanceData->mInfo);
+
+            instanceData->mStatus.mState = InstanceStateEnum::eFailed;
+            instanceData->mStatus.mError
+                = item != recoveredItems.end() && !item->mError.IsNone() ? item->mError : ErrorEnum::eIntegrity;
+            instanceData->mBrokenItem = false;
+        }
+    });
+
+    // The items recovered by the previous stage of the request are not recovered again.
+    const auto firstNewItem = recoveredItems.Size();
 
     {
         LockGuard lock {mMutex};
 
         for (const auto& instance : instances) {
             auto instanceData = FindInstanceData(instance);
-            if (!instanceData || !isBroken(*instanceData) || findItem(instanceData->mInfo) != repairedItems.end()) {
+            if (!instanceData || !isBroken(*instanceData) || findItem(instanceData->mInfo) != recoveredItems.end()) {
                 continue;
             }
 
             const auto& info = instanceData->mInfo;
 
-            if (auto err = repairedItems.EmplaceBack(
+            if (auto err = recoveredItems.EmplaceBack(
                     InstallItem {{info.mItemID, info.mType, info.mVersion, info.mManifestDigest}, {}});
                 !err.IsNone()) {
-                LOG_ERR() << "Failed to add repair item" << Log::Field("itemID", info.mItemID)
+                LOG_ERR() << "Failed to add recovery item" << Log::Field("itemID", info.mItemID)
                           << Log::Field("version", info.mVersion) << Log::Field(AOS_ERROR_WRAP(err));
             }
         }
     }
 
-    if (repairedItems.Size() == firstNewItem) {
+    if (recoveredItems.Size() == firstNewItem) {
         return;
     }
 
-    LOG_INF() << "[profiling] Repair instances begin" << Log::Field("itemCount", repairedItems.Size() - firstNewItem);
+    LOG_INF() << "[profiling] Recover items begin" << Log::Field("itemCount", recoveredItems.Size() - firstNewItem);
 
-    // Each item is repaired once per request, the instances which still fail stay failed.
-    for (auto item = repairedItems.begin() + firstNewItem; item != repairedItems.end(); ++item) {
+    // Each item is recovered once per request.
+    for (auto item = recoveredItems.begin() + firstNewItem; item != recoveredItems.end(); ++item) {
         if (auto err = mLaunchPool.AddTask([this, item](void*) {
-                LOG_WRN() << "Repair update item" << Log::Field("itemID", item->mID)
+                LOG_WRN() << "Recover update item" << Log::Field("itemID", item->mID)
                           << Log::Field("version", item->mVersion);
 
                 item->mError = InstallUpdateItem(*item);
                 if (!item->mError.IsNone()) {
-                    LOG_ERR() << "Repair update item failed" << Log::Field("itemID", item->mID)
+                    LOG_ERR() << "Recover update item failed" << Log::Field("itemID", item->mID)
                               << Log::Field("version", item->mVersion) << Log::Field(AOS_ERROR_WRAP(item->mError));
                 }
             });
@@ -1348,16 +1369,15 @@ void Launcher::RepairInstances(
             }
 
             auto item = findItem(instanceData->mInfo);
-            if (item == repairedItems.end() || item < repairedItems.begin() + firstNewItem) {
+            if (item == recoveredItems.end() || item < recoveredItems.begin() + firstNewItem) {
                 continue;
             }
 
-            // The instance of an item which can't be repaired fails with the repair error.
             if (!item->mError.IsNone()) {
-                instanceData->mStatus.mError = item->mError;
-
                 continue;
             }
+
+            instanceData->mBrokenItem = false;
         }
 
         if (auto err = (this->*addRetryTask)(*instanceData); !err.IsNone()) {
@@ -1372,71 +1392,7 @@ void Launcher::RepairInstances(
         LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
 
-    LOG_INF() << "[profiling] Repair instances end";
-}
-
-void Launcher::RepairModuleStartInstances()
-{
-    auto brokenInstances = MakeUnique<StaticArray<InstanceIdent, cMaxNumInstances>>(mAllocator);
-    if (!brokenInstances) {
-        LOG_ERR() << "Failed to allocate broken instances" << Log::Field(ErrorEnum::eNoMemory);
-
-        return;
-    }
-
-    auto repairedItems = MakeUnique<StaticArray<InstallItem, cMaxNumUpdateItems>>(mAllocator);
-    if (!repairedItems) {
-        LOG_ERR() << "Failed to allocate repaired items" << Log::Field(ErrorEnum::eNoMemory);
-
-        return;
-    }
-
-    {
-        LockGuard lock {mMutex};
-
-        for (const auto& instance : mInstances) {
-            if (instance.mStatus.mState != InstanceStateEnum::eFailed
-                || !instance.mStatus.mError.Is(ErrorEnum::eIntegrity)) {
-                continue;
-            }
-
-            if (auto err = brokenInstances->PushBack(static_cast<const InstanceIdent&>(instance.mInfo));
-                !err.IsNone()) {
-                LOG_ERR() << "Failed to add broken instance" << Log::Field("instance", instance.mInfo)
-                          << Log::Field(AOS_ERROR_WRAP(err));
-            }
-        }
-
-        if (brokenInstances->IsEmpty()) {
-            return;
-        }
-
-        mModuleStartRepair = true;
-
-        if (auto err = mCondVar.NotifyAll(); !err.IsNone()) {
-            LOG_ERR() << "Can't notify launcher" << Log::Field(AOS_ERROR_WRAP(err));
-        }
-    }
-
-    LOG_INF() << "[profiling] Module start repair begin" << Log::Field("count", brokenInstances->Size());
-
-    if (auto err = mLaunchPool.Run(); err.IsNone()) {
-        RepairInstances(*brokenInstances, *repairedItems, &Launcher::AddStartInstanceTask);
-
-        if (err = mLaunchPool.Shutdown(); !err.IsNone()) {
-            LOG_ERR() << "Thread pool shutdown failed" << Log::Field(AOS_ERROR_WRAP(err));
-        }
-    } else {
-        LOG_ERR() << "Can't start thread pool" << Log::Field(AOS_ERROR_WRAP(err));
-    }
-
-    LOG_INF() << "[profiling] Module start repair end";
-
-    // mModuleStartRepair is reset by FinishLaunch, so a request waiting for the repair starts after the launch is
-    // finished.
-    LockGuard lock {mMutex};
-
-    SendNodeInstancesStatuses();
+    LOG_INF() << "[profiling] Recover items end";
 }
 
 Error Launcher::AddStartInstanceTask(InstanceData& instanceData)
@@ -1449,15 +1405,14 @@ Error Launcher::AddStartInstanceTask(InstanceData& instanceData)
     if (auto err = mLaunchPool.AddTask([this, runtime, &instanceData](void*) {
             SetInstanceState(instanceData, InstanceStateEnum::eActivating);
 
-            // The configs of the instance restored on module start are loaded by its start. The broken content fails
-            // the instance with eIntegrity, so the item is repaired and the instance is started again. Otherwise the
-            // next UpdateInstances prepares the instance again.
+            // The configs of the instance restored on module start are loaded by its start. The broken content is
+            // recovered and the instance is started again.
             if (instanceData.mInfo.mType == UpdateItemTypeEnum::eService && !instanceData.mConfigsLoaded) {
-                if (auto err = LoadInstanceData(instanceData); err.Is(ErrorEnum::eIntegrity)) {
+                if (auto err = LoadInstanceData(instanceData); !err.IsNone()) {
                     LOG_ERR() << "Failed to start instance" << Log::Field("instance", instanceData.mInfo)
                               << Log::Field(AOS_ERROR_WRAP(err));
 
-                    SetInstanceState(instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+                    ScheduleRecoveryOrFail(instanceData, AOS_ERROR_WRAP(err));
 
                     return;
                 }
@@ -1467,7 +1422,7 @@ Error Launcher::AddStartInstanceTask(InstanceData& instanceData)
                 LOG_ERR() << "Failed to start instance" << Log::Field("instance", instanceData.mInfo)
                           << Log::Field(AOS_ERROR_WRAP(err));
 
-                SetInstanceState(instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
+                ScheduleRecoveryOrFail(instanceData, AOS_ERROR_WRAP(err));
 
                 return;
             }
@@ -1576,8 +1531,8 @@ Error Launcher::StartLaunch()
 {
     UniqueLock lock {mMutex};
 
-    // The request received while the module start repair waits for the CM is processed after the repair.
-    if (auto err = mCondVar.Wait(lock, [this]() { return !mModuleStartRepair; }); !err.IsNone()) {
+    // The request received while the module start recovery waits for the CM is processed after the recovery.
+    if (auto err = mCondVar.Wait(lock, [this]() { return !mModuleStartRecovery; }); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1594,8 +1549,8 @@ void Launcher::FinishLaunch()
 {
     LockGuard lock {mMutex};
 
-    mLaunchInProgress  = false;
-    mModuleStartRepair = false;
+    mLaunchInProgress    = false;
+    mModuleStartRecovery = false;
 
     StartTTLTimer();
 
@@ -1728,14 +1683,14 @@ void Launcher::RemoveUpdateItems(const Array<UpdateItemInfo>& removeItems)
     }
 }
 
-Error Launcher::InstallUpdateItems(const Array<InstanceInfo>& startInstances, Array<InstallItem>& installItems)
+void Launcher::InstallUpdateItems(const Array<InstanceInfo>& startInstances, Array<InstallItem>& installItems)
 {
     // The image manager reports all stored item versions, including the ones kept in the cache.
     auto currentItems = MakeUnique<StaticArray<UpdateItemStatus, cMaxNumUpdateItems * 2>>(mAllocator);
     if (!currentItems) {
         LOG_ERR() << "Failed to allocate current items" << Log::Field(ErrorEnum::eNoMemory);
 
-        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+        return;
     }
 
     if (auto err = mItemStatusProvider->GetItemsStatuses(*currentItems); !err.IsNone()) {
@@ -1760,7 +1715,8 @@ Error Launcher::InstallUpdateItems(const Array<InstanceInfo>& startInstances, Ar
                     {startInstance.mItemID, startInstance.mType, startInstance.mVersion, startInstance.mManifestDigest},
                     {}});
                 !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
+                LOG_ERR() << "Failed to add install item" << Log::Field("itemID", startInstance.mItemID)
+                          << Log::Field("version", startInstance.mVersion) << Log::Field(AOS_ERROR_WRAP(err));
             }
         }
     }
@@ -1785,10 +1741,8 @@ Error Launcher::InstallUpdateItems(const Array<InstanceInfo>& startInstances, Ar
     }
 
     if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
-
-    return ErrorEnum::eNone;
 }
 
 RetWithError<Launcher::InstanceData*> Launcher::AddInstanceData(const InstanceInfo& instanceInfo)
@@ -1886,6 +1840,21 @@ void Launcher::SetInstanceState(InstanceData& instance, const InstanceState& sta
 
     instance.mStatus.mState = state;
     instance.mStatus.mError = error;
+}
+
+void Launcher::ScheduleRecoveryOrFail(InstanceData& instance, const Error& error)
+{
+    // The instance with broken content keeps its state until its item is recovered: RecoverItems fails it only if the
+    // recovery doesn't help, so the integrity error isn't reported while the instance is being recovered.
+    if (error.Is(ErrorEnum::eIntegrity)) {
+        LockGuard lock {mMutex};
+
+        instance.mBrokenItem = true;
+
+        return;
+    }
+
+    SetInstanceState(instance, InstanceStateEnum::eFailed, error);
 }
 
 Error Launcher::LoadInstanceConfigs(
