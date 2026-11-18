@@ -142,6 +142,7 @@ struct InstanceMonitoringData : public InstanceIdent {
     StaticString<cIDLen>   mNodeID;
     MonitoringDataArray    mItems;
     InstanceStateInfoArray mStates;
+    bool                   mPreinstalled {};
 
     /**
      * Compares instance monitoring data.
@@ -152,7 +153,7 @@ struct InstanceMonitoringData : public InstanceIdent {
     friend bool operator==(const InstanceMonitoringData& lhs, const InstanceMonitoringData& rhs)
     {
         return (static_cast<const InstanceIdent&>(lhs) == rhs) && lhs.mNodeID == rhs.mNodeID && lhs.mItems == rhs.mItems
-            && lhs.mStates == rhs.mStates;
+            && lhs.mStates == rhs.mStates && lhs.mPreinstalled == rhs.mPreinstalled;
     };
 
     /**

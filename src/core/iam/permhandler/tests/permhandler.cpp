@@ -79,7 +79,7 @@ TEST_F(PermHandlerTest, RegisterInstanceReturnsSecretFromCache)
 TEST_F(PermHandlerTest, RegisterInstanceReachedMaxSize)
 {
     const StaticArray<FunctionServicePermissions, 1> perms;
-    InstanceIdent                                    instanceIdent {"", "", 0, UpdateItemTypeEnum::eService};
+    InstanceIdent                                    instanceIdent {"", "", "", 0, UpdateItemTypeEnum::eService};
     Error                                            err;
     StaticString<cSecretLen>                         secret;
 
@@ -109,7 +109,7 @@ TEST_F(PermHandlerTest, GetPermissionsNotFound)
 
 TEST_F(PermHandlerTest, GetPermissionsNoMemoryForPerms)
 {
-    const InstanceIdent instanceIdent1 {"serviceID1", "subjectID1", 1, UpdateItemTypeEnum::eService};
+    const InstanceIdent instanceIdent1 {"serviceID1", "1.0.0", "subjectID1", 1, UpdateItemTypeEnum::eService};
 
     FunctionServicePermissions testServicePermissions;
     testServicePermissions.mName = "testService";
@@ -156,8 +156,8 @@ TEST_F(PermHandlerTest, UnregisterInstance)
 
 TEST_F(PermHandlerTest, TestInstancePermissions)
 {
-    const InstanceIdent instanceIdent1 {"serviceID1", "subjectID1", 1, UpdateItemTypeEnum::eService};
-    const InstanceIdent instanceIdent2 {"serviceID2", "subjectID2", 2, UpdateItemTypeEnum::eService};
+    const InstanceIdent instanceIdent1 {"serviceID1", "1.0.0", "subjectID1", 1, UpdateItemTypeEnum::eService};
+    const InstanceIdent instanceIdent2 {"serviceID2", "1.0.0", "subjectID2", 2, UpdateItemTypeEnum::eService};
     InstanceIdent       instance;
 
     FunctionServicePermissions visServicePermissions;

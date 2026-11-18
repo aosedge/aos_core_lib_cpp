@@ -19,7 +19,6 @@ namespace aos {
  * Instance info data.
  */
 struct InstanceInfoData {
-    StaticString<cVersionLen>          mVersion;
     StaticString<oci::cDigestLen>      mManifestDigest;
     StaticString<cIDLen>               mRuntimeID;
     StaticString<cIDLen>               mOwnerID;
@@ -31,6 +30,7 @@ struct InstanceInfoData {
     StaticString<cFilePathLen>         mStatePath;
     EnvVarArray                        mEnvVars;
     Optional<InstanceMonitoringParams> mMonitoringParams;
+    bool                               mPreinstalled {};
 
     /**
      * Compares instance info data.
@@ -40,11 +40,11 @@ struct InstanceInfoData {
      */
     friend bool operator==(const InstanceInfoData& lhs, const InstanceInfoData& rhs)
     {
-        return lhs.mVersion == rhs.mVersion && lhs.mManifestDigest == rhs.mManifestDigest
-            && lhs.mRuntimeID == rhs.mRuntimeID && lhs.mOwnerID == rhs.mOwnerID && lhs.mSubjectType == rhs.mSubjectType
-            && lhs.mUID == rhs.mUID && lhs.mGID == rhs.mGID && lhs.mPriority == rhs.mPriority
-            && lhs.mStoragePath == rhs.mStoragePath && lhs.mStatePath == rhs.mStatePath && lhs.mEnvVars == rhs.mEnvVars
-            && lhs.mMonitoringParams == rhs.mMonitoringParams;
+        return lhs.mManifestDigest == rhs.mManifestDigest && lhs.mRuntimeID == rhs.mRuntimeID
+            && lhs.mOwnerID == rhs.mOwnerID && lhs.mSubjectType == rhs.mSubjectType && lhs.mUID == rhs.mUID
+            && lhs.mGID == rhs.mGID && lhs.mPriority == rhs.mPriority && lhs.mStoragePath == rhs.mStoragePath
+            && lhs.mStatePath == rhs.mStatePath && lhs.mEnvVars == rhs.mEnvVars
+            && lhs.mMonitoringParams == rhs.mMonitoringParams && lhs.mPreinstalled == rhs.mPreinstalled;
     };
 
     /**
@@ -96,6 +96,7 @@ struct InstanceStatusData {
     EnvVarStatusArray                         mEnvVarsStatuses;
     InstanceState                             mState;
     Error                                     mError;
+    bool                                      mPreinstalled {};
 
     /**
      * Compares instance status data.
@@ -107,7 +108,8 @@ struct InstanceStatusData {
     {
         return lhs.mNodeID == rhs.mNodeID && lhs.mRuntimeID == rhs.mRuntimeID
             && lhs.mManifestDigest == rhs.mManifestDigest && lhs.mStateChecksum == rhs.mStateChecksum
-            && lhs.mEnvVarsStatuses == rhs.mEnvVarsStatuses && lhs.mState == rhs.mState && lhs.mError == rhs.mError;
+            && lhs.mEnvVarsStatuses == rhs.mEnvVarsStatuses && lhs.mState == rhs.mState && lhs.mError == rhs.mError
+            && lhs.mPreinstalled == rhs.mPreinstalled;
     };
 
     /**
@@ -123,8 +125,6 @@ struct InstanceStatusData {
  * Instance status.
  */
 struct InstanceStatus : public InstanceIdent, public InstanceStatusData {
-    StaticString<cVersionLen> mVersion;
-
     /**
      * Compares instance status.
      *
@@ -133,8 +133,7 @@ struct InstanceStatus : public InstanceIdent, public InstanceStatusData {
      */
     friend bool operator==(const InstanceStatus& lhs, const InstanceStatus& rhs)
     {
-        return (static_cast<const InstanceIdent&>(lhs) == rhs) && (static_cast<const InstanceStatusData&>(lhs) == rhs)
-            && lhs.mVersion == rhs.mVersion;
+        return (static_cast<const InstanceIdent&>(lhs) == rhs) && (static_cast<const InstanceStatusData&>(lhs) == rhs);
     };
 
     /**
