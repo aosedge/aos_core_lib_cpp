@@ -132,6 +132,18 @@ protected:
             }));
     }
 
+    void ExpectGetNodeInfo(const std::string& nodeID, bool isConnected)
+    {
+        EXPECT_CALL(
+            mNodeInfoProviderMock, GetNodeInfo(Truly([nodeID](const String& id) { return id == nodeID.c_str(); }), _))
+            .WillOnce(Invoke([isConnected](const String& id, UnitNodeInfo& nodeInfo) {
+                nodeInfo.mNodeID      = id;
+                nodeInfo.mIsConnected = isConnected;
+
+                return ErrorEnum::eNone;
+            }));
+    }
+
     void ExpectSendUnitRootCertificates(const UnitRootCertificates& expected)
     {
         EXPECT_CALL(mSenderMock, SendUnitRootCertificates(_))
@@ -190,14 +202,20 @@ TEST_F(RootCertsTest, SendFullSnapshotOnConnect)
         nodeIDs.PushBack("node0");
         nodeIDs.PushBack("node1");
         nodeIDs.PushBack("node2");
+        nodeIDs.PushBack("node3");
 
         return ErrorEnum::eNone;
     }));
 
+    ExpectGetNodeInfo("node0", true);
     ExpectGetRootCerts("node0", {'a', 'b'});
     // Node with failed root certs request must be skipped
+    ExpectGetNodeInfo("node1", true);
     EXPECT_CALL(mCertHandlerMock, GetRootCerts(String("node1"), _)).WillOnce(Return(ErrorEnum::eNotFound));
+    ExpectGetNodeInfo("node2", true);
     ExpectGetRootCerts("node2", {'c'});
+    // Not connected node must be skipped without requesting root certs
+    ExpectGetNodeInfo("node3", false);
 
     auto expected = CreateUnitRootCertificates(false, {{"node0", {'a', 'b'}}, {"node2", {'c'}}});
 
@@ -210,7 +228,8 @@ TEST_F(RootCertsTest, SendPartialUpdateOnNodeInfoChanged)
 {
     auto nodeInfo = std::make_unique<UnitNodeInfo>();
 
-    nodeInfo->mNodeID = "node1";
+    nodeInfo->mNodeID      = "node1";
+    nodeInfo->mIsConnected = true;
 
     // Not sent while cloud is not connected
     mNodeInfoListener->OnNodeInfoChanged(*nodeInfo);
@@ -235,6 +254,13 @@ TEST_F(RootCertsTest, SendPartialUpdateOnNodeInfoChanged)
 
     Mock::VerifyAndClearExpectations(&mSenderMock);
 
+    // Not sent for not connected node
+    nodeInfo->mIsConnected = false;
+
+    mNodeInfoListener->OnNodeInfoChanged(*nodeInfo);
+
+    nodeInfo->mIsConnected = true;
+
     // Not sent after cloud is disconnected
     mConnectionListener->OnDisconnect();
     mNodeInfoListener->OnNodeInfoChanged(*nodeInfo);
@@ -254,7 +280,8 @@ TEST_F(RootCertsTest, PartialUpdateNotSentOnGetRootCertsError)
 
     auto nodeInfo = std::make_unique<UnitNodeInfo>();
 
-    nodeInfo->mNodeID = "node1";
+    nodeInfo->mNodeID      = "node1";
+    nodeInfo->mIsConnected = true;
 
     EXPECT_CALL(mCertHandlerMock, GetRootCerts(String("node1"), _)).WillOnce(Return(ErrorEnum::eNotFound));
 
