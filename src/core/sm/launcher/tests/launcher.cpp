@@ -1637,11 +1637,10 @@ TEST_F(LauncherTest, RepairsBrokenConfigsOnModuleStart)
         mOCISpec, mItemInfoProvider, mCloudConnection, mNetworkManager, mInstanceIDProvider, mResourceInfoProvider);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    // The configs read fails on module start and on the instance start, as the item content is broken. The item is
-    // repaired on module start, the configs are loaded and the instance is started.
+    // The configs read fails on the instance start, as the item content is broken. The item is repaired on module
+    // start, the configs are loaded and the instance is started.
     EXPECT_CALL(mOCISpec, LoadItemConfig)
-        .Times(3)
-        .WillOnce(Return(ErrorEnum::eIntegrity))
+        .Times(2)
         .WillOnce(Return(ErrorEnum::eIntegrity))
         .WillOnce(DoAll(SetArgReferee<1>(mItemConfig), Return(ErrorEnum::eNone)));
     EXPECT_CALL(mImageManager, InstallItem).WillOnce(Return(ErrorEnum::eNone));
