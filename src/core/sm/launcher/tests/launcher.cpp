@@ -4,9 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <array>
 #include <atomic>
+#include <functional>
 #include <future>
 #include <list>
+#include <mutex>
+#include <set>
+#include <string>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -29,13 +34,13 @@
 
 #include "mocks/imagemanagermock.hpp"
 #include "mocks/runtimemock.hpp"
+#include "stubs/failingallocator.hpp"
 #include "stubs/senderstub.hpp"
 #include "stubs/storagestub.hpp"
 
 using namespace testing;
 
 namespace aos {
-
 /***********************************************************************************************************************
  * Operators
  **********************************************************************************************************************/
@@ -53,7 +58,6 @@ std::ostream& operator<<(std::ostream& os, const InstanceStatus& status)
 }
 
 namespace sm::launcher {
-
 std::ostream& operator<<(std::ostream& os, const InstanceStatus& status)
 {
     return os << "{" << static_cast<const InstanceIdent&>(status) << ":" << status.mRuntimeID.CStr() << ":"
@@ -65,9 +69,7 @@ std::ostream& operator<<(std::ostream& os, const InstanceStatus& status)
 } // namespace aos
 
 namespace aos::sm::launcher {
-
 namespace {
-
 /***********************************************************************************************************************
  * Static
  **********************************************************************************************************************/
@@ -220,6 +222,79 @@ protected:
         EXPECT_CALL(mNetworkManager, FlushBatch(_)).WillRepeatedly(Return(ErrorEnum::eNone));
     }
 
+    Error InitLauncher()
+    {
+        return mLauncher.Init(mAllocator, GetRuntimesArray(), mImageManager, mItemStatusProvider, mSender, mStorage,
+            mOCISpec, mItemInfoProvider, mCloudConnection, mNetworkManager, mInstanceIDProvider, mResourceInfoProvider);
+    }
+
+    void StartLauncher()
+    {
+        auto err = InitLauncher();
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        err = mLauncher.Start();
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    }
+
+    void ExpectStartStopInstances()
+    {
+        for (auto* runtime : {&mRuntime0, &mRuntime1}) {
+            EXPECT_CALL(*runtime, StartInstance)
+                .WillRepeatedly(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+                    SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+                    return ErrorEnum::eNone;
+                }));
+            EXPECT_CALL(*runtime, StopInstance).WillRepeatedly(Return(ErrorEnum::eNone));
+        }
+    }
+
+    void ExpectInstanceIDs()
+    {
+        EXPECT_CALL(mInstanceIDProvider, GetInstanceID)
+            .WillRepeatedly(Invoke([](const InstanceIdent& instance, String& instanceID) {
+                return GetTestInstanceID(instance, instanceID);
+            }));
+    }
+
+    static Error GetTestInstanceID(const InstanceIdent& instance, String& instanceID)
+    {
+        const auto id = std::string(instance.mItemID.CStr()) + "_" + std::to_string(instance.mInstance);
+
+        return instanceID.Assign(String(id.c_str()));
+    }
+
+    Error RunUpdate(const std::vector<InstanceIdent>& stopInstances, const std::vector<InstanceInfo>& startInstances)
+    {
+        const auto stop  = stopInstances.empty() ? Array<InstanceIdent>()
+                                                 : Array<InstanceIdent>(stopInstances.data(), stopInstances.size());
+        const auto start = startInstances.empty() ? Array<InstanceInfo>()
+                                                  : Array<InstanceInfo>(startInstances.data(), startInstances.size());
+
+        if (auto err = mLauncher.UpdateInstances(stop, start); !err.IsNone()) {
+            return err;
+        }
+
+        if (auto err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout); !err.IsNone()) {
+            return err;
+        }
+
+        return mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    }
+
+    const InstanceStatus* FindStatus(const InstanceIdent& instance) const
+    {
+        auto it = mReceivedStatuses.FindIf([&instance](const InstanceStatus& status) {
+            return static_cast<const InstanceIdent&>(status) == instance;
+        });
+
+        return it != mReceivedStatuses.end() ? &(*it) : nullptr;
+    }
+
     StaticArray<RuntimeItf*, cMaxNumNodeRuntimes> GetRuntimesArray()
     {
         StaticArray<RuntimeItf*, cMaxNumNodeRuntimes> runtimes;
@@ -232,7 +307,7 @@ protected:
 
     // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
     // members are destroyed in reverse declaration order.
-    HeapAllocator mAllocator;
+    FailingAllocator mAllocator;
 
     Launcher mLauncher;
 
@@ -2144,6 +2219,1662 @@ TEST_F(LauncherTest, OnInstancesStatusesReceived)
 
     EXPECT_TRUE(notifyPromise.get_future().wait_for(std::chrono::milliseconds(cWaitTimeout.Milliseconds()))
         == std::future_status::ready);
+}
+
+TEST_F(LauncherTest, InitFailsOnTooManyRuntimes)
+{
+    std::vector<std::unique_ptr<StrictMock<RuntimeMock>>> runtimeMocks;
+    std::vector<RuntimeItf*>                              runtimes;
+
+    for (size_t i = 0; i <= cMaxNumNodeRuntimes; ++i) {
+        runtimeMocks.push_back(std::make_unique<StrictMock<RuntimeMock>>());
+        runtimes.push_back(runtimeMocks.back().get());
+    }
+
+    auto err = mLauncher.Init(mAllocator, Array<RuntimeItf*>(runtimes.data(), runtimes.size()), mImageManager,
+        mItemStatusProvider, mSender, mStorage, mOCISpec, mItemInfoProvider, mCloudConnection, mNetworkManager,
+        mInstanceIDProvider, mResourceInfoProvider);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, StartFailsOnRuntimeStartError)
+{
+    auto err = InitLauncher();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mRuntime0, Start).WillOnce(Return(ErrorEnum::eFailed));
+
+    err = mLauncher.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, StartFailsOnGetRuntimeInfoError)
+{
+    auto err = InitLauncher();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mRuntime1, GetRuntimeInfo).WillOnce(Return(ErrorEnum::eFailed));
+
+    err = mLauncher.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, StartFailsOnGetStoredInstancesError)
+{
+    mStorage.SetGetAllError(ErrorEnum::eFailed);
+
+    auto err = InitLauncher();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, StartFailsOnStoredInstancesAllocationError)
+{
+    auto err = InitLauncher();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    mAllocator.Fail(FailingAllocator::cAnySize);
+
+    err = mLauncher.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(mAllocator.NumFailed(), 1);
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, StartFailsOnRuntimeInstancesAllocationError)
+{
+    auto err = InitLauncher();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    // The first allocation is the stored instances, the second one is the instances of the first runtime.
+    mAllocator.Fail(FailingAllocator::cAnySize, 1);
+
+    EXPECT_CALL(mRuntime0, InitInstances).Times(0);
+
+    err = mLauncher.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(mAllocator.NumFailed(), 1);
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, StartFailsOnSubscribeListenerError)
+{
+    EXPECT_CALL(mCloudConnection, SubscribeListener).WillOnce(Return(ErrorEnum::eFailed));
+
+    auto err = InitLauncher();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, StartIgnoresRuntimeInitInstancesError)
+{
+    const std::vector cStoredInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+    };
+
+    mStorage.Init(cStoredInfos);
+
+    ExpectStartStopInstances();
+
+    EXPECT_CALL(mRuntime0, InitInstances).WillOnce(Return(ErrorEnum::eFailed));
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive);
+
+    auto err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, StartSkipsStoredInstanceWithoutInstanceID)
+{
+    const std::vector cStoredInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+    };
+
+    mStorage.Init(cStoredInfos);
+
+    EXPECT_CALL(mInstanceIDProvider, GetInstanceID).WillRepeatedly(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mRuntime0, StartInstance).Times(0);
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    EXPECT_TRUE(mReceivedStatuses.IsEmpty());
+
+    auto err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, StopReturnsFirstError)
+{
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    EXPECT_CALL(mCloudConnection, UnsubscribeListener).WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mImageManager, Cancel).WillOnce(Return(ErrorEnum::eWrongState));
+    EXPECT_CALL(mRuntime1, Stop).WillOnce(Return(ErrorEnum::eWrongState));
+
+    auto err = mLauncher.Stop();
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, StopReturnsRuntimeStopError)
+{
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    EXPECT_CALL(mRuntime0, Stop).WillOnce(Return(ErrorEnum::eWrongState));
+    EXPECT_CALL(mRuntime1, Stop).WillOnce(Return(ErrorEnum::eFailed));
+
+    auto err = mLauncher.Stop();
+    EXPECT_TRUE(err.Is(ErrorEnum::eWrongState)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, UpdateInstancesFailsOnAllocationError)
+{
+    const std::vector cStartInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+    };
+    const Array<InstanceInfo> cStartInstances(cStartInfos.data(), cStartInfos.size());
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    // The first allocation is the stop list, the second one is the start list.
+    for (size_t skip = 0; skip < 2; ++skip) {
+        mAllocator.Fail(FailingAllocator::cAnySize, skip);
+
+        auto err = mLauncher.UpdateInstances({}, cStartInstances);
+        EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+        EXPECT_EQ(mAllocator.NumFailed(), 1);
+    }
+
+    // The launch is finished on error, so the next request is processed.
+    ExpectStartStopInstances();
+
+    auto err = RunUpdate({}, cStartInfos);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive);
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, UpdateInstancesSkipsLaunchOnBufferAllocationError)
+{
+    const std::vector cStartInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+    };
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    EXPECT_CALL(mImageManager, InstallItem).Times(0);
+    EXPECT_CALL(mRuntime0, StartInstance).Times(0);
+
+    // The allocations after the stop and start lists are: remove items, install items, repaired items and processed
+    // instances.
+    for (size_t skip = 2; skip < 6; ++skip) {
+        mAllocator.Fail(FailingAllocator::cAnySize, skip);
+
+        auto err = RunUpdate({}, cStartInfos);
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        EXPECT_EQ(mAllocator.NumFailed(), 1) << "skip: " << skip;
+        EXPECT_TRUE(mReceivedStatuses.IsEmpty()) << "skip: " << skip;
+    }
+
+    auto err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, NodeStatusesAreNotSentOnAllocationError)
+{
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    mAllocator.Fail(sizeof(InstanceStatusArray));
+
+    auto err = mLauncher.UpdateInstances({}, {});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mAllocator.NumFailed(), 1);
+
+    err = mSender.WaitStatuses(mReceivedStatuses, 0);
+    EXPECT_TRUE(err.Is(ErrorEnum::eTimeout)) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, OnInstancesStatusesReceivedReturnsSendError)
+{
+    const auto cStatus
+        = CreateInstanceStatus(CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"), InstanceStateEnum::eActive);
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    mSender.SetSendError(ErrorEnum::eFailed);
+
+    auto err = mLauncher.OnInstancesStatusesReceived(Array<InstanceStatus>(&cStatus, 1));
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    mSender.SetSendError(ErrorEnum::eNone);
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, OnInstancesStatusesReceivedSkipsKnownPreinstalledComponent)
+{
+    auto cComponentInfo = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0", UpdateItemTypeEnum::eComponent);
+
+    cComponentInfo.mPreinstalled = true;
+
+    const auto cStatus
+        = CreateInstanceStatus(cComponentInfo, InstanceStateEnum::eActive, UpdateItemTypeEnum::eComponent, true);
+
+    mStorage.Init({cComponentInfo});
+
+    ExpectStartStopInstances();
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    auto err = mLauncher.OnInstancesStatusesReceived(Array<InstanceStatus>(&cStatus, 1));
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    auto storedInstances = std::make_unique<InstanceInfoArray>();
+
+    err = mStorage.GetAllInstancesInfos(*storedInstances);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(storedInstances->Size(), 1);
+    EXPECT_EQ((*storedInstances)[0], cComponentInfo);
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, OnInstancesStatusesReceivedFailsToStorePreinstalledComponent)
+{
+    const auto cStatus = CreateInstanceStatus(CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+        InstanceStateEnum::eActive, UpdateItemTypeEnum::eComponent, true);
+
+    auto err = InitLauncher();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    mAllocator.Fail(sizeof(InstanceInfo));
+
+    err = mLauncher.OnInstancesStatusesReceived(Array<InstanceStatus>(&cStatus, 1));
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(mAllocator.NumFailed(), 1);
+
+    mStorage.SetUpdateError(ErrorEnum::eFailed);
+
+    err = mLauncher.OnInstancesStatusesReceived(Array<InstanceStatus>(&cStatus, 1));
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, RebootRequiredQueue)
+{
+    auto err = InitLauncher();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.RebootRequired("runtime0");
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.RebootRequired("runtime0");
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    for (size_t i = 1; i < cMaxNumNodeRuntimes; ++i) {
+        err = mLauncher.RebootRequired(String(("runtime" + std::to_string(i)).c_str()));
+        EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    }
+
+    err = mLauncher.RebootRequired("runtimeX");
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, RebootRuntimeFailed)
+{
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    std::promise<void> rebootPromise;
+
+    EXPECT_CALL(mRuntime1, Reboot()).WillOnce(Invoke([&]() {
+        rebootPromise.set_value();
+
+        return ErrorEnum::eFailed;
+    }));
+
+    auto err = mLauncher.RebootRequired("runtime1");
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(rebootPromise.get_future().wait_for(std::chrono::milliseconds(cWaitTimeout.Milliseconds()))
+        == std::future_status::ready);
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, GetInfoErrors)
+{
+    const std::vector cStoredInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+        CreateInstanceInfo("item1", 1, "1.0.0", "runtime1"),
+    };
+
+    mStorage.Init(cStoredInfos);
+
+    ExpectStartStopInstances();
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    auto statuses = std::make_unique<StaticArray<InstanceStatus, 1>>();
+
+    auto err = mLauncher.GetInstancesStatuses(*statuses);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    auto params = std::make_unique<InstanceMonitoringParams>();
+
+    err = mLauncher.GetInstanceMonitoringParams(cStoredInfos[0], *params);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotSupported)) << tests::utils::ErrorToStr(err);
+
+    auto monitoringData = std::make_unique<monitoring::InstanceMonitoringData>();
+
+    EXPECT_CALL(mRuntime0, GetInstanceMonitoringData).WillOnce(Return(ErrorEnum::eFailed));
+
+    err = mLauncher.GetInstanceMonitoringData(cStoredInfos[0], *monitoringData);
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    auto runtimes = std::make_unique<StaticArray<RuntimeInfo, 1>>();
+
+    err = mLauncher.GetRuntimesInfos(*runtimes);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    auto allRuntimes = std::make_unique<StaticArray<RuntimeInfo, cMaxNumNodeRuntimes>>();
+
+    EXPECT_CALL(mRuntime0, GetRuntimeInfo).WillOnce(Return(ErrorEnum::eFailed));
+
+    err = mLauncher.GetRuntimesInfos(*allRuntimes);
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, SubscribeListenerErrors)
+{
+    std::array<instancestatusprovider::ListenerMock, 4> listeners;
+
+    auto err = InitLauncher();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.SubscribeListener(mStatusListener);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mLauncher.SubscribeListener(mStatusListener);
+    EXPECT_TRUE(err.Is(ErrorEnum::eAlreadyExist)) << tests::utils::ErrorToStr(err);
+
+    for (auto& listener : listeners) {
+        err = mLauncher.SubscribeListener(listener);
+        if (!err.IsNone()) {
+            break;
+        }
+    }
+
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    for (auto& listener : listeners) {
+        (void)mLauncher.UnsubscribeListener(listener);
+    }
+
+    err = mLauncher.UnsubscribeListener(mStatusListener);
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, CloudReconnectKeepsInstancesRunning)
+{
+    const std::vector cStoredInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+    };
+
+    mStorage.Init(cStoredInfos);
+
+    EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+        SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+        return ErrorEnum::eNone;
+    }));
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+    ASSERT_NE(mCloudConnectionListener, nullptr);
+
+    mCloudConnectionListener->OnDisconnect();
+    mCloudConnectionListener->OnConnect();
+
+    auto err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive);
+
+    EXPECT_CALL(mRuntime0, StopInstance).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, UpdateInstancesStopErrors)
+{
+    const std::vector cStoredInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+        CreateInstanceInfo("item0", 1, "1.0.0", "runtime0"),
+        CreateInstanceInfo("item1", 2, "1.0.0", "runtime1", UpdateItemTypeEnum::eComponent),
+    };
+    const InstanceIdent cUnknownInstance = CreateInstanceInfo("item9", 9, "1.0.0", "runtime0");
+
+    mStorage.Init(cStoredInfos);
+
+    ExpectInstanceIDs();
+    ExpectStartStopInstances();
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+    ASSERT_EQ(mReceivedStatuses.Size(), cStoredInfos.size());
+
+    EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cStoredInfos[0]), _))
+        .WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mNetworkManager, StopInstanceNetwork(String("item0_1"), _)).WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mImageManager, RemoveItem).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManager, RemoveItem(String("item0"), String("1.0.0"))).WillOnce(Return(ErrorEnum::eFailed));
+
+    mStorage.SetRemoveError(ErrorEnum::eFailed);
+
+    auto err = RunUpdate({cStoredInfos[0], cStoredInfos[1], cUnknownInstance}, {});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(static_cast<const InstanceIdent&>(mReceivedStatuses[0]), cStoredInfos[2]);
+
+    mStorage.SetRemoveError(ErrorEnum::eNone);
+
+    EXPECT_CALL(mNetworkManager, StopInstanceNetwork).Times(0);
+    EXPECT_CALL(mNetworkManager, ReleaseInstanceNetwork(String("item1_2"), _)).WillOnce(Return(ErrorEnum::eFailed));
+
+    err = RunUpdate({cStoredInfos[2]}, {});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(mReceivedStatuses.IsEmpty());
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, UpdateInstancesStartErrors)
+{
+    const std::vector cStartInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "unknown"),
+        CreateInstanceInfo("item1", 1, "1.0.0", "runtime0"),
+        CreateInstanceInfo("item2", 2, "1.0.0", "runtime0"),
+        CreateInstanceInfo("item3", 3, "1.0.0", "runtime1", UpdateItemTypeEnum::eComponent),
+        CreateInstanceInfo("item4", 4, "1.0.0", "runtime1"),
+        CreateInstanceInfo("item5", 5, "1.0.0", "unknown"),
+    };
+
+    ExpectStartStopInstances();
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    EXPECT_CALL(mInstanceIDProvider, GetInstanceID)
+        .WillRepeatedly(Invoke([](const InstanceIdent& instance, String& instanceID) -> Error {
+            if (instance.mItemID == "item1") {
+                return ErrorEnum::eFailed;
+            }
+
+            return GetTestInstanceID(instance, instanceID);
+        }));
+    EXPECT_CALL(mNetworkManager, StartInstanceNetwork(String("item2_2"), _)).WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mNetworkManager, CreateInstanceNetwork(String("item4_4"), _, _)).WillOnce(Return(ErrorEnum::eFailed));
+
+    auto err = RunUpdate({}, cStartInfos);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), cStartInfos.size() - 1);
+    EXPECT_EQ(FindStatus(cStartInfos[1]), nullptr);
+
+    for (const auto& [index, state, error] : std::vector<std::tuple<size_t, InstanceStateEnum, ErrorEnum>> {
+             {0, InstanceStateEnum::eFailed, ErrorEnum::eNotFound},
+             {2, InstanceStateEnum::eFailed, ErrorEnum::eFailed},
+             {3, InstanceStateEnum::eActive, ErrorEnum::eNone},
+             {4, InstanceStateEnum::eFailed, ErrorEnum::eFailed},
+             {5, InstanceStateEnum::eFailed, ErrorEnum::eNotFound},
+         }) {
+        const auto* status = FindStatus(cStartInfos[index]);
+        ASSERT_NE(status, nullptr) << "index: " << index;
+
+        EXPECT_EQ(status->mState, state) << "index: " << index;
+        EXPECT_TRUE(status->mError.Is(error)) << "index: " << index << tests::utils::ErrorToStr(status->mError);
+    }
+
+    auto monitoringData = std::make_unique<monitoring::InstanceMonitoringData>();
+
+    err = mLauncher.GetInstanceMonitoringData(cStartInfos[5], *monitoringData);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
+
+    err = RunUpdate({cStartInfos[0]}, {});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(FindStatus(cStartInfos[0]), nullptr);
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, PrepareInstanceErrors)
+{
+    auto manifestWithoutItemConfig = std::make_unique<oci::ImageManifest>();
+
+    ExpectStartStopInstances();
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    const std::vector<std::pair<std::function<void()>, ErrorEnum>> cTestCases = {
+        {[&]() { mStorage.SetUpdateError(ErrorEnum::eFailed); }, ErrorEnum::eFailed},
+        {[&]() {
+             EXPECT_CALL(mItemInfoProvider, GetBlobPath).WillOnce(Return(ErrorEnum::eFailed)).RetiresOnSaturation();
+         },
+            ErrorEnum::eFailed},
+        {[&]() { EXPECT_CALL(mOCISpec, LoadImageManifest).WillOnce(Return(ErrorEnum::eFailed)).RetiresOnSaturation(); },
+            ErrorEnum::eFailed},
+        {[&]() {
+             EXPECT_CALL(mOCISpec, LoadImageManifest)
+                 .WillOnce(DoAll(SetArgReferee<1>(*manifestWithoutItemConfig), Return(ErrorEnum::eNone)))
+                 .RetiresOnSaturation();
+         },
+            ErrorEnum::eNotFound},
+        {[&]() {
+             EXPECT_CALL(mItemInfoProvider, GetBlobPath)
+                 .WillOnce(Return(ErrorEnum::eNone))
+                 .WillOnce(Return(ErrorEnum::eFailed))
+                 .RetiresOnSaturation();
+         },
+            ErrorEnum::eFailed},
+        {[&]() {
+             EXPECT_CALL(mItemInfoProvider, GetBlobPath)
+                 .WillOnce(Return(ErrorEnum::eNone))
+                 .WillOnce(Return(ErrorEnum::eNone))
+                 .WillOnce(Return(ErrorEnum::eFailed))
+                 .RetiresOnSaturation();
+         },
+            ErrorEnum::eFailed},
+        {[&]() { EXPECT_CALL(mOCISpec, LoadImageConfig).WillOnce(Return(ErrorEnum::eFailed)).RetiresOnSaturation(); },
+            ErrorEnum::eFailed},
+    };
+
+    for (size_t i = 0; i < cTestCases.size(); ++i) {
+        const auto cInstance = CreateInstanceInfo(String(("item" + std::to_string(i)).c_str()), i, "1.0.0", "runtime0");
+
+        cTestCases[i].first();
+
+        auto err = RunUpdate({}, {cInstance});
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        mStorage.SetUpdateError(ErrorEnum::eNone);
+
+        const auto* status = FindStatus(cInstance);
+        ASSERT_NE(status, nullptr) << "case: " << i;
+
+        EXPECT_EQ(status->mState, InstanceStateEnum::eFailed) << "case: " << i;
+        EXPECT_TRUE(status->mError.Is(cTestCases[i].second))
+            << "case: " << i << " " << tests::utils::ErrorToStr(status->mError);
+    }
+
+    auto err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, CreateInstanceNetworkConfig)
+{
+    const auto cInstance  = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
+    const auto cInstance1 = CreateInstanceInfo("item1", 1, "1.0.0", "runtime0");
+    auto       itemConfig = std::make_unique<oci::ItemConfig>();
+
+    itemConfig->mResources.EmplaceBack();
+    itemConfig->mResources.Back().mName = "resource0";
+    itemConfig->mHostname.EmplaceValue();
+    *itemConfig->mHostname = "hostname0";
+    itemConfig->mQuotas.mDownloadSpeed.SetValue(1);
+    itemConfig->mQuotas.mUploadSpeed.SetValue(2);
+    itemConfig->mQuotas.mDownloadLimit.SetValue(3);
+    itemConfig->mQuotas.mUploadLimit.SetValue(4);
+
+    EXPECT_CALL(mOCISpec, LoadItemConfig)
+        .WillRepeatedly(DoAll(SetArgReferee<1>(*itemConfig), Return(ErrorEnum::eNone)));
+
+    ExpectInstanceIDs();
+    ExpectStartStopInstances();
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    EXPECT_CALL(mResourceInfoProvider, GetResourceInfo(String("resource0"), _))
+        .WillOnce(Invoke([](const String&, resourcemanager::ResourceInfo& info) {
+            return info.mHosts.PushBack(Host("10.0.0.1", "host0"));
+        }));
+    EXPECT_CALL(mNetworkManager, CreateInstanceNetwork(String("item0_0"), _, _))
+        .WillOnce(Invoke([](const String&, const String&, const networkmanager::InstanceNetworkConfig& config) {
+            EXPECT_EQ(config.mHostname, "hostname0");
+            EXPECT_EQ(config.mIngressKbit, 1U);
+            EXPECT_EQ(config.mEgressKbit, 2U);
+            EXPECT_EQ(config.mDownloadLimit, 3U);
+            EXPECT_EQ(config.mUploadLimit, 4U);
+            EXPECT_EQ(config.mHosts.Size(), 1);
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto err = RunUpdate({}, {cInstance});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive);
+
+    EXPECT_CALL(mResourceInfoProvider, GetResourceInfo).WillOnce(Return(ErrorEnum::eNotFound));
+
+    err = RunUpdate({}, {cInstance1});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    const auto* status = FindStatus(cInstance1);
+    ASSERT_NE(status, nullptr);
+    EXPECT_EQ(status->mState, InstanceStateEnum::eFailed);
+    EXPECT_TRUE(status->mError.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(status->mError);
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, NetworkBatchBeginError)
+{
+    const auto cInstance = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
+
+    ExpectStartStopInstances();
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    EXPECT_CALL(mNetworkManager, BeginBatch()).WillRepeatedly(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mNetworkManager, FlushBatch(_)).Times(0);
+
+    auto err = RunUpdate({}, {cInstance});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive);
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, NetworkBatchFlushError)
+{
+    const auto cInstance = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
+
+    ExpectInstanceIDs();
+    ExpectStartStopInstances();
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    EXPECT_CALL(mNetworkManager, FlushBatch(_))
+        .WillRepeatedly(DoAll(WithArg<0>([](auto& failedInstanceIDs) {
+            failedInstanceIDs.PushBack("unknown");
+            failedInstanceIDs.PushBack("item0_0");
+        }),
+            Return(ErrorEnum::eFailed)));
+    EXPECT_CALL(mNetworkManager, StopInstanceNetwork(String("item0_0"), _))
+        .Times(AtLeast(1))
+        .WillRepeatedly(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mRuntime0, StartInstance).Times(0);
+
+    auto err = RunUpdate({}, {cInstance});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eFailed);
+    EXPECT_TRUE(mReceivedStatuses[0].mError.Is(ErrorEnum::eFailed))
+        << tests::utils::ErrorToStr(mReceivedStatuses[0].mError);
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, UpdateInstancesStopsInstanceWithModifiedParamsOnce)
+{
+    const auto cStoredInfo   = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
+    const auto cModifiedInfo = CreateInstanceInfo("item0", 0, "2.0.0", "runtime0");
+
+    mStorage.Init({cStoredInfo});
+
+    ExpectStartStopInstances();
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cStoredInfo), _))
+        .WillOnce(Return(ErrorEnum::eNone));
+
+    auto err = RunUpdate({cStoredInfo}, {cModifiedInfo});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive);
+    EXPECT_EQ(mReceivedStatuses[0].mVersion, "2.0.0");
+
+    EXPECT_CALL(mRuntime0, StopInstance).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, OfflineTTLStopFailure)
+{
+    const std::vector cStoredInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+        CreateInstanceInfo("item1", 1, "1.0.0", "runtime1"),
+    };
+
+    mItemConfig.mOfflineTTL = Time::cMilliseconds;
+    EXPECT_CALL(mOCISpec, LoadItemConfig)
+        .WillRepeatedly(DoAll(SetArgReferee<1>(mItemConfig), Return(ErrorEnum::eNone)));
+
+    mStorage.Init(cStoredInfos);
+
+    EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+        SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mRuntime1, StartInstance).WillOnce(Return(ErrorEnum::eFailed));
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    ASSERT_EQ(mReceivedStatuses.Size(), cStoredInfos.size());
+
+    std::promise<void> stopPromise;
+
+    EXPECT_CALL(mRuntime1, StopInstance).Times(0);
+    EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cStoredInfos[0]), _))
+        .WillOnce(Invoke([&](const InstanceIdent& instance, InstanceStatus& status) {
+            SetInstanceStatus(instance, InstanceStateEnum::eFailed, status);
+
+            stopPromise.set_value();
+
+            return ErrorEnum::eFailed;
+        }));
+
+    mCloudConnectionListener->OnDisconnect();
+
+    ASSERT_TRUE(stopPromise.get_future().wait_for(std::chrono::seconds(5)) == std::future_status::ready)
+        << "Runtime0 StopInstance was not called";
+
+    EXPECT_CALL(mRuntime0, StopInstance).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mRuntime1, StopInstance).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    auto err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, ModuleStartLoadsInstanceDataAgainOnAllocationError)
+{
+    const std::vector cStoredInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+    };
+
+    mStorage.Init(cStoredInfos);
+
+    ExpectStartStopInstances();
+
+    for (const auto size : {sizeof(oci::ItemConfig), sizeof(oci::ImageConfig)}) {
+        auto launcher = std::make_unique<Launcher>();
+
+        auto err = launcher->Init(mAllocator, GetRuntimesArray(), mImageManager, mItemStatusProvider, mSender, mStorage,
+            mOCISpec, mItemInfoProvider, mCloudConnection, mNetworkManager, mInstanceIDProvider, mResourceInfoProvider);
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        mAllocator.Fail(size);
+
+        err = launcher->Start();
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        err = launcher->GetInstancesStatuses(mReceivedStatuses);
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        EXPECT_EQ(mAllocator.NumFailed(), 1) << "size: " << size;
+
+        ASSERT_EQ(mReceivedStatuses.Size(), 1);
+        EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive) << "size: " << size;
+
+        err = launcher->Stop();
+        EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    }
+}
+
+TEST_F(LauncherTest, PrepareInstanceFailsOnAllocationError)
+{
+    // Install items statuses, prepare configs, load configs buffers and network config buffers.
+    const std::vector<size_t> cSizes = {
+        sizeof(StaticArray<UpdateItemStatus, cMaxNumUpdateItems * 2>),
+        sizeof(oci::ItemConfig),
+        sizeof(oci::ImageConfig),
+        sizeof(StaticString<cFilePathLen>),
+        sizeof(oci::ImageManifest),
+        sizeof(networkmanager::InstanceNetworkConfig),
+        sizeof(resourcemanager::ResourceInfo),
+    };
+
+    ExpectStartStopInstances();
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    for (size_t i = 0; i < cSizes.size(); ++i) {
+        const auto cInstance = CreateInstanceInfo(String(("item" + std::to_string(i)).c_str()), i, "1.0.0", "runtime0");
+
+        mAllocator.Fail(cSizes[i]);
+
+        auto err = RunUpdate({}, {cInstance});
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        EXPECT_EQ(mAllocator.NumFailed(), 1) << "case: " << i;
+
+        const auto* status = FindStatus(cInstance);
+        ASSERT_NE(status, nullptr) << "case: " << i;
+
+        EXPECT_EQ(status->mState, InstanceStateEnum::eFailed) << "case: " << i;
+        EXPECT_TRUE(status->mError.Is(ErrorEnum::eNoMemory))
+            << "case: " << i << " " << tests::utils::ErrorToStr(status->mError);
+    }
+
+    auto err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, NetworkBatchSkippedOnAllocationError)
+{
+    using FailedIDs = StaticArray<StaticString<cIDLen>, cMaxNumInstances>;
+
+    const auto cInstance = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
+
+    ExpectStartStopInstances();
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    EXPECT_CALL(mNetworkManager, FlushBatch(_)).Times(0);
+
+    mAllocator.Fail(sizeof(FailedIDs), 0, 2);
+
+    auto err = RunUpdate({}, {cInstance});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mAllocator.NumFailed(), 2);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive);
+
+    mAllocator.Fail(sizeof(FailedIDs));
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mAllocator.NumFailed(), 1);
+}
+
+TEST_F(LauncherTest, ModuleStartRepairSkippedOnAllocationError)
+{
+    // Mirrors the layout of the launcher install item.
+    struct InstallItem : imagemanager::UpdateItemInfo {
+        Error mError;
+    };
+
+    const std::vector cStoredInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+    };
+
+    mStorage.Init(cStoredInfos);
+
+    // The broken instances buffer follows the processed instances one, the repaired items buffer follows the install
+    // and repaired items buffers of the launch.
+    for (const auto& [size, skip] : std::vector<std::pair<size_t, size_t>> {
+             {sizeof(StaticArray<InstanceIdent, cMaxNumInstances>), 1},
+             {sizeof(StaticArray<InstallItem, cMaxNumUpdateItems>), 2},
+         }) {
+        auto launcher = std::make_unique<Launcher>();
+
+        auto err = launcher->Init(mAllocator, GetRuntimesArray(), mImageManager, mItemStatusProvider, mSender, mStorage,
+            mOCISpec, mItemInfoProvider, mCloudConnection, mNetworkManager, mInstanceIDProvider, mResourceInfoProvider);
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Return(ErrorEnum::eIntegrity));
+        EXPECT_CALL(mImageManager, InstallItem).Times(0);
+
+        mAllocator.Fail(size, skip);
+
+        err = launcher->Start();
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        err = launcher->GetInstancesStatuses(mReceivedStatuses);
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        EXPECT_EQ(mAllocator.NumFailed(), 1) << "size: " << size;
+
+        ASSERT_EQ(mReceivedStatuses.Size(), 1);
+        EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eFailed);
+        EXPECT_TRUE(mReceivedStatuses[0].mError.Is(ErrorEnum::eIntegrity))
+            << tests::utils::ErrorToStr(mReceivedStatuses[0].mError);
+
+        EXPECT_CALL(mRuntime0, StopInstance).WillOnce(Return(ErrorEnum::eNone));
+
+        err = launcher->Stop();
+        EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    }
+}
+
+TEST_F(LauncherTest, StartWithDisconnectedCloudKeepsInstancesRunning)
+{
+    const std::vector cStoredInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+    };
+
+    mStorage.Init(cStoredInfos);
+
+    ExpectStartStopInstances();
+
+    EXPECT_CALL(mCloudConnection, IsConnected).WillRepeatedly(Return(false));
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive);
+
+    auto err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, OfflineTTLSkipsInstanceOfUnknownRuntime)
+{
+    const std::vector cStoredInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+        CreateInstanceInfo("item1", 1, "1.0.0", "runtime1"),
+    };
+
+    mItemConfig.mOfflineTTL = Time::cMilliseconds;
+    EXPECT_CALL(mOCISpec, LoadItemConfig)
+        .WillRepeatedly(DoAll(SetArgReferee<1>(mItemConfig), Return(ErrorEnum::eNone)));
+
+    mStorage.Init(cStoredInfos);
+
+    EXPECT_CALL(mRuntime0, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+        SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+        status.mRuntimeID = "unknown";
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mRuntime1, StartInstance).WillOnce(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+        SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+        return ErrorEnum::eNone;
+    }));
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    ASSERT_EQ(mReceivedStatuses.Size(), cStoredInfos.size());
+
+    std::promise<void> stopPromise;
+    std::atomic_bool   stopped {};
+
+    EXPECT_CALL(mRuntime0, StopInstance).Times(0);
+    EXPECT_CALL(mRuntime1, StopInstance(static_cast<const InstanceIdent&>(cStoredInfos[1]), _))
+        .WillRepeatedly(Invoke([&](const InstanceIdent&, InstanceStatus&) {
+            if (!stopped.exchange(true)) {
+                stopPromise.set_value();
+            }
+
+            return ErrorEnum::eNone;
+        }));
+
+    mCloudConnectionListener->OnDisconnect();
+
+    ASSERT_TRUE(stopPromise.get_future().wait_for(std::chrono::seconds(5)) == std::future_status::ready)
+        << "Runtime1 StopInstance was not called";
+
+    mCloudConnectionListener->OnConnect();
+
+    auto err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, SendErrorsDoNotFailLaunch)
+{
+    const auto cInstance  = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
+    const auto cComponent = CreateInstanceStatus(CreateInstanceInfo("item1", 1, "1.0.0", "runtime1"),
+        InstanceStateEnum::eInactive, UpdateItemTypeEnum::eComponent);
+
+    ExpectStartStopInstances();
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    mSender.SetSendError(ErrorEnum::eWrongState);
+
+    auto err = RunUpdate({}, {cInstance});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive);
+
+    // The storage error is reported before the send error.
+    mStorage.SetRemoveError(ErrorEnum::eFailed);
+
+    err = mLauncher.OnInstancesStatusesReceived(Array<InstanceStatus>(&cComponent, 1));
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    mStorage.SetRemoveError(ErrorEnum::eNone);
+    mSender.SetSendError(ErrorEnum::eNone);
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, InstancesFailOnTooManyInstallItems)
+{
+    std::vector<InstanceInfo> startInfos;
+
+    for (size_t i = 0; i <= cMaxNumUpdateItems; ++i) {
+        startInfos.push_back(CreateInstanceInfo(String(("item" + std::to_string(i)).c_str()), i, "1.0.0", "runtime0"));
+    }
+
+    ExpectInstanceIDs();
+    ExpectStartStopInstances();
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    // The install list can't hold all the items, so nothing is installed and all instances fail.
+    EXPECT_CALL(mImageManager, InstallItem).Times(0);
+    EXPECT_CALL(mRuntime0, StartInstance).Times(0);
+
+    auto err = RunUpdate({}, startInfos);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), startInfos.size());
+
+    for (const auto& status : mReceivedStatuses) {
+        EXPECT_EQ(status.mState, InstanceStateEnum::eFailed) << status;
+        EXPECT_TRUE(status.mError.Is(ErrorEnum::eNoMemory)) << status;
+    }
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, ModifiedInstanceIsNotStoppedWhenStopListIsFull)
+{
+    const auto                 cStoredInfo  = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
+    auto                       modifiedInfo = cStoredInfo;
+    std::vector<InstanceIdent> stopInstances;
+
+    // The version is a part of the instance ident, so the instance is modified by another parameter.
+    modifiedInfo.mPriority = cStoredInfo.mPriority + 1;
+
+    for (size_t i = 0; i < cMaxNumInstances; ++i) {
+        stopInstances.push_back(CreateInstanceInfo("unknown", i, "1.0.0", "runtime0"));
+    }
+
+    mStorage.Init({cStoredInfo});
+
+    ExpectStartStopInstances();
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    // The modified instance can't be added to the full stop list, so it is not stopped.
+    EXPECT_CALL(mRuntime0, StopInstance).Times(0);
+    EXPECT_CALL(mImageManager, RemoveItem).Times(0);
+
+    auto err = RunUpdate(stopInstances, {modifiedInfo});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive);
+    EXPECT_EQ(mReceivedStatuses[0].mVersion, "1.0.0");
+
+    EXPECT_CALL(mRuntime0, StopInstance).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, InstanceFailsOnTooManyNetworkHosts)
+{
+    const auto cInstance  = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
+    auto       itemConfig = std::make_unique<oci::ItemConfig>();
+
+    for (const auto* name : {"resource0", "resource1"}) {
+        itemConfig->mResources.EmplaceBack();
+        itemConfig->mResources.Back().mName = name;
+    }
+
+    EXPECT_CALL(mOCISpec, LoadItemConfig)
+        .WillRepeatedly(DoAll(SetArgReferee<1>(*itemConfig), Return(ErrorEnum::eNone)));
+
+    ExpectStartStopInstances();
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    // Each resource provides the max number of hosts, so the hosts of both resources don't fit the network config.
+    EXPECT_CALL(mResourceInfoProvider, GetResourceInfo)
+        .Times(2)
+        .WillRepeatedly(Invoke([](const String&, resourcemanager::ResourceInfo& info) {
+            info.mHosts.Clear();
+
+            for (size_t i = 0; i < cMaxNumHosts; ++i) {
+                if (auto err = info.mHosts.PushBack(Host("10.0.0.1", "host")); !err.IsNone()) {
+                    return err;
+                }
+            }
+
+            return Error(ErrorEnum::eNone);
+        }));
+    EXPECT_CALL(mNetworkManager, CreateInstanceNetwork).Times(0);
+    EXPECT_CALL(mRuntime0, StartInstance).Times(0);
+
+    auto err = RunUpdate({}, {cInstance});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eFailed);
+    EXPECT_TRUE(mReceivedStatuses[0].mError.Is(ErrorEnum::eNoMemory))
+        << tests::utils::ErrorToStr(mReceivedStatuses[0].mError);
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, IgnoresAlreadyExistAndNotFoundErrors)
+{
+    const std::vector cStartInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+        CreateInstanceInfo("item0", 1, "2.0.0", "runtime0"),
+        CreateInstanceInfo("item1", 2, "1.0.0", "runtime1", UpdateItemTypeEnum::eComponent),
+    };
+
+    ExpectInstanceIDs();
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    EXPECT_CALL(mNetworkManager, CreateInstanceNetwork).WillRepeatedly(Return(ErrorEnum::eAlreadyExist));
+    EXPECT_CALL(mNetworkManager, StartInstanceNetwork).WillRepeatedly(Return(ErrorEnum::eAlreadyExist));
+
+    for (auto* runtime : {&mRuntime0, &mRuntime1}) {
+        EXPECT_CALL(*runtime, StartInstance)
+            .WillRepeatedly(Invoke([](const InstanceInfo& instance, InstanceStatus& status) {
+                SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+                return Error(ErrorEnum::eAlreadyExist);
+            }));
+    }
+
+    auto err = RunUpdate({}, cStartInfos);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), cStartInfos.size());
+
+    for (const auto& status : mReceivedStatuses) {
+        EXPECT_EQ(status.mState, InstanceStateEnum::eActive) << status;
+    }
+
+    EXPECT_CALL(mNetworkManager, CreateInstanceNetwork).Times(0);
+
+    err = RunUpdate({}, cStartInfos);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), cStartInfos.size());
+
+    for (const auto& status : mReceivedStatuses) {
+        EXPECT_EQ(status.mState, InstanceStateEnum::eActive) << status;
+    }
+
+    EXPECT_CALL(mRuntime0, StopInstance).Times(2).WillRepeatedly(Return(ErrorEnum::eNotFound));
+    EXPECT_CALL(mNetworkManager, StopInstanceNetwork).Times(2).WillRepeatedly(Return(ErrorEnum::eNotFound));
+    EXPECT_CALL(mImageManager, RemoveItem(String("item0"), String("1.0.0"))).WillOnce(Return(ErrorEnum::eNotFound));
+    EXPECT_CALL(mImageManager, RemoveItem(String("item0"), String("2.0.0"))).WillOnce(Return(ErrorEnum::eNotFound));
+
+    err = RunUpdate({cStartInfos[0], cStartInfos[1]}, {cStartInfos[2]});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(static_cast<const InstanceIdent&>(mReceivedStatuses[0]), cStartInfos[2]);
+
+    EXPECT_CALL(mRuntime1, StopInstance).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, NetworkBatchFlushErrorIgnoresNotFoundNetwork)
+{
+    const auto cInstance = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
+
+    ExpectInstanceIDs();
+    ExpectStartStopInstances();
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    EXPECT_CALL(mNetworkManager, FlushBatch(_))
+        .WillRepeatedly(DoAll(WithArg<0>([](auto& failedInstanceIDs) { failedInstanceIDs.PushBack("item0_0"); }),
+            Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mNetworkManager, StopInstanceNetwork(String("item0_0"), _))
+        .Times(AtLeast(1))
+        .WillRepeatedly(Return(ErrorEnum::eNotFound));
+    EXPECT_CALL(mRuntime0, StartInstance).Times(0);
+
+    auto err = RunUpdate({}, {cInstance});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eFailed);
+    EXPECT_TRUE(mReceivedStatuses[0].mError.Is(ErrorEnum::eFailed))
+        << tests::utils::ErrorToStr(mReceivedStatuses[0].mError);
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, StartStageDoesNotRepairItemRepairedAtPrepareStage)
+{
+    auto instance0 = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
+    auto instance1 = CreateInstanceInfo("item1", 1, "1.0.0", "runtime0");
+
+    instance0.mManifestDigest = "digest0";
+    instance1.mManifestDigest = "digest1";
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    EXPECT_CALL(mItemStatusProvider, GetItemsStatuses).WillOnce(Invoke(ItemsInstalled({"item0", "item1"})));
+
+    // The item0 content is broken at the prepare stage.
+    EXPECT_CALL(mItemInfoProvider, GetBlobPath(String("digest0"), _))
+        .WillOnce(Return(ErrorEnum::eIntegrity))
+        .WillRepeatedly(Return(ErrorEnum::eNone));
+
+    // The item0 instance fails on each start, the item1 instance fails on the first start only.
+    std::atomic_int brokenItem1Starts {1};
+
+    EXPECT_CALL(mRuntime0, StartInstance)
+        .Times(3)
+        .WillRepeatedly(Invoke([&brokenItem1Starts](const InstanceInfo& instance, InstanceStatus& status) {
+            if (instance.mItemID == "item0" || brokenItem1Starts-- > 0) {
+                return Error(ErrorEnum::eIntegrity);
+            }
+
+            SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+            return Error(ErrorEnum::eNone);
+        }));
+
+    EXPECT_CALL(mImageManager, InstallItem(Field(&imagemanager::UpdateItemInfo::mID, String("item0"))))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManager, InstallItem(Field(&imagemanager::UpdateItemInfo::mID, String("item1"))))
+        .WillOnce(Return(ErrorEnum::eNone));
+
+    auto err = RunUpdate({}, {instance0, instance1});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 2);
+
+    const auto* status = FindStatus(instance0);
+    ASSERT_NE(status, nullptr);
+    EXPECT_EQ(status->mState, InstanceStateEnum::eFailed);
+    EXPECT_TRUE(status->mError.Is(ErrorEnum::eIntegrity)) << tests::utils::ErrorToStr(status->mError);
+
+    status = FindStatus(instance1);
+    ASSERT_NE(status, nullptr);
+    EXPECT_EQ(status->mState, InstanceStateEnum::eActive);
+
+    EXPECT_CALL(mRuntime0, StopInstance).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, StartFailsOnUpdateInstancesAllocationError)
+{
+    auto err = InitLauncher();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    // The allocations before the launch are the stored instances and the instances of both runtimes.
+    mAllocator.Fail(FailingAllocator::cAnySize, 3);
+
+    EXPECT_CALL(mCloudConnection, SubscribeListener).Times(0);
+
+    err = mLauncher.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(mAllocator.NumFailed(), 1);
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, InstanceIsNotAddedWhenInstancesAreFull)
+{
+    const auto                cStoredInfo = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
+    std::vector<InstanceInfo> startInfos;
+
+    for (size_t i = 0; i < cMaxNumInstances; ++i) {
+        startInfos.push_back(CreateInstanceInfo("component", i, "1.0.0", "runtime1", UpdateItemTypeEnum::eComponent));
+    }
+
+    mStorage.Init({cStoredInfo});
+
+    ExpectInstanceIDs();
+    ExpectStartStopInstances();
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    // The stored instance is kept running, so the last requested instance doesn't fit the instances list.
+    EXPECT_CALL(mRuntime1, StartInstance).Times(cMaxNumInstances - 1);
+
+    auto err = RunUpdate({}, startInfos);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), cMaxNumInstances);
+    EXPECT_NE(FindStatus(cStoredInfo), nullptr);
+    EXPECT_EQ(FindStatus(startInfos.back()), nullptr);
+
+    for (const auto& status : mReceivedStatuses) {
+        EXPECT_EQ(status.mState, InstanceStateEnum::eActive) << status;
+    }
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, RepairsLimitedNumberOfItemsPerRequest)
+{
+    std::vector<InstanceInfo> startInfos;
+    std::vector<std::string>  itemIDs;
+
+    for (size_t i = 0; i <= cMaxNumUpdateItems; ++i) {
+        itemIDs.push_back("item" + std::to_string(i));
+        startInfos.push_back(CreateInstanceInfo(String(itemIDs.back().c_str()), i, "1.0.0", "runtime0"));
+    }
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    EXPECT_CALL(mItemStatusProvider, GetItemsStatuses).WillOnce(Invoke(ItemsInstalled(itemIDs)));
+
+    std::mutex            mutex;
+    std::set<std::string> startedItems;
+
+    EXPECT_CALL(mRuntime0, StartInstance)
+        .WillRepeatedly(Invoke([&](const InstanceInfo& instance, InstanceStatus& status) {
+            std::lock_guard lock {mutex};
+
+            if (startedItems.insert(instance.mItemID.CStr()).second) {
+                return Error(ErrorEnum::eIntegrity);
+            }
+
+            SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+            return Error(ErrorEnum::eNone);
+        }));
+
+    // The repair list holds the max number of update items, the item which doesn't fit it is not repaired.
+    EXPECT_CALL(mImageManager, InstallItem).Times(cMaxNumUpdateItems).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    auto err = RunUpdate({}, startInfos);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), startInfos.size());
+
+    for (size_t i = 0; i < startInfos.size(); ++i) {
+        const auto* status = FindStatus(startInfos[i]);
+        ASSERT_NE(status, nullptr) << "index: " << i;
+
+        if (i < cMaxNumUpdateItems) {
+            EXPECT_EQ(status->mState, InstanceStateEnum::eActive) << *status;
+        } else {
+            EXPECT_EQ(status->mState, InstanceStateEnum::eFailed) << *status;
+            EXPECT_TRUE(status->mError.Is(ErrorEnum::eIntegrity)) << *status;
+        }
+    }
+
+    EXPECT_CALL(mRuntime0, StopInstance).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, RepairsEachVersionOfItem)
+{
+    const std::vector cStartInfos = {
+        CreateInstanceInfo("item0", 0, "1.0.0", "runtime0"),
+        CreateInstanceInfo("item0", 1, "2.0.0", "runtime0"),
+    };
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    EXPECT_CALL(mItemStatusProvider, GetItemsStatuses).WillOnce(Invoke(ItemsInstalled({"item0"})));
+
+    std::atomic_int brokenStarts {static_cast<int>(cStartInfos.size())};
+
+    EXPECT_CALL(mRuntime0, StartInstance)
+        .Times(cStartInfos.size() * 2)
+        .WillRepeatedly(Invoke([&brokenStarts](const InstanceInfo& instance, InstanceStatus& status) {
+            if (brokenStarts-- > 0) {
+                return Error(ErrorEnum::eIntegrity);
+            }
+
+            SetInstanceStatus(instance, InstanceStateEnum::eActive, status);
+
+            return Error(ErrorEnum::eNone);
+        }));
+
+    EXPECT_CALL(mImageManager, InstallItem(Field(&imagemanager::UpdateItemInfo::mVersion, String("1.0.0"))))
+        .WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mImageManager, InstallItem(Field(&imagemanager::UpdateItemInfo::mVersion, String("2.0.0"))))
+        .Times(2)
+        .WillRepeatedly(Return(ErrorEnum::eNone));
+
+    auto err = RunUpdate({}, cStartInfos);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), cStartInfos.size());
+
+    for (const auto& status : mReceivedStatuses) {
+        EXPECT_EQ(status.mState, InstanceStateEnum::eActive) << status;
+    }
+
+    EXPECT_CALL(mRuntime0, StopInstance).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, StopCancelsInstallsUntilTheyReturn)
+{
+    const auto cInstance = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    std::promise<void> installStarted;
+    std::promise<void> installCanceled;
+    auto               installCanceledFuture = installCanceled.get_future();
+    std::atomic_int    numCancels {};
+
+    // The install ignores the first cancel, so the launcher cancels it again.
+    EXPECT_CALL(mImageManager, InstallItem).WillOnce(Invoke([&](const imagemanager::UpdateItemInfo&) {
+        installStarted.set_value();
+        installCanceledFuture.wait();
+
+        return ErrorEnum::eCanceled;
+    }));
+    EXPECT_CALL(mImageManager, Cancel).Times(2).WillRepeatedly(Invoke([&]() {
+        if (++numCancels == 2) {
+            installCanceled.set_value();
+        }
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mRuntime0, StartInstance).Times(0);
+    EXPECT_CALL(mRuntime0, StopInstance).WillOnce(Return(ErrorEnum::eNone));
+
+    auto err = mLauncher.UpdateInstances({}, Array<InstanceInfo>(&cInstance, 1));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    installStarted.get_future().wait();
+
+    err = mLauncher.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mSender.WaitStatuses(mReceivedStatuses, cWaitTimeout);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eFailed);
+    EXPECT_TRUE(mReceivedStatuses[0].mError.Is(ErrorEnum::eCanceled))
+        << tests::utils::ErrorToStr(mReceivedStatuses[0].mError);
+}
+
+TEST_F(LauncherTest, OfflineTTLStopsOnlyExpiredInstances)
+{
+    const auto cExpiredInfo = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
+    const auto cRunningInfo = CreateInstanceInfo("item1", 1, "1.0.0", "runtime1");
+    auto       itemConfig   = std::make_unique<oci::ItemConfig>();
+
+    itemConfig->mOfflineTTL = Time::cMilliseconds;
+
+    EXPECT_CALL(mOCISpec, LoadItemConfig)
+        .WillRepeatedly(DoAll(SetArgReferee<1>(*itemConfig), Return(ErrorEnum::eNone)));
+
+    mStorage.Init({cExpiredInfo});
+
+    ExpectStartStopInstances();
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    itemConfig->mOfflineTTL = Time::cHours;
+
+    EXPECT_CALL(mOCISpec, LoadItemConfig)
+        .WillRepeatedly(DoAll(SetArgReferee<1>(*itemConfig), Return(ErrorEnum::eNone)));
+
+    auto err = RunUpdate({}, {cExpiredInfo, cRunningInfo});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 2);
+
+    std::promise<void> stopPromise;
+
+    EXPECT_CALL(mRuntime1, StopInstance).Times(0);
+    EXPECT_CALL(mRuntime0, StopInstance(static_cast<const InstanceIdent&>(cExpiredInfo), _))
+        .WillOnce(Invoke([&](const InstanceIdent& instance, InstanceStatus& status) {
+            SetInstanceStatus(instance, InstanceStateEnum::eInactive, status);
+
+            stopPromise.set_value();
+
+            return ErrorEnum::eNone;
+        }));
+
+    mCloudConnectionListener->OnDisconnect();
+
+    ASSERT_TRUE(stopPromise.get_future().wait_for(std::chrono::seconds(5)) == std::future_status::ready)
+        << "Runtime0 StopInstance was not called";
+
+    err = mLauncher.GetInstancesStatuses(mReceivedStatuses);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    const auto* status = FindStatus(cRunningInfo);
+    ASSERT_NE(status, nullptr);
+    EXPECT_EQ(status->mState, InstanceStateEnum::eActive);
+
+    EXPECT_CALL(mRuntime0, StopInstance).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mRuntime1, StopInstance).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(LauncherTest, InstanceWithNotLoadedConfigsIsPreparedAgain)
+{
+    const auto cStoredInfo = CreateInstanceInfo("item0", 0, "1.0.0", "runtime0");
+
+    mStorage.Init({cStoredInfo});
+
+    ExpectStartStopInstances();
+
+    EXPECT_CALL(mItemInfoProvider, GetBlobPath).WillRepeatedly(Return(ErrorEnum::eFailed));
+
+    StartLauncher();
+    ASSERT_FALSE(HasFatalFailure());
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive);
+
+    // The running instance is prepared again on the next request to load its configs.
+    EXPECT_CALL(mItemInfoProvider, GetBlobPath).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mNetworkManager, CreateInstanceNetwork).WillOnce(Return(ErrorEnum::eNone));
+
+    auto err = RunUpdate({}, {cStoredInfo});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(mReceivedStatuses.Size(), 1);
+    EXPECT_EQ(mReceivedStatuses[0].mState, InstanceStateEnum::eActive);
+
+    err = mLauncher.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
 } // namespace aos::sm::launcher
