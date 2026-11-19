@@ -4,6 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <memory>
+#include <string>
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -17,9 +21,7 @@
 using namespace testing;
 
 namespace aos::sm::nodeconfig {
-
 namespace {
-
 /***********************************************************************************************************************
  * Consts
  **********************************************************************************************************************/
@@ -35,6 +37,29 @@ constexpr auto cValidTestNodeConfig = R"({
 constexpr auto cInvalidTestNodeConfig = R"({
      something not valid
  })";
+
+class FailableAllocator : public HeapAllocator {
+public:
+    void* Allocate(size_t size) override { return mFail ? nullptr : HeapAllocator::Allocate(size); }
+
+    void SetFail(bool fail) { mFail = fail; }
+
+private:
+    bool mFail {};
+};
+
+class TestListener : public aos::nodeconfig::NodeConfigListenerItf {
+public:
+    Error OnNodeConfigChanged(const aos::NodeConfig&) override
+    {
+        mNotified = true;
+
+        return mResult;
+    }
+
+    Error mResult;
+    bool  mNotified = false;
+};
 
 } // namespace
 
@@ -358,6 +383,131 @@ TEST_F(NodeConfigTest, UnsubscribeListener)
     err = mNodeConfig.UpdateNodeConfig(newConfig);
     EXPECT_TRUE(err.IsNone());
     EXPECT_FALSE(listener.mNotified);
+}
+
+TEST_F(NodeConfigTest, InitNoMemoryForConfig)
+{
+    FailableAllocator allocator;
+
+    allocator.SetFail(true);
+
+    EXPECT_TRUE(mNodeConfig.Init(allocator, {cTestConfigFile}, mJSONProvider).IsNone());
+}
+
+TEST_F(NodeConfigTest, InitWithUnreadableConfigFile)
+{
+    ASSERT_TRUE(fs::MakeDirAll(cTestConfigFile).IsNone());
+
+    EXPECT_TRUE(mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider).IsNone());
+
+    NodeConfigStatus status;
+
+    ASSERT_TRUE(mNodeConfig.GetNodeConfigStatus(status).IsNone());
+    EXPECT_EQ(status.mState, UnitConfigStateEnum::eFailed);
+    EXPECT_FALSE(status.mError.IsNone());
+
+    // The version is not checked for the failed config, so it is replaced by the new one.
+    EXPECT_CALL(mJSONProvider, NodeConfigToJSON(_, _)).WillOnce(Return(ErrorEnum::eNone));
+
+    ASSERT_TRUE(fs::RemoveAll(cTestConfigFile).IsNone());
+
+    EXPECT_TRUE(mNodeConfig.UpdateNodeConfig(CreateTestNodeConfig("1.0.0")).IsNone());
+
+    NodeConfigStatus installedStatus;
+
+    ASSERT_TRUE(mNodeConfig.GetNodeConfigStatus(installedStatus).IsNone());
+    EXPECT_EQ(installedStatus.mState, UnitConfigStateEnum::eInstalled);
+    EXPECT_TRUE(installedStatus.mError.IsNone());
+}
+
+TEST_F(NodeConfigTest, CheckNodeConfigInvalidVersion)
+{
+    CreateTestConfigFile(cValidTestNodeConfig);
+
+    SetupValidNodeConfig();
+
+    ASSERT_TRUE(mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider).IsNone());
+
+    EXPECT_FALSE(mNodeConfig.CheckNodeConfig(CreateTestNodeConfig("invalid")).IsNone());
+    EXPECT_FALSE(mNodeConfig.UpdateNodeConfig(CreateTestNodeConfig("invalid")).IsNone());
+}
+
+TEST_F(NodeConfigTest, UpdateNodeConfigNoMemory)
+{
+    FailableAllocator allocator;
+
+    ASSERT_TRUE(mNodeConfig.Init(allocator, {cTestConfigFile}, mJSONProvider).IsNone());
+
+    allocator.SetFail(true);
+
+    EXPECT_EQ(mNodeConfig.UpdateNodeConfig(CreateTestNodeConfig("1.0.0")), ErrorEnum::eNoMemory);
+}
+
+TEST_F(NodeConfigTest, UpdateNodeConfigToJSONFails)
+{
+    ASSERT_TRUE(mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider).IsNone());
+
+    EXPECT_CALL(mJSONProvider, NodeConfigToJSON(_, _)).WillOnce(Return(ErrorEnum::eFailed));
+
+    EXPECT_EQ(mNodeConfig.UpdateNodeConfig(CreateTestNodeConfig("1.0.0")), ErrorEnum::eFailed);
+
+    NodeConfigStatus status;
+
+    ASSERT_TRUE(mNodeConfig.GetNodeConfigStatus(status).IsNone());
+    EXPECT_EQ(status.mState, UnitConfigStateEnum::eAbsent);
+}
+
+TEST_F(NodeConfigTest, UpdateNodeConfigWriteFileFails)
+{
+    const auto configFile = std::string(cTestConfigFile) + "_dir/config.json";
+
+    ASSERT_TRUE(mNodeConfig.Init(mAllocator, {configFile.c_str()}, mJSONProvider).IsNone());
+
+    EXPECT_CALL(mJSONProvider, NodeConfigToJSON(_, _)).WillOnce(Return(ErrorEnum::eNone));
+
+    EXPECT_FALSE(mNodeConfig.UpdateNodeConfig(CreateTestNodeConfig("1.0.0")).IsNone());
+
+    NodeConfigStatus status;
+
+    ASSERT_TRUE(mNodeConfig.GetNodeConfigStatus(status).IsNone());
+    EXPECT_EQ(status.mState, UnitConfigStateEnum::eAbsent);
+}
+
+TEST_F(NodeConfigTest, ListenerErrorIsIgnored)
+{
+    ASSERT_TRUE(mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider).IsNone());
+
+    TestListener listener;
+
+    listener.mResult = ErrorEnum::eFailed;
+
+    ASSERT_TRUE(mNodeConfig.SubscribeListener(listener).IsNone());
+
+    EXPECT_CALL(mJSONProvider, NodeConfigToJSON(_, _)).WillOnce(Return(ErrorEnum::eNone));
+
+    EXPECT_TRUE(mNodeConfig.UpdateNodeConfig(CreateTestNodeConfig("1.0.0")).IsNone());
+    EXPECT_TRUE(listener.mNotified);
+}
+
+TEST_F(NodeConfigTest, SubscribeListenerLimit)
+{
+    ASSERT_TRUE(mNodeConfig.Init(mAllocator, {cTestConfigFile}, mJSONProvider).IsNone());
+
+    std::vector<std::unique_ptr<TestListener>> listeners;
+
+    Error err;
+
+    for (size_t i = 0; i < 64 && err.IsNone(); ++i) {
+        listeners.push_back(std::make_unique<TestListener>());
+
+        err = mNodeConfig.SubscribeListener(*listeners.back());
+    }
+
+    EXPECT_EQ(err, ErrorEnum::eNoMemory);
+
+    TestListener unknown;
+
+    EXPECT_EQ(mNodeConfig.UnsubscribeListener(unknown), ErrorEnum::eNotFound);
 }
 
 } // namespace aos::sm::nodeconfig
