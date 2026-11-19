@@ -11,6 +11,7 @@
 #include <core/cm/tests/mocks/nodeinfoprovidermock.hpp>
 #include <core/cm/unitconfig/tests/mocks/jsonprovidermock.hpp>
 #include <core/cm/unitconfig/unitconfig.hpp>
+#include <core/common/tests/stubs/testallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/heapallocator.hpp>
@@ -18,9 +19,7 @@
 using namespace testing;
 
 namespace aos::cm::unitconfig {
-
 namespace {
-
 /***********************************************************************************************************************
  * Consts
  **********************************************************************************************************************/
@@ -114,6 +113,42 @@ protected:
             .WillOnce(DoAll(SetArgReferee<1>(config), Return(ErrorEnum::eNone)));
     }
 
+    void InitInstalled(const String& version = "1.0.0")
+    {
+        CreateTestConfigFile(cValidTestUnitConfig);
+
+        auto config = CreateTestUnitConfig(version);
+
+        EXPECT_CALL(mJSONProvider, UnitConfigFromJSON(_, _))
+            .WillOnce(DoAll(SetArgReferee<1>(config), Return(ErrorEnum::eNone)));
+
+        ASSERT_TRUE(
+            mUnitConfig.Init(mTestAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider)
+                .IsNone());
+    }
+
+    void InitFailed()
+    {
+        CreateTestConfigFile(cInvalidTestUnitConfig);
+
+        EXPECT_CALL(mJSONProvider, UnitConfigFromJSON(_, _)).WillOnce(Return(ErrorEnum::eInvalidArgument));
+
+        ASSERT_TRUE(
+            mUnitConfig.Init(mTestAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider)
+                .IsNone());
+    }
+
+    void ExpectNodeIDs(const std::vector<std::string>& ids, Error err = ErrorEnum::eNone)
+    {
+        StaticArray<StaticString<cIDLen>, cMaxNumNodes> nodeIds;
+
+        for (const auto& id : ids) {
+            nodeIds.PushBack(id.c_str());
+        }
+
+        EXPECT_CALL(mNodeInfoProvider, GetAllNodeIDs(_)).WillOnce(DoAll(SetArgReferee<0>(nodeIds), Return(err)));
+    }
+
     void CreateTestConfigFile(const String& jsonConfig = cValidTestUnitConfig)
     {
         auto err = fs::WriteStringToFile(cTestConfigFile, jsonConfig, 0600);
@@ -122,7 +157,8 @@ protected:
 
     // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
     // members are destroyed in reverse declaration order.
-    HeapAllocator mAllocator;
+    HeapAllocator        mAllocator;
+    tests::TestAllocator mTestAllocator;
 
     StrictMock<cm::nodeinfoprovider::NodeInfoProviderMock> mNodeInfoProvider;
     StrictMock<NodeConfigHandlerMock>                      mNodeConfigHandler;
@@ -559,6 +595,230 @@ TEST_F(UnitConfigTest, CheckUnitConfigMultipleNodes)
 
     auto err = mUnitConfig.CheckUnitConfig(newUnitConfig);
     EXPECT_TRUE(err.IsNone());
+}
+
+TEST_F(UnitConfigTest, StartStop)
+{
+    ASSERT_TRUE(
+        mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider).IsNone());
+
+    EXPECT_CALL(mNodeInfoProvider, SubscribeListener(Ref(mUnitConfig))).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_TRUE(mUnitConfig.Start().IsNone());
+
+    EXPECT_CALL(mNodeInfoProvider, UnsubscribeListener(Ref(mUnitConfig))).WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_EQ(mUnitConfig.Stop(), ErrorEnum::eFailed);
+}
+
+TEST_F(UnitConfigTest, InitNoMemory)
+{
+    CreateTestConfigFile(cValidTestUnitConfig);
+
+    mTestAllocator.FailAfter(0);
+
+    auto err
+        = mUnitConfig.Init(mTestAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider);
+    EXPECT_TRUE(err.IsNone());
+}
+
+TEST_F(UnitConfigTest, InitWithUnreadableConfigFile)
+{
+    ASSERT_TRUE(fs::MakeDirAll(cTestConfigFile).IsNone());
+
+    auto err = mUnitConfig.Init(mAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider);
+    EXPECT_TRUE(err.IsNone());
+
+    UnitConfigStatus status;
+
+    EXPECT_TRUE(mUnitConfig.GetUnitConfigStatus(status).IsNone());
+    EXPECT_EQ(status.mState, UnitConfigStateEnum::eFailed);
+    EXPECT_FALSE(status.mError.IsNone());
+
+    EXPECT_TRUE(fs::RemoveAll(cTestConfigFile).IsNone());
+}
+
+TEST_F(UnitConfigTest, CheckUnitConfigErrors)
+{
+    InitInstalled();
+
+    EXPECT_FALSE(mUnitConfig.CheckUnitConfig(CreateTestUnitConfig("invalid")).IsNone());
+
+    const auto newConfig = CreateTestUnitConfigWithNodeID("2.0.0");
+
+    NodeConfigStatus oldStatus;
+    oldStatus.mVersion = "1.0.0";
+
+    ExpectNodeIDs({cTestNodeID}, ErrorEnum::eFailed);
+    EXPECT_EQ(mUnitConfig.CheckUnitConfig(newConfig), ErrorEnum::eFailed);
+
+    ExpectNodeIDs({cTestNodeID});
+    mTestAllocator.FailAfter(0);
+    EXPECT_EQ(mUnitConfig.CheckUnitConfig(newConfig), ErrorEnum::eNoMemory);
+    mTestAllocator.Reset();
+
+    ExpectNodeIDs({cTestNodeID});
+    EXPECT_CALL(mNodeInfoProvider, GetNodeInfo(String(cTestNodeID), _)).WillOnce(Return(ErrorEnum::eNotFound));
+    EXPECT_EQ(mUnitConfig.CheckUnitConfig(newConfig), ErrorEnum::eNotFound);
+
+    // Node is not connected: skipped
+
+    auto offlineNodeInfo         = CreateTestNodeInfo();
+    offlineNodeInfo.mIsConnected = false;
+
+    ExpectNodeIDs({cTestNodeID});
+    EXPECT_CALL(mNodeInfoProvider, GetNodeInfo(String(cTestNodeID), _))
+        .WillOnce(DoAll(SetArgReferee<1>(offlineNodeInfo), Return(ErrorEnum::eNone)));
+    EXPECT_TRUE(mUnitConfig.CheckUnitConfig(newConfig).IsNone());
+
+    ExpectNodeIDs({cTestNodeID});
+    EXPECT_CALL(mNodeInfoProvider, GetNodeInfo(String(cTestNodeID), _))
+        .WillOnce(DoAll(SetArgReferee<1>(CreateTestNodeInfo()), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mNodeConfigHandler, GetNodeConfigStatus(String(cTestNodeID), _)).WillOnce(Return(ErrorEnum::eTimeout));
+    EXPECT_EQ(mUnitConfig.CheckUnitConfig(newConfig), ErrorEnum::eTimeout);
+
+    ExpectNodeIDs({cTestNodeID});
+    EXPECT_CALL(mNodeInfoProvider, GetNodeInfo(String(cTestNodeID), _))
+        .WillOnce(DoAll(SetArgReferee<1>(CreateTestNodeInfo()), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mNodeConfigHandler, GetNodeConfigStatus(String(cTestNodeID), _))
+        .WillOnce(DoAll(SetArgReferee<1>(oldStatus), Return(ErrorEnum::eNone)));
+    mTestAllocator.FailAfter(1);
+    EXPECT_EQ(mUnitConfig.CheckUnitConfig(newConfig), ErrorEnum::eNoMemory);
+    mTestAllocator.Reset();
+
+    ExpectNodeIDs({cTestNodeID});
+    EXPECT_CALL(mNodeInfoProvider, GetNodeInfo(String(cTestNodeID), _))
+        .WillOnce(DoAll(SetArgReferee<1>(CreateTestNodeInfo()), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mNodeConfigHandler, GetNodeConfigStatus(String(cTestNodeID), _))
+        .WillOnce(DoAll(SetArgReferee<1>(oldStatus), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mNodeConfigHandler, CheckNodeConfig(String(cTestNodeID), _))
+        .WillOnce(Return(ErrorEnum::eInvalidArgument));
+    EXPECT_EQ(mUnitConfig.CheckUnitConfig(newConfig), ErrorEnum::eInvalidArgument);
+}
+
+TEST_F(UnitConfigTest, CheckUnitConfigInFailedState)
+{
+    InitFailed();
+
+    NodeConfigStatus oldStatus;
+    oldStatus.mVersion = "1.0.0";
+
+    ExpectNodeIDs({cTestNodeID});
+    EXPECT_CALL(mNodeInfoProvider, GetNodeInfo(String(cTestNodeID), _))
+        .WillOnce(DoAll(SetArgReferee<1>(CreateTestNodeInfo()), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mNodeConfigHandler, GetNodeConfigStatus(String(cTestNodeID), _))
+        .WillOnce(DoAll(SetArgReferee<1>(oldStatus), Return(ErrorEnum::eNone)));
+
+    // Node config can't be found as unit config is in failed state
+    EXPECT_EQ(mUnitConfig.CheckUnitConfig(CreateTestUnitConfigWithNodeID("2.0.0")), ErrorEnum::eInvalidArgument);
+}
+
+TEST_F(UnitConfigTest, UpdateUnitConfigErrors)
+{
+    InitInstalled();
+
+    EXPECT_EQ(mUnitConfig.UpdateUnitConfig(CreateTestUnitConfig("0.5.0")), ErrorEnum::eWrongState);
+
+    mTestAllocator.FailAfter(0);
+    EXPECT_EQ(mUnitConfig.UpdateUnitConfig(CreateTestUnitConfig("2.0.0")), ErrorEnum::eNoMemory);
+    mTestAllocator.Reset();
+
+    EXPECT_CALL(mJSONProvider, UnitConfigToJSON(_, _)).WillOnce(Return(ErrorEnum::eInvalidArgument));
+    EXPECT_EQ(mUnitConfig.UpdateUnitConfig(CreateTestUnitConfig("3.0.0")), ErrorEnum::eInvalidArgument);
+
+    EXPECT_CALL(mJSONProvider, UnitConfigToJSON(_, _)).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    ExpectNodeIDs({}, ErrorEnum::eFailed);
+    EXPECT_EQ(mUnitConfig.UpdateUnitConfig(CreateTestUnitConfig("4.0.0")), ErrorEnum::eFailed);
+
+    ExpectNodeIDs({cTestNodeID});
+    mTestAllocator.FailAfter(1);
+    EXPECT_EQ(mUnitConfig.UpdateUnitConfig(CreateTestUnitConfig("5.0.0")), ErrorEnum::eNoMemory);
+
+    ExpectNodeIDs({cTestNodeID});
+    mTestAllocator.FailAfter(2);
+    EXPECT_EQ(mUnitConfig.UpdateUnitConfig(CreateTestUnitConfig("6.0.0")), ErrorEnum::eNoMemory);
+    mTestAllocator.Reset();
+
+    ExpectNodeIDs({cTestNodeID});
+    EXPECT_CALL(mNodeInfoProvider, GetNodeInfo(String(cTestNodeID), _)).WillOnce(Return(ErrorEnum::eNotFound));
+    EXPECT_EQ(mUnitConfig.UpdateUnitConfig(CreateTestUnitConfig("7.0.0")), ErrorEnum::eNotFound);
+
+    ExpectNodeIDs({cTestNodeID});
+    EXPECT_CALL(mNodeInfoProvider, GetNodeInfo(String(cTestNodeID), _))
+        .WillOnce(DoAll(SetArgReferee<1>(CreateTestNodeInfo()), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mNodeConfigHandler, UpdateNodeConfig(String(cTestNodeID), _)).WillOnce(Return(ErrorEnum::eTimeout));
+    EXPECT_EQ(mUnitConfig.UpdateUnitConfig(CreateTestUnitConfig("8.0.0")), ErrorEnum::eTimeout);
+
+    UnitConfigStatus status;
+
+    EXPECT_TRUE(mUnitConfig.GetUnitConfigStatus(status).IsNone());
+    EXPECT_EQ(status.mVersion, "8.0.0");
+    EXPECT_EQ(status.mState, UnitConfigStateEnum::eInstalled);
+}
+
+TEST_F(UnitConfigTest, UpdateUnitConfigInFailedState)
+{
+    InitFailed();
+
+    EXPECT_CALL(mJSONProvider, UnitConfigToJSON(_, _)).WillOnce(Return(ErrorEnum::eNone));
+    ExpectNodeIDs({});
+
+    EXPECT_TRUE(mUnitConfig.UpdateUnitConfig(CreateTestUnitConfig("0.1.0")).IsNone());
+
+    UnitConfigStatus status;
+
+    EXPECT_TRUE(mUnitConfig.GetUnitConfigStatus(status).IsNone());
+    EXPECT_EQ(status.mVersion, "0.1.0");
+    EXPECT_EQ(status.mState, UnitConfigStateEnum::eInstalled);
+    EXPECT_TRUE(status.mError.IsNone());
+}
+
+TEST_F(UnitConfigTest, UpdateUnitConfigWriteError)
+{
+    ASSERT_TRUE(mUnitConfig
+                    .Init(mAllocator, {"/nonexistent_unit_config_dir/unit_config.json"}, mNodeInfoProvider,
+                        mNodeConfigHandler, mJSONProvider)
+                    .IsNone());
+
+    EXPECT_CALL(mJSONProvider, UnitConfigToJSON(_, _)).WillOnce(Return(ErrorEnum::eNone));
+
+    EXPECT_FALSE(mUnitConfig.UpdateUnitConfig(CreateTestUnitConfig("1.0.0")).IsNone());
+
+    UnitConfigStatus status;
+
+    EXPECT_TRUE(mUnitConfig.GetUnitConfigStatus(status).IsNone());
+    EXPECT_EQ(status.mState, UnitConfigStateEnum::eAbsent);
+}
+
+TEST_F(UnitConfigTest, OnNodeInfoChangedErrors)
+{
+    InitInstalled();
+
+    NodeConfigStatus oldStatus;
+    oldStatus.mVersion = "0.9.0";
+
+    // Node is not connected
+
+    auto offlineNodeInfo         = CreateTestNodeInfo();
+    offlineNodeInfo.mIsConnected = false;
+
+    mUnitConfig.OnNodeInfoChanged(offlineNodeInfo);
+
+    EXPECT_CALL(mNodeConfigHandler, GetNodeConfigStatus(String(cTestNodeID), _)).WillOnce(Return(ErrorEnum::eFailed));
+
+    mUnitConfig.OnNodeInfoChanged(CreateTestNodeInfo());
+
+    EXPECT_CALL(mNodeConfigHandler, GetNodeConfigStatus(String(cTestNodeID), _))
+        .WillOnce(DoAll(SetArgReferee<1>(oldStatus), Return(ErrorEnum::eNone)));
+
+    mTestAllocator.FailAfter(0);
+    mUnitConfig.OnNodeInfoChanged(CreateTestNodeInfo());
+    mTestAllocator.Reset();
+
+    EXPECT_CALL(mNodeConfigHandler, GetNodeConfigStatus(String(cTestNodeID), _))
+        .WillOnce(DoAll(SetArgReferee<1>(oldStatus), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mNodeConfigHandler, UpdateNodeConfig(String(cTestNodeID), _)).WillOnce(Return(ErrorEnum::eFailed));
+
+    mUnitConfig.OnNodeInfoChanged(CreateTestNodeInfo());
 }
 
 } // namespace aos::cm::unitconfig

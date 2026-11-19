@@ -23,8 +23,13 @@
 using namespace testing;
 
 namespace aos::cm::alerts {
-
 namespace {
+/***********************************************************************************************************************
+ * Consts
+ **********************************************************************************************************************/
+
+// Mirrors Alerts::cListenersMaxCount.
+constexpr auto cListenersMaxCount = 4;
 
 /***********************************************************************************************************************
  * Stubs
@@ -41,7 +46,14 @@ public:
         mMessages.push_back(alerts);
         mCondVar.notify_all();
 
-        return ErrorEnum::eNone;
+        return mSendErr;
+    }
+
+    void SetSendError(const Error& err)
+    {
+        std::lock_guard lock {mMutex};
+
+        mSendErr = err;
     }
 
     bool WaitForMessage(aos::Alerts& message, std::chrono::milliseconds timeout = std::chrono::seconds(5))
@@ -70,6 +82,53 @@ private:
     std::mutex               mMutex;
     std::condition_variable  mCondVar;
     std::vector<aos::Alerts> mMessages;
+    Error                    mSendErr;
+};
+
+class FailingAllocator : public AllocatorItf {
+public:
+    void* Allocate(size_t size) override
+    {
+        std::lock_guard lock {mMutex};
+
+        if (mFail) {
+            mFailedCount++;
+            mCondVar.notify_all();
+
+            return nullptr;
+        }
+
+        return mHeap.Allocate(size);
+    }
+
+    void Free(void* data) override
+    {
+        std::lock_guard lock {mMutex};
+
+        mHeap.Free(data);
+    }
+
+    void SetFail(bool fail)
+    {
+        std::lock_guard lock {mMutex};
+
+        mFail        = fail;
+        mFailedCount = 0;
+    }
+
+    bool WaitFailedAllocations(size_t count)
+    {
+        std::unique_lock lock {mMutex};
+
+        return mCondVar.wait_for(lock, std::chrono::seconds(5), [&]() { return mFailedCount >= count; });
+    }
+
+private:
+    std::mutex              mMutex;
+    std::condition_variable mCondVar;
+    HeapAllocator           mHeap;
+    bool                    mFail        = false;
+    size_t                  mFailedCount = 0;
 };
 
 /***********************************************************************************************************************
@@ -393,6 +452,139 @@ TEST_F(AlertsTest, ListenersAreNotified)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     err = mAlerts->UnsubscribeListener(coreAndSystemAlertsListener);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(AlertsTest, StartStopErrors)
+{
+    auto err = mAlerts->Init(mAllocator, mConfig, mCommunication, mCloudConnection);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mAlerts->Stop(), ErrorEnum::eWrongState);
+
+    EXPECT_CALL(mCloudConnection, SubscribeListener).WillOnce(Return(ErrorEnum::eFailed));
+
+    err = mAlerts->Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mCloudConnection, SubscribeListener).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mAlerts->Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mAlerts->Start(), ErrorEnum::eWrongState);
+
+    EXPECT_CALL(mCloudConnection, UnsubscribeListener).WillOnce(Return(ErrorEnum::eTimeout));
+
+    err = mAlerts->Stop();
+    EXPECT_TRUE(err.Is(ErrorEnum::eTimeout)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(AlertsTest, SubscribeListenerErrors)
+{
+    std::array<AlertsListenerMock, cListenersMaxCount + 1> listeners;
+
+    auto err = mAlerts->Init(mAllocator, mConfig, mCommunication, mCloudConnection);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    std::vector<AlertTag> allTags;
+
+    for (size_t i = 0; i < static_cast<size_t>(AlertTagEnum::eNumAlertTags); ++i) {
+        allTags.emplace_back(static_cast<AlertTagEnum>(i));
+    }
+
+    const AlertTag systemTag = AlertTagEnum::eSystemAlert;
+
+    // Subscribing the same listener twice is not an error
+
+    for (size_t i = 0; i < 2; ++i) {
+        err = mAlerts->SubscribeListener(Array<AlertTag>(allTags.data(), allTags.size()), listeners[0]);
+        EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    }
+
+    for (size_t i = 1; i < cListenersMaxCount; ++i) {
+        err = mAlerts->SubscribeListener(Array<AlertTag>(&systemTag, 1), listeners[i]);
+        EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    }
+
+    err = mAlerts->SubscribeListener(Array<AlertTag>(&systemTag, 1), listeners[cListenersMaxCount]);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    const AlertTag unknownTag = AlertTagEnum::eNumAlertTags;
+
+    err = mAlerts->SubscribeListener(Array<AlertTag>(&unknownTag, 1), listeners[0]);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    // Listener error is ignored
+
+    auto alert = CreateSystemAlert(Time::Now());
+
+    EXPECT_CALL(listeners[0], OnAlertReceived(*alert)).WillOnce(Return(ErrorEnum::eFailed));
+
+    for (size_t i = 1; i < cListenersMaxCount; ++i) {
+        EXPECT_CALL(listeners[i], OnAlertReceived(*alert)).WillOnce(Return(ErrorEnum::eNone));
+    }
+
+    err = mAlerts->SendAlert(*alert);
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(mAlerts->UnsubscribeListener(listeners[cListenersMaxCount]), ErrorEnum::eNotFound);
+}
+
+TEST_F(AlertsTest, NoMemoryAndSendErrors)
+{
+    FailingAllocator allocator;
+
+    cloudconnection::ConnectionListenerItf* connectionListener = nullptr;
+
+    EXPECT_CALL(mCloudConnection, SubscribeListener)
+        .WillOnce(Invoke([&connectionListener](cloudconnection::ConnectionListenerItf& listener) {
+            connectionListener = &listener;
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto err = mAlerts->Init(allocator, mConfig, mCommunication, mCloudConnection);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mAlerts->Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    // Duplication can't be checked without memory, alerts are cached anyway
+
+    allocator.SetFail(true);
+
+    const auto cTime = Time::Now();
+
+    err = mAlerts->SendAlert(*CreateSystemAlert(cTime));
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mAlerts->SendAlert(*CreateSystemAlert(cTime.Add(Time::cSeconds)));
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    connectionListener->OnDisconnect();
+    connectionListener->OnConnect();
+
+    ASSERT_TRUE(allocator.WaitFailedAllocations(3)) << "Package allocation was not attempted";
+
+    mCommunication.SetSendError(ErrorEnum::eFailed);
+    allocator.SetFail(false);
+
+    auto msg = std::make_unique<aos::Alerts>();
+
+    ASSERT_TRUE(mCommunication.WaitForMessage(*msg));
+    EXPECT_EQ(msg->mItems.Size(), 2);
+
+    // Alerts are kept in cache after send error and sent again
+
+    mCommunication.SetSendError(ErrorEnum::eNone);
+
+    ASSERT_TRUE(mCommunication.WaitForMessage(*msg));
+    EXPECT_EQ(msg->mItems.Size(), 2);
+
+    EXPECT_CALL(mCloudConnection, UnsubscribeListener).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mAlerts->Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 }
 
