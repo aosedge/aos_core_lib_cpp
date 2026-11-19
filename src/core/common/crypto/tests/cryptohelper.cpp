@@ -14,6 +14,8 @@
 #include <fstream>
 #include <functional>
 #include <iterator>
+#include <map>
+#include <sstream>
 #include <vector>
 
 #include <core/common/crypto/certloader.hpp>
@@ -40,7 +42,6 @@ using namespace aos::tests::utils;
 using aos::tests::TestAllocator;
 
 namespace aos::crypto {
-
 /***********************************************************************************************************************
  * Test stubs
  **********************************************************************************************************************/
@@ -206,7 +207,6 @@ TEST_F(CryptoHelperTest, Decrypt)
     };
 
     std::vector<TestData> testData = {
-
         {CRYPTOHELPER_AES_DIR "/hello-world.txt.enc",
             CreateDecryptionInfo("AES256/CBC/PKCS7PADDING", {1, 2, 3, 4, 5}, ReadFileFromAESDir("aes.key")),
             ReadFileFromAESDir("hello-world.txt")},
@@ -225,7 +225,6 @@ TEST_F(CryptoHelperTest, Decrypt)
 }
 
 namespace {
-
 // unique per process: tests can run in parallel
 const std::string cGCMTestDir = "/tmp/cryptohelper_gcm_test_" + std::to_string(getpid());
 
@@ -425,7 +424,6 @@ TEST_F(CryptoHelperGCMTest, DecryptUnknownModeIsNotSupported)
 }
 
 namespace {
-
 #if defined(WITH_MBEDTLS)
 using RealCryptoProvider = MbedTLSCryptoProvider;
 #else
@@ -439,6 +437,9 @@ struct Faults {
     bool                  mFailDecrypt  = false;
     bool                  mFailSetTag   = false;
     bool                  mFailFinalize = false;
+    bool                  mFailCreate   = false;
+    std::string           mMode;
+    std::vector<uint8_t>  mIV;
     std::function<void()> mOnFinalize;
 };
 
@@ -525,7 +526,12 @@ public:
     RetWithError<UniquePtr<AESCipherItf>> CreateAESDecoder(
         const String& mode, const Array<uint8_t>& key, const Array<uint8_t>& iv) override
     {
-        auto [cipher, err] = RealCryptoProvider::CreateAESDecoder(mode, key, iv);
+        if (mFaults.mFailCreate) {
+            return {{}, ErrorEnum::eFailed};
+        }
+
+        auto [cipher, err] = RealCryptoProvider::CreateAESDecoder(mFaults.mMode.empty() ? mode : mFaults.mMode.c_str(),
+            key, mFaults.mIV.empty() ? iv : Array<uint8_t>(mFaults.mIV.data(), mFaults.mIV.size()));
         if (!err.IsNone()) {
             return {{}, err};
         }
@@ -1150,6 +1156,825 @@ TEST_F(CryptoHelperTest, InitFailsWhenTooManyRootCerts)
 
     ASSERT_TRUE(helper.Init(mAllocator, provider, *mCryptoProvider, mCertLoader, cDefaultServiceDiscoveryURL)
                     .Is(ErrorEnum::eNoMemory));
+}
+
+namespace {
+enum class InjectMode {
+    eNone,
+    eFail,
+    eRemaining,
+    eNotFound,
+    eCorrupt,
+    eCorruptTag,
+    eCorruptSize,
+    eOversize,
+    eCallReader,
+};
+
+const uint8_t cExtraData[] = {0x05};
+uint8_t       cOversizedData[cCloudMetadataSize + 1] {};
+
+class InjectingCryptoProvider : public FaultyCryptoProvider {
+public:
+    void Inject(const std::string& method, size_t call, InjectMode mode)
+    {
+        mMethod = method;
+        mCall   = call;
+        mMode   = mode;
+        mCounts.clear();
+    }
+
+    void Reset() { Inject("", 0, InjectMode::eNone); }
+
+    size_t Count(const std::string& method) const
+    {
+        auto it = mCounts.find(method);
+
+        return it == mCounts.end() ? 0 : it->second;
+    }
+
+    std::string mDN;
+
+    asn1::ASN1ParseResult ReadStruct(
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::ASN1ReaderItf& reader) override
+    {
+        const auto mode = Hit("ReadStruct");
+        if (mode == InjectMode::eFail) {
+            return {ErrorEnum::eFailed, data};
+        }
+
+        if (mode == InjectMode::eCallReader) {
+            return {reader.OnASN1Element(asn1::ASN1Value()), data};
+        }
+
+        return Post(mode, RealCryptoProvider::ReadStruct(data, opt, reader));
+    }
+
+    asn1::ASN1ParseResult ReadSet(
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::ASN1ReaderItf& reader) override
+    {
+        const auto mode = Hit("ReadSet");
+        if (mode == InjectMode::eFail) {
+            return {ErrorEnum::eFailed, data};
+        }
+
+        if (mode == InjectMode::eCallReader) {
+            return {reader.OnASN1Element(asn1::ASN1Value()), data};
+        }
+
+        if (mode == InjectMode::eCorruptTag) {
+            auto wrongTag = asn1::MakeASN1Reader([&reader](const asn1::ASN1Value& value) {
+                auto copy = value;
+
+                copy.mTagNumber = 99;
+
+                return reader.OnASN1Element(copy);
+            });
+
+            return RealCryptoProvider::ReadSet(data, opt, wrongTag);
+        }
+
+        return Post(mode, RealCryptoProvider::ReadSet(data, opt, reader));
+    }
+
+    asn1::ASN1ParseResult ReadInteger(
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, int32_t& value) override
+    {
+        const auto mode = Hit("ReadInteger");
+        if (mode == InjectMode::eFail) {
+            return {ErrorEnum::eFailed, data};
+        }
+
+        return Post(mode, RealCryptoProvider::ReadInteger(data, opt, value));
+    }
+
+    asn1::ASN1ParseResult ReadBigInt(
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, Array<uint8_t>& result) override
+    {
+        const auto mode = Hit("ReadBigInt");
+        if (mode == InjectMode::eFail) {
+            return {ErrorEnum::eFailed, data};
+        }
+
+        return Post(mode, RealCryptoProvider::ReadBigInt(data, opt, result));
+    }
+
+    asn1::ASN1ParseResult ReadOID(
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::ObjectIdentifier& oid) override
+    {
+        const auto mode = Hit("ReadOID");
+        if (mode == InjectMode::eFail) {
+            return {ErrorEnum::eFailed, data};
+        }
+
+        auto result = RealCryptoProvider::ReadOID(data, opt, oid);
+
+        if (mode == InjectMode::eCorrupt) {
+            oid = "1.2.3.4";
+        }
+
+        return Post(mode, result);
+    }
+
+    asn1::ASN1ParseResult ReadAID(
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::AlgorithmIdentifier& aid) override
+    {
+        const auto mode = Hit("ReadAID");
+        if (mode == InjectMode::eFail) {
+            return {ErrorEnum::eFailed, data};
+        }
+
+        auto result = RealCryptoProvider::ReadAID(data, opt, aid);
+
+        if (mode == InjectMode::eCorrupt) {
+            aid.mOID = "1.2.3.4";
+        } else if (mode == InjectMode::eCorruptTag) {
+            aid.mParams.mTagNumber = 99;
+        } else if (mode == InjectMode::eCorruptSize) {
+            aid.mParams.mValue.Rebind(Array<uint8_t>(cExtraData, sizeof(cExtraData)));
+        }
+
+        return Post(mode, result);
+    }
+
+    asn1::ASN1ParseResult ReadOctetString(
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, Array<uint8_t>& result) override
+    {
+        const auto mode = Hit("ReadOctetString");
+        if (mode == InjectMode::eFail) {
+            return {ErrorEnum::eFailed, data};
+        }
+
+        auto parseResult = RealCryptoProvider::ReadOctetString(data, opt, result);
+
+        if (mode == InjectMode::eCorruptSize) {
+            result.Resize(1);
+        } else if (mode == InjectMode::eCorrupt) {
+            for (auto& byte : result) {
+                byte ^= 0x5a;
+            }
+        }
+
+        return Post(mode, parseResult);
+    }
+
+    asn1::ASN1ParseResult ReadRawValue(
+        const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, asn1::ASN1Value& result) override
+    {
+        const auto mode = Hit("ReadRawValue");
+        if (mode == InjectMode::eFail) {
+            return {ErrorEnum::eFailed, data};
+        }
+
+        auto parseResult = RealCryptoProvider::ReadRawValue(data, opt, result);
+
+        if (mode == InjectMode::eOversize) {
+            result.mValue.Rebind(Array<uint8_t>(cOversizedData, sizeof(cOversizedData)));
+        } else if (mode == InjectMode::eCorruptSize) {
+            result.mValue.Rebind(Array<uint8_t>(cExtraData, sizeof(cExtraData)));
+        }
+
+        return Post(mode, parseResult);
+    }
+
+    Error ASN1DecodeDN(const Array<uint8_t>& dn, String& result) override
+    {
+        const auto mode = Hit("ASN1DecodeDN");
+        if (mode == InjectMode::eFail) {
+            return ErrorEnum::eFailed;
+        }
+
+        if (mode == InjectMode::eCorrupt) {
+            return result.Assign(mDN.c_str());
+        }
+
+        return RealCryptoProvider::ASN1DecodeDN(dn, result);
+    }
+
+    Error Verify(const Variant<ECDSAPublicKey, RSAPublicKey>& pubKey, const Hash& hashFunc,
+        const x509::Padding& padding, const Array<uint8_t>& digest, const Array<uint8_t>& signature) override
+    {
+        if (Hit("VerifySign") == InjectMode::eFail) {
+            return ErrorEnum::eFailed;
+        }
+
+        return RealCryptoProvider::Verify(pubKey, hashFunc, padding, digest, signature);
+    }
+
+    Error Verify(const Array<x509::Certificate>& rootCerts, const Array<x509::Certificate>& intermCerts,
+        const x509::VerifyOptions& options, const x509::Certificate& cert) override
+    {
+        if (Hit("VerifyChain") == InjectMode::eFail) {
+            return ErrorEnum::eFailed;
+        }
+
+        return RealCryptoProvider::Verify(rootCerts, intermCerts, options, cert);
+    }
+
+private:
+    InjectMode Hit(const std::string& method)
+    {
+        const auto index = mCounts[method]++;
+
+        return (method == mMethod && index == mCall) ? mMode : InjectMode::eNone;
+    }
+
+    static asn1::ASN1ParseResult Post(InjectMode mode, asn1::ASN1ParseResult result)
+    {
+        if (mode == InjectMode::eRemaining) {
+            result.mRemaining.Rebind(Array<uint8_t>(cExtraData, sizeof(cExtraData)));
+        } else if (mode == InjectMode::eNotFound) {
+            result.mError = ErrorEnum::eNotFound;
+        }
+
+        return result;
+    }
+
+    std::string                   mMethod;
+    size_t                        mCall {};
+    InjectMode                    mMode {InjectMode::eNone};
+    std::map<std::string, size_t> mCounts;
+};
+
+} // namespace
+
+class CryptoHelperInjectTest : public CryptoHelperTest {
+protected:
+    void SetUp() override
+    {
+        CryptoHelperTest::SetUp();
+
+        ASSERT_TRUE(mProvider.Init(mAllocator).IsNone());
+        ASSERT_TRUE(
+            mHelper.Init(mTestAllocator, mCertProvider, mProvider, mCertLoader, cDefaultServiceDiscoveryURL).IsNone());
+
+        mProvider.Reset();
+
+        mCMS      = ReadFileFromCrtDir("hello-world-cms.txt.offline1.cms");
+        mExpected = ReadFileFromCrtDir("hello-world-cms.txt");
+    }
+
+    Error DecryptMetadata(std::vector<uint8_t> input = {})
+    {
+        if (input.empty()) {
+            input = mCMS;
+        }
+
+        mOutput.Clear();
+
+        return mHelper.DecryptMetadata(Array<uint8_t>(input.data(), input.size()), mOutput);
+    }
+
+    bool OutputIsExpected() const { return std::vector<uint8_t>(mOutput.begin(), mOutput.end()) == mExpected; }
+
+    Error ValidateSigns(const SignInfo& signs, const std::vector<CertificateInfo>& certs,
+        const std::vector<CertificateChainInfo>& chains, const char* file = CRYPTOHELPER_CERTS_DIR "/hello-world.txt")
+    {
+        return mHelper.ValidateSigns(file, signs, Array<CertificateChainInfo>(chains.data(), chains.size()),
+            Array<CertificateInfo>(certs.data(), certs.size()));
+    }
+
+    std::vector<CertificateInfo> Offline1Certs()
+    {
+        return {CreateCert(*mCryptoProvider, "offline1"), CreateCert(*mCryptoProvider, "intermediateCA"),
+            CreateCert(*mCryptoProvider, "secondaryCA")};
+    }
+
+    static std::vector<CertificateChainInfo> Offline1Chain()
+    {
+        return {CreateCertChain("offline1", {"offline1", "intermediateCA", "secondaryCA"})};
+    }
+
+    TestAllocator                            mTestAllocator;
+    InjectingCryptoProvider                  mProvider;
+    CryptoHelper                             mHelper;
+    std::vector<uint8_t>                     mCMS;
+    std::vector<uint8_t>                     mExpected;
+    StaticArray<uint8_t, cCloudMetadataSize> mOutput;
+};
+
+TEST_F(CryptoHelperInjectTest, DecryptMetadataFailsOnAnyASN1Error)
+{
+    const std::vector<std::string> methods = {
+        "ReadStruct", "ReadSet", "ReadInteger", "ReadBigInt", "ReadOID", "ReadAID", "ReadOctetString", "ReadRawValue"};
+
+    mCertProvider.AddCert("offline", "offline1");
+
+    ASSERT_TRUE(DecryptMetadata().IsNone());
+    ASSERT_TRUE(OutputIsExpected());
+
+    std::map<std::string, size_t> counts;
+
+    for (const auto& method : methods) {
+        counts[method] = mProvider.Count(method);
+
+        EXPECT_GT(counts[method], 0) << method;
+    }
+
+    for (const auto& method : methods) {
+        for (size_t call = 0; call < counts[method]; call++) {
+            SCOPED_TRACE(method + " call " + std::to_string(call));
+
+            mProvider.Inject(method, call, InjectMode::eFail);
+            EXPECT_FALSE(DecryptMetadata().IsNone());
+        }
+    }
+}
+
+TEST_F(CryptoHelperInjectTest, DecryptMetadataNeverReturnsWrongData)
+{
+    const std::vector<std::pair<std::string, std::vector<InjectMode>>> faults = {
+        {"ReadStruct", {InjectMode::eRemaining, InjectMode::eNotFound}},
+        {"ReadSet", {InjectMode::eRemaining, InjectMode::eNotFound, InjectMode::eCorruptTag}},
+        {"ReadInteger", {InjectMode::eRemaining}},
+        {"ReadBigInt", {InjectMode::eRemaining}},
+        {"ReadOID", {InjectMode::eRemaining, InjectMode::eCorrupt}},
+        {"ReadAID", {InjectMode::eRemaining, InjectMode::eCorrupt, InjectMode::eCorruptTag, InjectMode::eCorruptSize}},
+        {"ReadOctetString", {InjectMode::eRemaining, InjectMode::eCorruptSize, InjectMode::eCorrupt}},
+        {"ReadRawValue",
+            {InjectMode::eRemaining, InjectMode::eNotFound, InjectMode::eOversize, InjectMode::eCorruptSize}},
+    };
+
+    mCertProvider.AddCert("offline", "offline1");
+
+    ASSERT_TRUE(DecryptMetadata().IsNone());
+
+    std::map<std::string, size_t> counts;
+
+    for (const auto& [method, modes] : faults) {
+        counts[method] = mProvider.Count(method);
+    }
+
+    size_t failures = 0;
+
+    for (const auto& [method, modes] : faults) {
+        for (const auto mode : modes) {
+            for (size_t call = 0; call < counts[method]; call++) {
+                SCOPED_TRACE(method + " call " + std::to_string(call) + " mode " + std::to_string(int(mode)));
+
+                mProvider.Inject(method, call, mode);
+
+                // a corrupted structure is either rejected or doesn't affect the decrypted data
+                if (const auto err = DecryptMetadata(); !err.IsNone()) {
+                    failures++;
+                } else {
+                    EXPECT_TRUE(OutputIsExpected());
+                }
+            }
+        }
+    }
+
+    EXPECT_GT(failures, 0);
+}
+
+TEST_F(CryptoHelperInjectTest, DecryptMetadataRejectsTrailingData)
+{
+    auto input = mCMS;
+
+    input.push_back(0);
+
+    mCertProvider.AddCert("offline", "offline1");
+
+    EXPECT_TRUE(DecryptMetadata(input).Is(ErrorEnum::eInvalidArgument));
+}
+
+TEST_F(CryptoHelperInjectTest, DecryptMetadataFailsWithoutRecipientKey)
+{
+    EXPECT_TRUE(DecryptMetadata().Is(ErrorEnum::eFailed));
+
+    mCertProvider.AddCertURLs("offline", "file://" CRYPTOHELPER_CERTS_DIR "/offline1.pem", "file:///nonexistent.key");
+
+    EXPECT_TRUE(DecryptMetadata().Is(ErrorEnum::eFailed));
+}
+
+TEST_F(CryptoHelperInjectTest, DecryptMetadataFailsWhenMessageCantBeDecrypted)
+{
+    mCertProvider.AddCert("offline", "offline1");
+
+    auto& faults = mProvider.mFaults;
+
+    faults.mFailDecrypt = true;
+    EXPECT_TRUE(DecryptMetadata().Is(ErrorEnum::eFailed));
+
+    faults               = {};
+    faults.mFailFinalize = true;
+    EXPECT_TRUE(DecryptMetadata().Is(ErrorEnum::eFailed));
+
+    faults = {};
+
+    StaticArray<uint8_t, 1> output;
+
+    EXPECT_TRUE(mHelper.DecryptMetadata(Array<uint8_t>(mCMS.data(), mCMS.size()), output).Is(ErrorEnum::eFailed));
+}
+
+TEST_F(CryptoHelperInjectTest, DecryptMetadataFailsOnAnyAllocationFailure)
+{
+    mCertProvider.AddCert("offline", "offline1");
+
+    for (size_t allocation = 0;; allocation++) {
+        SCOPED_TRACE(allocation);
+
+        mTestAllocator.FailAfter(allocation);
+
+        const auto err = DecryptMetadata();
+        if (err.IsNone()) {
+            EXPECT_TRUE(OutputIsExpected());
+            break;
+        }
+
+        // a recipient whose key can't be retrieved is skipped
+        EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory) || err.Is(ErrorEnum::eFailed));
+        ASSERT_LT(allocation, 100);
+    }
+}
+
+TEST_F(CryptoHelperInjectTest, GetServiceDiscoveryURLsOnAnyAllocationFailure)
+{
+    mCertProvider.AddCert("online", "onlineTest1");
+
+    for (size_t allocation = 0;; allocation++) {
+        SCOPED_TRACE(allocation);
+
+        StaticArray<StaticString<cURLLen>, cMaxNumURLs> urls;
+
+        mTestAllocator.FailAfter(allocation);
+
+        const auto err = mHelper.GetServiceDiscoveryURLs(urls);
+        if (err.IsNone() && urls == ConvertToArray({StaticString<cURLLen>("https://Test1:9000")})) {
+            break;
+        }
+
+        // without memory for the online certificate, the default URL is used
+        EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)
+            || (err.IsNone() && urls == ConvertToArray({StaticString<cURLLen>(cDefaultServiceDiscoveryURL)})));
+        ASSERT_LT(allocation, 100);
+    }
+}
+
+TEST_F(CryptoHelperInjectTest, GetServiceDiscoveryURLsFallsBackWhenOnlineCertCantLoad)
+{
+    mCertProvider.AddCertURLs("online", "file:///nonexistent.pem", "file:///nonexistent.key");
+
+    StaticArray<StaticString<cURLLen>, cMaxNumURLs> urls;
+
+    ASSERT_TRUE(mHelper.GetServiceDiscoveryURLs(urls).IsNone());
+    EXPECT_EQ(urls, ConvertToArray({StaticString<cURLLen>(cDefaultServiceDiscoveryURL)}));
+}
+
+TEST_F(CryptoHelperInjectTest, GetServiceDiscoveryURLsKeepsProvidedURLs)
+{
+    StaticArray<StaticString<cURLLen>, cMaxNumURLs> urls;
+
+    ASSERT_TRUE(urls.PushBack("https://provided").IsNone());
+
+    // no online certificate: the default URL isn't added to the provided ones
+    ASSERT_TRUE(mHelper.GetServiceDiscoveryURLs(urls).IsNone());
+    EXPECT_EQ(urls, ConvertToArray({StaticString<cURLLen>("https://provided")}));
+}
+
+TEST_F(CryptoHelperInjectTest, GetServiceDiscoveryURLsFailsWhenURLsDontFit)
+{
+    StaticArray<StaticString<cURLLen>, 1> urls;
+
+    ASSERT_TRUE(urls.PushBack("https://provided").IsNone());
+
+    mCertProvider.AddCert("online", "online");
+
+    EXPECT_TRUE(mHelper.GetServiceDiscoveryURLs(urls).Is(ErrorEnum::eNoMemory));
+}
+
+TEST_F(CryptoHelperInjectTest, GetServiceDiscoveryURLsFromOrganization)
+{
+    mCertProvider.AddCert("online", "onlineTest1");
+
+    StaticArray<StaticString<cURLLen>, cMaxNumURLs> urls;
+
+    mProvider.Inject("ASN1DecodeDN", 0, InjectMode::eFail);
+
+    EXPECT_TRUE(mHelper.GetServiceDiscoveryURLs(urls).Is(ErrorEnum::eFailed));
+
+    // organization is the last subject field
+    mProvider.mDN = "CN=test, O=org";
+    mProvider.Inject("ASN1DecodeDN", 0, InjectMode::eCorrupt);
+    urls.Clear();
+
+    ASSERT_TRUE(mHelper.GetServiceDiscoveryURLs(urls).IsNone());
+    EXPECT_EQ(urls, ConvertToArray({StaticString<cURLLen>("https://org:9000")}));
+
+    // organization is empty: the default URL is used
+    mProvider.mDN = "O=, CN=test";
+    mProvider.Inject("ASN1DecodeDN", 0, InjectMode::eCorrupt);
+    urls.Clear();
+
+    ASSERT_TRUE(mHelper.GetServiceDiscoveryURLs(urls).IsNone());
+    EXPECT_EQ(urls, ConvertToArray({StaticString<cURLLen>(cDefaultServiceDiscoveryURL)}));
+}
+
+TEST_F(CryptoHelperInjectTest, DecryptRejectsMalformedAlgorithmNames)
+{
+    constexpr auto cDecryptedFile = CRYPTOHELPER_AES_DIR "/decrypted.raw";
+    const auto     key            = ReadFileFromAESDir("aes.key");
+
+    EXPECT_FALSE(mHelper
+                     .Decrypt(CRYPTOHELPER_AES_DIR "/hello-world.txt.enc", cDecryptedFile,
+                         CreateDecryptionInfo("AES256/CBC/PKCS7PADDING/EXTRA", {1, 2, 3, 4, 5}, key))
+                     .IsNone());
+
+    EXPECT_TRUE(mHelper
+                    .Decrypt(CRYPTOHELPER_AES_DIR "/hello-world.txt.enc", cDecryptedFile,
+                        CreateDecryptionInfo("", {1, 2, 3, 4, 5}, key))
+                    .Is(ErrorEnum::eNotSupported));
+}
+
+TEST_F(CryptoHelperInjectTest, ValidateSignsIgnoresDuplicates)
+{
+    auto certs  = Offline1Certs();
+    auto chains = Offline1Chain();
+
+    // fingerprints are case insensitive
+    certs.push_back(certs[0]);
+    certs.back().mFingerprint = "OFFLINE1";
+    chains.push_back(CreateCertChain("offline1", {"unknown"}));
+
+    EXPECT_TRUE(ValidateSigns(CreateSigns("offline1", "RSA/SHA256/PKCS1v1_5"), certs, chains).IsNone());
+}
+
+TEST_F(CryptoHelperInjectTest, ValidateSignsRejectsBadCertificates)
+{
+    const auto signs = CreateSigns("offline1", "RSA/SHA256/PKCS1v1_5");
+
+    auto certs = Offline1Certs();
+
+    certs[1].mCertificate.Resize(10);
+
+    EXPECT_FALSE(ValidateSigns(signs, certs, Offline1Chain()).IsNone());
+
+    certs = Offline1Certs();
+
+    for (size_t i = 0; i < cMaxNumCertificates; i++) {
+        certs.push_back(certs[0]);
+        certs.back().mFingerprint = ("extra" + std::to_string(i)).c_str();
+    }
+
+    EXPECT_TRUE(ValidateSigns(signs, certs, Offline1Chain()).Is(ErrorEnum::eNoMemory));
+}
+
+TEST_F(CryptoHelperInjectTest, ValidateSignsRejectsBadChains)
+{
+    const auto certs = Offline1Certs();
+
+    EXPECT_TRUE(ValidateSigns(CreateSigns("offline1", "RSA"), certs, {CreateCertChain("", {"offline1"})},
+        CRYPTOHELPER_CERTS_DIR "/hello-world.txt")
+                    .Is(ErrorEnum::eNotFound));
+
+    auto signs = CreateSigns("offline1", "RSA");
+
+    signs.mChainName = "";
+
+    EXPECT_TRUE(ValidateSigns(signs, certs, {CreateCertChain("", {"offline1"})}).Is(ErrorEnum::eInvalidArgument));
+
+    EXPECT_TRUE(ValidateSigns(CreateSigns("offline1", "RSA"), certs, {CreateCertChain("offline1", {})})
+                    .Is(ErrorEnum::eInvalidArgument));
+
+    EXPECT_TRUE(ValidateSigns(CreateSigns("offline1", "RSA"), certs, {CreateCertChain("offline1", {"absent"})})
+                    .Is(ErrorEnum::eNotFound));
+
+    EXPECT_TRUE(
+        ValidateSigns(CreateSigns("offline1", "RSA"), certs, {CreateCertChain("offline1", {"offline1", "absent"})})
+            .Is(ErrorEnum::eNotFound));
+
+    EXPECT_FALSE(
+        ValidateSigns(CreateSigns("offline1", "RSA"), certs, {CreateCertChain("offline1", {"offline1"})}).IsNone());
+}
+
+TEST_F(CryptoHelperInjectTest, ValidateSignsRejectsBadSignatures)
+{
+    const auto certs  = Offline1Certs();
+    const auto chains = Offline1Chain();
+
+    EXPECT_FALSE(ValidateSigns(CreateSigns("offline1", "RSA/SHA256/PKCS1v1_5/EXTRA"), certs, chains).IsNone());
+
+    EXPECT_TRUE(ValidateSigns(CreateSigns("offline1", "ECDSA/SHA256"), certs, chains).Is(ErrorEnum::eNotSupported));
+
+    EXPECT_FALSE(ValidateSigns(CreateSigns("offline1", "RSA/SHA256/PSS"), certs, chains).IsNone());
+
+    EXPECT_FALSE(
+        ValidateSigns(CreateSigns("offline1", "RSA"), certs, chains, CRYPTOHELPER_CERTS_DIR "/absent.txt").IsNone());
+
+    auto signs = CreateSigns("offline1", "RSA");
+
+    signs.mValue[0] ^= 0xff;
+
+    EXPECT_FALSE(ValidateSigns(signs, certs, chains).IsNone());
+
+    mProvider.Inject("VerifySign", 0, InjectMode::eFail);
+    EXPECT_TRUE(ValidateSigns(CreateSigns("offline1", "RSA"), certs, chains).Is(ErrorEnum::eFailed));
+
+    mProvider.Inject("VerifyChain", 0, InjectMode::eFail);
+    EXPECT_TRUE(ValidateSigns(CreateSigns("offline1", "RSA"), certs, chains).Is(ErrorEnum::eFailed));
+
+    mProvider.Reset();
+    EXPECT_TRUE(ValidateSigns(CreateSigns("offline1", "RSA"), certs, chains).IsNone());
+}
+
+TEST_F(CryptoHelperInjectTest, ValidateSignsFailsOnAnyAllocationFailure)
+{
+    const auto certs  = Offline1Certs();
+    const auto chains = Offline1Chain();
+    const auto signs  = CreateSigns("offline1", "RSA");
+
+    for (size_t allocation = 0;; allocation++) {
+        SCOPED_TRACE(allocation);
+
+        mTestAllocator.FailAfter(allocation);
+
+        const auto err = ValidateSigns(signs, certs, chains);
+        if (err.IsNone()) {
+            break;
+        }
+
+        EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory));
+        ASSERT_LT(allocation, 100);
+    }
+}
+
+TEST_F(CryptoHelperInjectTest, DecryptMetadataFailsWhenKeyCantBeDecrypted)
+{
+    mCertProvider.AddCert("offline", "offline1");
+
+    mProvider.Inject("ReadOctetString", 0, InjectMode::eCorrupt);
+
+    EXPECT_TRUE(DecryptMetadata().Is(ErrorEnum::eFailed));
+
+    mProvider.Reset();
+    mProvider.mFaults.mFailCreate = true;
+
+    EXPECT_TRUE(DecryptMetadata().Is(ErrorEnum::eFailed));
+}
+
+TEST_F(CryptoHelperInjectTest, OptionalCMSFieldsAreSkipped)
+{
+    mCertProvider.AddCert("offline", "offline1");
+
+    // optional OriginatorInfo and UnprotectedAttrs are present
+    for (const auto& method : {"ReadStruct", "ReadSet"}) {
+        mProvider.Reset();
+        ASSERT_TRUE(DecryptMetadata().IsNone());
+
+        const auto count = mProvider.Count(method);
+
+        for (size_t call = 0; call < count; call++) {
+            SCOPED_TRACE(std::string(method) + " call " + std::to_string(call));
+
+            mProvider.Inject(method, call, InjectMode::eCallReader);
+
+            if (DecryptMetadata().IsNone()) {
+                EXPECT_TRUE(OutputIsExpected());
+            }
+        }
+    }
+}
+
+TEST_F(CryptoHelperInjectTest, DecryptChecksSessionKeyForTheMode)
+{
+    constexpr auto cDecryptedFile = CRYPTOHELPER_AES_DIR "/decrypted.raw";
+    const auto     key            = ReadFileFromAESDir("aes.key");
+
+    // decoder accepts an unknown mode
+    mProvider.mFaults.mMode = "CBC";
+
+    EXPECT_TRUE(mHelper
+                    .Decrypt(CRYPTOHELPER_AES_DIR "/hello-world.txt.enc", cDecryptedFile,
+                        CreateDecryptionInfo("AES256/CTR", {1, 2, 3, 4, 5}, key))
+                    .Is(ErrorEnum::eNotSupported));
+
+    // decoder accepts an IV of a wrong size
+    mProvider.mFaults.mMode = "";
+    mProvider.mFaults.mIV   = std::vector<uint8_t>(16, 0);
+
+    auto info = CreateDecryptionInfo("AES256/CBC", {1, 2, 3, 4, 5}, key);
+
+    info.mBlockIV.Resize(8);
+
+    EXPECT_TRUE(mHelper.Decrypt(CRYPTOHELPER_AES_DIR "/hello-world.txt.enc", cDecryptedFile, info)
+                    .Is(ErrorEnum::eInvalidArgument));
+}
+
+TEST_F(CryptoHelperInjectTest, ValidateSignsFailsWithTooManyChains)
+{
+    auto chains = Offline1Chain();
+
+    for (size_t i = 0; i < cCertChainsCount; i++) {
+        chains.push_back(CreateCertChain(("chain" + std::to_string(i)).c_str(), {"offline1"}));
+    }
+
+    EXPECT_TRUE(ValidateSigns(CreateSigns("offline1", "RSA"), Offline1Certs(), chains).Is(ErrorEnum::eNoMemory));
+}
+
+TEST_F(CryptoHelperInjectTest, InitFailsWhenRootCertsDontFit)
+{
+    const auto       path = cGCMTestDir + "_roots.pem";
+    std::string      pem;
+    CertProviderStub provider;
+    CryptoHelper     helper;
+
+    {
+        std::ifstream     file(CRYPTOHELPER_CERTS_DIR "/rootCA.pem");
+        std::stringstream content;
+
+        content << file.rdbuf();
+
+        for (size_t i = 0; i < 3; i++) {
+            pem += content.str();
+        }
+    }
+
+    std::ofstream(path) << pem;
+
+    provider.AddRootCertURLCopies("file://" + path, cMaxNumRootCerts / 3 + 1);
+
+    const auto err = helper.Init(mAllocator, provider, *mCryptoProvider, mCertLoader, cDefaultServiceDiscoveryURL);
+
+    std::filesystem::remove(path);
+
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory));
+}
+
+TEST(CryptoHelperInfoTest, Compare)
+{
+    const uint8_t data[]  = {0x01, 0x02};
+    const uint8_t other[] = {0x01, 0x03};
+
+    CertificateInfo cert;
+
+    cert.mCertificate = Array<uint8_t>(data, sizeof(data));
+    cert.mFingerprint = "fingerprint";
+
+    auto certCopy = cert;
+
+    EXPECT_EQ(cert, certCopy);
+
+    certCopy.mFingerprint = "other";
+    EXPECT_NE(cert, certCopy);
+
+    certCopy              = cert;
+    certCopy.mCertificate = Array<uint8_t>(other, sizeof(other));
+    EXPECT_NE(cert, certCopy);
+
+    const auto chain     = CreateCertChain("chain", {"a", "b"});
+    auto       chainCopy = chain;
+
+    EXPECT_EQ(chain, chainCopy);
+
+    chainCopy.mName = "other";
+    EXPECT_NE(chain, chainCopy);
+
+    chainCopy = CreateCertChain("chain", {"a"});
+    EXPECT_NE(chain, chainCopy);
+
+    const auto decrypt     = CreateDecryptionInfo("AES256/CBC", {1, 2}, {3, 4});
+    auto       decryptCopy = decrypt;
+
+    EXPECT_EQ(decrypt, decryptCopy);
+
+    decryptCopy.mBlockAlg = "AES128/CBC";
+    EXPECT_NE(decrypt, decryptCopy);
+
+    decryptCopy = CreateDecryptionInfo("AES256/CBC", {1, 3}, {3, 4});
+    EXPECT_NE(decrypt, decryptCopy);
+
+    decryptCopy = CreateDecryptionInfo("AES256/CBC", {1, 2}, {3, 5});
+    EXPECT_NE(decrypt, decryptCopy);
+
+    SignInfo sign;
+
+    sign.mChainName        = "chain";
+    sign.mAlg              = "RSA";
+    sign.mValue            = Array<uint8_t>(data, sizeof(data));
+    sign.mTrustedTimestamp = Time::Unix(1000);
+
+    auto signCopy = sign;
+
+    EXPECT_EQ(sign, signCopy);
+
+    signCopy.mChainName = "other";
+    EXPECT_NE(sign, signCopy);
+
+    signCopy      = sign;
+    signCopy.mAlg = "ECDSA";
+    EXPECT_NE(sign, signCopy);
+
+    signCopy        = sign;
+    signCopy.mValue = Array<uint8_t>(other, sizeof(other));
+    EXPECT_NE(sign, signCopy);
+
+    signCopy                   = sign;
+    signCopy.mTrustedTimestamp = Time::Unix(2000);
+    EXPECT_NE(sign, signCopy);
+
+    signCopy = sign;
+    ASSERT_TRUE(signCopy.mOCSPValues.EmplaceBack("ocsp").IsNone());
+    EXPECT_NE(sign, signCopy);
 }
 
 } // namespace aos::crypto

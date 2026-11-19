@@ -41,9 +41,7 @@
 using namespace testing;
 
 namespace aos::common::imagemanager {
-
 namespace {
-
 /***********************************************************************************************************************
  * Consts
  **********************************************************************************************************************/
@@ -217,6 +215,101 @@ Error DownloadTestBlob(const String& path, const BlobInfo& blobInfo)
     return fs::WriteStringToFile(path, String(blobInfo.mDigest.CStr() + std::strlen("sha256:")), 0600);
 }
 
+class FailableAllocator : public HeapAllocator {
+public:
+    void* Allocate(size_t size) override
+    {
+        if (mFailAll || size == mFailSize) {
+            return nullptr;
+        }
+
+        return HeapAllocator::Allocate(size);
+    }
+
+    void SetFailAll(bool fail) { mFailAll = fail; }
+    void SetFailSize(size_t size) { mFailSize = size; }
+
+private:
+    std::atomic<bool>   mFailAll {false};
+    std::atomic<size_t> mFailSize {0};
+};
+
+class TestStorageStub : public StorageStub {
+public:
+    Error AddDeployableItem(const DeployableItemInfo& item) override
+    {
+        if (mFailAddItem) {
+            return Error(ErrorEnum::eFailed, "add failed");
+        }
+
+        return StorageStub::AddDeployableItem(item);
+    }
+
+    Error GetAllDeployableItems(Array<DeployableItemInfo>& items) override
+    {
+        if (mFailGetAllAfter >= 0 && mGetAllCalls++ >= mFailGetAllAfter) {
+            return Error(ErrorEnum::eFailed, "get all failed");
+        }
+
+        return StorageStub::GetAllDeployableItems(items);
+    }
+
+    Error AddItemBlob(const String& itemID, const String& version, const ItemBlobInfo& blob) override
+    {
+        if (mAddBlobFailAt >= 0 && mAddBlobCalls++ >= mAddBlobFailAt) {
+            return Error(ErrorEnum::eFailed, "add blob failed");
+        }
+
+        return StorageStub::AddItemBlob(itemID, version, blob);
+    }
+
+    Error GetItemBlobs(const String& itemID, const String& version, Array<ItemBlobInfo>& blobs) override
+    {
+        if (mFailGetItemBlobs) {
+            return Error(ErrorEnum::eFailed, "get blobs failed");
+        }
+
+        return StorageStub::GetItemBlobs(itemID, version, blobs);
+    }
+
+    RetWithError<bool> IsBlobUsed(const String& digest) override
+    {
+        if (mFailIsBlobUsed) {
+            return {false, Error(ErrorEnum::eFailed, "blob used check failed")};
+        }
+
+        return StorageStub::IsBlobUsed(digest);
+    }
+
+    void SetFailAddItem(bool fail) { mFailAddItem = fail; }
+
+    // GetAllDeployableItems fails after the given number of successful calls, negative value disables failing.
+    void SetFailGetAllAfter(int numCalls)
+    {
+        mGetAllCalls     = 0;
+        mFailGetAllAfter = numCalls;
+    }
+
+    // AddItemBlob fails after the given number of successful calls, negative value disables failing.
+    void SetFailAddBlobAfter(int numCalls)
+    {
+        mAddBlobCalls  = 0;
+        mAddBlobFailAt = numCalls;
+    }
+
+    void SetFailGetItemBlobs(bool fail) { mFailGetItemBlobs = fail; }
+    void SetFailIsBlobUsed(bool fail) { mFailIsBlobUsed = fail; }
+
+private:
+    std::atomic<bool> mFailAddItem {false};
+    std::atomic<int>  mFailGetAllAfter {-1};
+    std::atomic<int>  mGetAllCalls {0};
+    std::atomic<int>  mAddBlobFailAt {-1};
+    std::atomic<int>  mAddBlobCalls {0};
+    std::atomic<bool> mFailGetItemBlobs {false};
+    std::atomic<bool> mFailIsBlobUsed {false};
+};
+
 /***********************************************************************************************************************
  * Test image manager
  **********************************************************************************************************************/
@@ -334,9 +427,9 @@ protected:
 
     // mAllocator must be declared before any member that allocates from it, so it is destroyed after them, since
     // members are destroyed in reverse declaration order.
-    HeapAllocator                                mAllocator;
+    FailableAllocator                            mAllocator;
     NiceMock<BlobInfoProviderMock>               mBlobInfoProvider;
-    StorageStub                                  mStorage;
+    TestStorageStub                              mStorage;
     NiceMock<spaceallocator::SpaceAllocatorMock> mSpaceAllocator;
     NiceMock<fs::FileInfoProviderMock>           mFileInfoProvider;
     NiceMock<oci::OCISpecMock>                   mOCISpec;
@@ -705,12 +798,12 @@ protected:
                 ON_CALL(*space, Accept()).WillByDefault(Invoke([this]() {
                     mAcceptCount++;
 
-                    return ErrorEnum::eNone;
+                    return mAcceptError;
                 }));
                 ON_CALL(*space, Release()).WillByDefault(Invoke([this]() {
                     mReleaseCount++;
 
-                    return ErrorEnum::eNone;
+                    return mReleaseError;
                 }));
                 ON_CALL(*space, Resize(_)).WillByDefault(Invoke([this](size_t size) -> Error {
                     mLastResizeSize = size;
@@ -938,6 +1031,8 @@ protected:
     std::atomic<int>    mReleaseCount {0};
     std::atomic<size_t> mLastResizeSize {0};
     Error               mResizeError;
+    Error               mAcceptError;
+    Error               mReleaseError;
 
     std::mutex                                                 mOCIMutex;
     std::map<std::string, std::shared_ptr<oci::ImageIndex>>    mIndexes;
@@ -3663,6 +3758,675 @@ TEST_F(CommonImageManagerCancelTest, CancelBeforeDownloadStarts)
     auto item = GetStoredItem(cTestItemID, cTestVersion);
     ASSERT_TRUE(item.has_value());
     EXPECT_EQ(item->mState, ItemStateEnum::eFailed);
+}
+
+/***********************************************************************************************************************
+ * Error handling
+ **********************************************************************************************************************/
+
+TEST_F(CommonImageManagerTest, ParseDigestSmallBuffers)
+{
+    StaticString<oci::cDigestLen> algorithm;
+    StaticString<oci::cDigestLen> hash;
+    StaticString<3>               smallAlgorithm;
+    StaticString<3>               smallHash;
+
+    auto err = TestImageManager::ParseDigestItem(cTestDigest, smallAlgorithm, hash);
+    EXPECT_TRUE(err.Is(ErrorEnum::eInvalidArgument)) << tests::utils::ErrorToStr(err);
+
+    err = TestImageManager::ParseDigestItem(cTestDigest, algorithm, smallHash);
+    EXPECT_TRUE(err.Is(ErrorEnum::eInvalidArgument)) << tests::utils::ErrorToStr(err);
+
+    err = TestImageManager::ParseDigestItem("sha#256:abc", algorithm, hash);
+    EXPECT_TRUE(err.Is(ErrorEnum::eInvalidArgument)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(CommonImageManagerTest, GetBlobPathSmallBuffer)
+{
+    ASSERT_TRUE(InitImageManager().IsNone());
+
+    StaticString<5> path;
+
+    auto err = mImageManager.GetBlobPath(cTestDigest, path);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(CommonImageManagerTest, StartNoMemory)
+{
+    ASSERT_TRUE(InitImageManager().IsNone());
+
+    mAllocator.SetFailAll(true);
+
+    auto err = mImageManager.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    StaticArray<UpdateItemStatus, 1> statuses;
+
+    err = mImageManager.GetItemsStatuses(statuses);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    mAllocator.SetFailAll(false);
+}
+
+TEST_F(CommonImageManagerTest, StartGetItemsFails)
+{
+    ASSERT_TRUE(InitImageManager().IsNone());
+
+    mStorage.SetFailGetAllAfter(0);
+
+    auto err = mImageManager.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    StaticArray<UpdateItemStatus, 1> statuses;
+
+    err = mImageManager.GetItemsStatuses(statuses);
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(CommonImageManagerTest, SubscribeListenerLimit)
+{
+    std::vector<std::unique_ptr<NiceMock<ItemStatusListenerMock>>> listeners;
+
+    Error err;
+
+    for (size_t i = 0; i < 16 && err.IsNone(); ++i) {
+        listeners.push_back(std::make_unique<NiceMock<ItemStatusListenerMock>>());
+
+        err = mImageManager.SubscribeListener(*listeners.back());
+    }
+
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    listeners.pop_back();
+
+    for (auto& listener : listeners) {
+        EXPECT_TRUE(mImageManager.UnsubscribeListener(*listener).IsNone());
+    }
+}
+
+TEST_F(CommonImageManagerRemoveTest, SetItemFailUpdateFails)
+{
+    AddStoredItem(cTestItemID, cTestVersion, ItemStateEnum::eInstalled);
+
+    mStorage.SetFailUpdateStates({ItemStateEnum::eFailed});
+
+    auto err = mImageManager.SetItemFail(cTestItemID, cTestVersion, ErrorEnum::eIntegrity);
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eInstalled);
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallNoMemory)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    CreateValidBlobs(manifest);
+
+    const struct {
+        size_t      mSize;
+        const char* mName;
+    } testCases[] = {
+        {sizeof(StaticArray<uint8_t, Max(crypto::cSHA256Size, crypto::cSHA512Size)>), "blob hash"},
+        {sizeof(oci::ImageManifest), "manifest"},
+        {sizeof(oci::ImageConfig), "image config"},
+    };
+
+    for (const auto& testCase : testCases) {
+        mAllocator.SetFailSize(testCase.mSize);
+
+        auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest, false, UpdateItemTypeEnum::eService,
+            cTestItemID, (std::string(cTestVersion) + testCase.mName).c_str()));
+
+        EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << testCase.mName << ": " << tests::utils::ErrorToStr(err);
+    }
+
+    mAllocator.SetFailSize(0);
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallIndexNoMemory)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+    const auto index    = AddIndex(900, {manifest});
+
+    CreateValidBlobs(manifest);
+    CreateFile(index.mPath.c_str(), index.mHash.c_str());
+
+    mAllocator.SetFailSize(sizeof(oci::ImageIndex));
+
+    auto err = mImageManager.Install(MakeInstallInfo(index, true));
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    mAllocator.SetFailSize(0);
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallBlobInfoNoMemory)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    CreateValidBlobs(manifest);
+    ASSERT_TRUE(fs::RemoveAll(manifest.mLayers[0].mPath.c_str()).IsNone());
+
+    mAllocator.SetFailSize(sizeof(BlobInfo));
+
+    EXPECT_CALL(mImageManager, DownloadBlob(_, _)).Times(0);
+
+    auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    mAllocator.SetFailSize(0);
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallLoadIndexFails)
+{
+    const auto index = MakeTestBlob(900);
+
+    CreateFile(index.mPath.c_str(), index.mHash.c_str());
+
+    auto err = mImageManager.Install(MakeInstallInfo(index, true));
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eFailed);
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallLoadImageConfigFails)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    CreateValidBlobs(manifest);
+
+    {
+        std::lock_guard lock {mOCIMutex};
+
+        mImageConfigs.erase(manifest.mImageConfig.mPath);
+    }
+
+    auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallItemConfigFails)
+{
+    const auto manifest = AddManifest(1, 1, 1, true);
+
+    CreateValidBlobs(manifest);
+    ASSERT_TRUE(fs::RemoveAll(manifest.mItemConfig.mPath.c_str()).IsNone());
+
+    EXPECT_CALL(mBlobInfoProvider, GetBlobInfo(String(manifest.mItemConfig.mDigest.c_str()), _))
+        .WillOnce(Return(ErrorEnum::eNotFound));
+
+    auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallAddItemBlobFails)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    CreateValidBlobs(manifest);
+
+    for (int failAt = 0; failAt < 3; ++failAt) {
+        mStorage.SetFailAddBlobAfter(failAt);
+
+        auto err = mImageManager.Install(MakeInstallInfo(
+            manifest.mManifest, false, UpdateItemTypeEnum::eService, cTestItemID, std::to_string(failAt).c_str()));
+        EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << failAt << ": " << tests::utils::ErrorToStr(err);
+    }
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallAddStoredItemFails)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    CreateValidBlobs(manifest);
+
+    mStorage.SetFailAddItem(true);
+
+    auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_FALSE(GetStoredItem(cTestItemID, cTestVersion).has_value());
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallAcceptSpaceFails)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    CreateValidBlobs(manifest);
+    ASSERT_TRUE(fs::RemoveAll(manifest.mLayers[0].mPath.c_str()).IsNone());
+
+    mAcceptError = ErrorEnum::eFailed;
+
+    auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(mAcceptCount.load(), 1);
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eFailed);
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallReleaseSpaceFails)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    CreateValidBlobs(manifest);
+    ASSERT_TRUE(fs::RemoveAll(manifest.mLayers[0].mPath.c_str()).IsNone());
+
+    mReleaseError = ErrorEnum::eFailed;
+
+    EXPECT_CALL(mImageManager, DownloadBlob(String(manifest.mLayers[0].mPath.c_str()), _))
+        .WillOnce(Return(ErrorEnum::eTimeout));
+
+    // The release failure is only logged, the download error is returned.
+    auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    EXPECT_TRUE(err.Is(ErrorEnum::eTimeout)) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(mReleaseCount.load(), 1);
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallInvalidLayerDownloadFails)
+{
+    const auto  manifest = AddManifest(1, 1, 1);
+    const auto& layer    = manifest.mLayers[0];
+
+    CreateValidBlobs(manifest);
+    ASSERT_TRUE(fs::RemoveAll(layer.mPath.c_str()).IsNone());
+
+    EXPECT_CALL(mImageManager, CheckLayer(String(layer.mPath.c_str()), _, _))
+        .WillOnce(Return(ErrorEnum::eInvalidChecksum));
+    EXPECT_CALL(mImageManager, RemoveLayer(String(layer.mPath.c_str()), _, _))
+        .WillOnce(Return(RetWithError<size_t>(0, ErrorEnum::eNotSupported)));
+    EXPECT_CALL(mImageManager, DownloadBlob(String(layer.mPath.c_str()), _)).WillOnce(Return(ErrorEnum::eTimeout));
+    EXPECT_CALL(mImageManager, UnpackLayer(_, _, _)).Times(0);
+
+    auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    EXPECT_TRUE(err.Is(ErrorEnum::eTimeout)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(CommonImageManagerRemoveOutdatedTest, RemoveOutdatedStorageErrors)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    InstallAndRemove(manifest);
+
+    mStorage.SetFailGetItem(true);
+
+    auto [size, err] = RemoveOutdated();
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(size, 0);
+
+    mStorage.SetFailGetItem(false);
+    mStorage.SetFailGetItemBlobs(true);
+
+    Tie(size, err) = RemoveOutdated();
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(size, 0);
+
+    mStorage.SetFailGetItemBlobs(false);
+    mAllocator.SetFailSize(sizeof(StaticArray<ItemBlobInfo, cMaxNumItemBlobs>));
+
+    Tie(size, err) = RemoveOutdated();
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(size, 0);
+
+    mAllocator.SetFailSize(0);
+
+    EXPECT_TRUE(GetStoredItem(cTestItemID, cTestVersion).has_value());
+}
+
+TEST_F(CommonImageManagerRemoveOutdatedTest, RemoveOutdatedBlobErrorsAreSkipped)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    InstallAndRemove(manifest);
+
+    // The blobs which usage can't be checked are kept, the item is removed.
+    mStorage.SetFailIsBlobUsed(true);
+
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(String(cTestItemID), String(cTestVersion)));
+
+    auto [size, err] = RemoveOutdated();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(size, 0);
+
+    EXPECT_FALSE(GetStoredItem(cTestItemID, cTestVersion).has_value());
+    EXPECT_TRUE(FileExists(manifest.mManifest.mPath.c_str()));
+}
+
+TEST_F(CommonImageManagerRemoveOutdatedTest, RemoveOutdatedMalformedBlobDigest)
+{
+    AddStoredItem(cTestItemID, cTestVersion, ItemStateEnum::eRemoved);
+
+    ItemBlobInfo blob;
+
+    blob.mDigest = "malformed";
+
+    ASSERT_TRUE(mStorage.AddItemBlob(cTestItemID, cTestVersion, blob).IsNone());
+
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(String(cTestItemID), String(cTestVersion)));
+
+    auto [size, err] = RemoveOutdated();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(size, 0);
+}
+
+TEST_F(CommonImageManagerExpiredTest, RestoreOutdatedItemFails)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    AddExpiredItem(manifest);
+
+    // The restore failure is only logged, the expired item is removed.
+    EXPECT_CALL(mSpaceAllocator, RestoreOutdatedItem(String(cTestItemID), String(cTestVersion)))
+        .WillOnce(Return(ErrorEnum::eFailed));
+
+    auto removed = ExpectRemovedFromCache();
+
+    ASSERT_TRUE(mImageManager.Start().IsNone());
+    ASSERT_EQ(removed.wait_for(cWaitTimeout), std::future_status::ready);
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+
+    EXPECT_FALSE(GetStoredItem(cTestItemID, cTestVersion).has_value());
+}
+
+TEST_F(CommonImageManagerExpiredTest, AddOutdatedItemAgainFails)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    AddExpiredItem(manifest);
+
+    mStorage.SetFailRemoveItem(true);
+
+    auto added = std::make_shared<std::promise<void>>();
+
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String(cTestItemID), String(cTestVersion), _))
+        .WillOnce(Return(ErrorEnum::eNone))
+        .WillOnce(Invoke([added](const String&, const String&, const Time&) {
+            added->set_value();
+
+            return ErrorEnum::eFailed;
+        }));
+
+    ASSERT_TRUE(mImageManager.Start().IsNone());
+    ASSERT_EQ(added->get_future().wait_for(cWaitTimeout), std::future_status::ready);
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eRemoved);
+}
+
+TEST_F(CommonImageManagerOrphanTest, ReadItemsFailsOnCleanup)
+{
+    // The first read is done by Start, the second one by the cleanup.
+    mStorage.SetFailGetAllAfter(1);
+
+    auto finished = ExpectCleanups(1);
+
+    ASSERT_TRUE(mImageManager.Start().IsNone());
+    ASSERT_EQ(finished.wait_for(cWaitTimeout), std::future_status::ready);
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+}
+
+TEST_F(CommonImageManagerOrphanTest, CheckOrphanBlobUsageFails)
+{
+    const auto orphan = MakeTestBlob(900);
+
+    CreateFile(orphan.mPath.c_str(), orphan.mHash.c_str());
+
+    mStorage.SetFailIsBlobUsed(true);
+
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(_)).Times(0);
+
+    auto finished = ExpectCleanups(1);
+
+    ASSERT_TRUE(mImageManager.Start().IsNone());
+    ASSERT_EQ(finished.wait_for(cWaitTimeout), std::future_status::ready);
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+
+    // The blob is kept until its usage is checked.
+    EXPECT_TRUE(FileExists(orphan.mPath.c_str()));
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallBlobPathCheckFails)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    // The algorithm folder is a file, so the blob existence can't be checked.
+    CreateFile(fs::JoinPath(cTestImagePath, "blobs", "sha256"), "content");
+
+    auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    EXPECT_TRUE(err.Is(ENOTDIR)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallSHA512Blob)
+{
+    if (oci::cDigestLen < std::strlen("sha512:") + 128) {
+        GTEST_SKIP() << "The digest length doesn't fit SHA512";
+    }
+
+    TestBlob blob;
+
+    blob.mHash   = std::string(128, 'a');
+    blob.mDigest = "sha512:" + blob.mHash;
+    blob.mPath   = std::string(cTestImagePath) + "/blobs/sha512/" + blob.mHash;
+
+    CreateFile(blob.mPath.c_str(), "content");
+
+    {
+        std::lock_guard lock {mOCIMutex};
+
+        mManifests[blob.mPath] = std::make_shared<oci::ImageManifest>();
+    }
+
+    EXPECT_CALL(mFileInfoProvider, GetFileInfo(String(blob.mPath.c_str()), _, crypto::Hash(crypto::HashEnum::eSHA512)))
+        .WillOnce(Invoke([&](const String&, fs::FileInfo& info, const crypto::Hash&) {
+            info.mSize = std::strlen("content");
+
+            StaticString<128> hash {blob.mHash.c_str()};
+
+            return hash.HexToByteArray(info.mCheckSum);
+        }));
+
+    auto err = mImageManager.Install(MakeInstallInfo(blob));
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallReadStoredItemFails)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    mStorage.SetFailGetItem(true);
+
+    auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(GetNotifiedStatuses().empty());
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallRemoveInvalidBlobFails)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    CreateValidBlobs(manifest);
+
+    const auto dir = fs::Dir(manifest.mManifest.mPath.c_str());
+
+    // The blob is invalid and the algorithm folder is replaced with a file, so the blob can't be removed.
+    EXPECT_CALL(mFileInfoProvider, GetFileInfo(String(manifest.mManifest.mPath.c_str()), _, _))
+        .WillOnce(Invoke([&](const String&, fs::FileInfo& info, const crypto::Hash&) {
+            EXPECT_TRUE(fs::RemoveAll(dir).IsNone());
+            CreateFile(dir, "content");
+
+            info.mSize = cInstallBlobSize;
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mImageManager, DownloadBlob(_, _)).Times(0);
+
+    auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    EXPECT_TRUE(err.Is(ENOTDIR)) << tests::utils::ErrorToStr(err);
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eFailed);
+    EXPECT_TRUE(item->mError.Is(ENOTDIR));
+}
+
+TEST_F(CommonImageManagerInstallTest, InstallDownloadFailsAndPartialBlobCantBeRemoved)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    CreateValidBlobs(manifest);
+
+    const auto& path = manifest.mLayers[0].mPath;
+    const auto  dir  = fs::Dir(path.c_str());
+
+    ASSERT_TRUE(fs::RemoveAll(path.c_str()).IsNone());
+
+    // The algorithm folder is replaced with a file, so the partial blob can't be removed.
+    EXPECT_CALL(mImageManager, DownloadBlob(String(path.c_str()), _))
+        .WillOnce(Invoke([&](const String&, const BlobInfo&) -> Error {
+            EXPECT_TRUE(fs::RemoveAll(dir).IsNone());
+            CreateFile(dir, "content");
+
+            return ErrorEnum::eFailed;
+        }));
+
+    auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    // The space stays used as the blob can't be removed.
+    EXPECT_EQ(mAcceptCount.load(), 1);
+    EXPECT_EQ(mReleaseCount.load(), 0);
+}
+
+TEST_F(CommonImageManagerCancelTest, CancelBeforeLayerBlob)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    CreateValidBlobs(manifest);
+    ASSERT_TRUE(fs::RemoveAll(manifest.mImageConfig.mPath.c_str()).IsNone());
+
+    // The config download is finished though the context is canceled, so the layers are not installed.
+    EXPECT_CALL(mImageManager, DownloadBlob(String(manifest.mImageConfig.mPath.c_str()), _))
+        .WillOnce(Invoke([&](const String& path, const BlobInfo& blobInfo) {
+            EXPECT_TRUE(mImageManager.GetDownloadContext().Cancel().IsNone());
+
+            return DownloadTestBlob(path, blobInfo);
+        }));
+
+    auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
+    EXPECT_TRUE(err.Is(ErrorEnum::eCanceled)) << tests::utils::ErrorToStr(err);
+
+    auto item = GetStoredItem(cTestItemID, cTestVersion);
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(item->mState, ItemStateEnum::eFailed);
+    EXPECT_EQ(mStorage.GetBlobs(cTestItemID, cTestVersion).size(), 2);
+}
+
+TEST_F(CommonImageManagerOrphanTest, SkipLockedOrphanBlob)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    CreateValidBlobs(manifest);
+
+    const auto& layer = manifest.mLayers[0];
+
+    ASSERT_TRUE(fs::RemoveAll(layer.mPath.c_str()).IsNone());
+
+    std::promise<void> downloadStarted;
+    std::promise<void> downloadReleased;
+    auto               downloadReleasedFuture = downloadReleased.get_future();
+
+    // The partial blob is on the disk and is locked by the item being downloaded.
+    EXPECT_CALL(mImageManager, DownloadBlob(String(layer.mPath.c_str()), _))
+        .WillOnce(Invoke([&](const String& path, const BlobInfo& blobInfo) {
+            EXPECT_TRUE(fs::WriteStringToFile(path, "partial", 0600).IsNone());
+
+            downloadStarted.set_value();
+            downloadReleasedFuture.wait();
+
+            return DownloadTestBlob(path, blobInfo);
+        }));
+
+    Error installErr;
+
+    std::thread installThread([&]() { installErr = mImageManager.Install(MakeInstallInfo(manifest.mManifest)); });
+
+    downloadStarted.get_future().wait();
+
+    auto finished = ExpectCleanups(1);
+
+    // Only the unused item config blob is removed.
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(cInstallBlobSize));
+
+    ASSERT_TRUE(mImageManager.Start().IsNone());
+
+    auto cleanupStatus = finished.wait_for(cWaitTimeout);
+
+    downloadReleased.set_value();
+    installThread.join();
+
+    ASSERT_EQ(cleanupStatus, std::future_status::ready);
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+
+    EXPECT_TRUE(installErr.IsNone()) << tests::utils::ErrorToStr(installErr);
+    EXPECT_EQ(ReadFile(layer.mPath), layer.mHash);
+}
+
+TEST_F(CommonImageManagerOrphanTest, ReadExpiredItemsNoMemory)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    InstallAndRemove(manifest);
+
+    // The items are read with the allocator by Start and then by the cleanup.
+    EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String(cTestItemID), String(cTestVersion), _))
+        .WillOnce(Invoke([this](const String&, const String&, const Time&) {
+            mAllocator.SetFailAll(true);
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto finished = ExpectCleanups(1);
+
+    ASSERT_TRUE(mImageManager.Start().IsNone());
+    ASSERT_EQ(finished.wait_for(cWaitTimeout), std::future_status::ready);
+
+    mAllocator.SetFailAll(false);
+
+    ASSERT_TRUE(mImageManager.Stop().IsNone());
+
+    EXPECT_TRUE(GetStoredItem(cTestItemID, cTestVersion).has_value());
+}
+
+TEST_F(CommonImageManagerRemoveOutdatedTest, RemoveOutdatedBlobRemoveFails)
+{
+    const auto manifest = AddManifest(1, 1, 1);
+
+    InstallAndRemove(manifest);
+
+    const auto dir = fs::Dir(manifest.mLayers[0].mPath.c_str());
+
+    // The algorithm folder is replaced with a file, so the layer blob can't be removed.
+    EXPECT_CALL(mImageManager, RemoveLayer(_, _, _)).WillOnce(Invoke([&](const String&, auto&&...) {
+        EXPECT_TRUE(fs::RemoveAll(dir).IsNone());
+        CreateFile(dir, "content");
+
+        return RetWithError<size_t>(0, ErrorEnum::eNotSupported);
+    }));
+    EXPECT_CALL(mListener, OnItemRemovedFromCache(String(cTestItemID), String(cTestVersion)));
+
+    auto [size, err] = RemoveOutdated();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    // Only the blobs removed before the layer are counted.
+    EXPECT_EQ(size, 2 * cInstallBlobSize);
+    EXPECT_FALSE(GetStoredItem(cTestItemID, cTestVersion).has_value());
 }
 
 } // namespace aos::common::imagemanager
