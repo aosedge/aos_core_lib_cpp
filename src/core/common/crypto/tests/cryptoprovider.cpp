@@ -23,11 +23,16 @@
 
 #include "gcmtestvector.hpp"
 
+#ifdef WITH_OPENSSL
+#include <openssl/evp.h>
+#include <openssl/pem.h>
+#include <openssl/rsa.h>
+#endif
+
 using namespace testing;
 using aos::tests::TestAllocator;
 
 namespace aos::crypto {
-
 /***********************************************************************************************************************
  * Suite
  **********************************************************************************************************************/
@@ -832,7 +837,6 @@ TEST_P(CryptoProviderTest, AES_CBC_Decryption)
 }
 
 namespace {
-
 using testvectors::cGCMCipher;
 using testvectors::cGCMIV;
 using testvectors::cGCMKey;
@@ -1665,6 +1669,1419 @@ TEST_P(CryptoProviderTest, ReadRawValue)
 
     EXPECT_TRUE(parseResult.mError.IsNone());
     EXPECT_TRUE(parseResult.mRemaining.IsEmpty());
+}
+
+/***********************************************************************************************************************
+ * Error handling and less common paths
+ **********************************************************************************************************************/
+
+namespace {
+class FakePrivateKey : public PrivateKeyItf {
+public:
+    FakePrivateKey(const RSAPublicKey& pubKey, size_t signatureSize, const Error& signErr = ErrorEnum::eNone)
+        : mSignatureSize(signatureSize)
+        , mSignErr(signErr)
+    {
+        mPubKey.SetValue<RSAPublicKey>(pubKey);
+    }
+
+    FakePrivateKey(const ECDSAPublicKey& pubKey, size_t signatureSize, const Error& signErr = ErrorEnum::eNone)
+        : mSignatureSize(signatureSize)
+        , mSignErr(signErr)
+    {
+        mPubKey.SetValue<ECDSAPublicKey>(pubKey);
+    }
+
+    const PublicKeyItf& GetPublic() const override { return GetBase<PublicKeyItf>(mPubKey); }
+
+    Error Sign(const Array<uint8_t>& digest, const SignOptions& options, Array<uint8_t>& signature) const override
+    {
+        (void)digest;
+        (void)options;
+
+        if (!mSignErr.IsNone()) {
+            return mSignErr;
+        }
+
+        if (auto err = signature.Resize(mSignatureSize); !err.IsNone()) {
+            return err;
+        }
+
+        for (auto& byte : signature) {
+            byte = 0x5A;
+        }
+
+        return ErrorEnum::eNone;
+    }
+
+    Error Decrypt(const Array<uint8_t>&, const DecryptionOptions&, Array<uint8_t>&) const override
+    {
+        return ErrorEnum::eNotSupported;
+    }
+
+private:
+    Variant<ECDSAPublicKey, RSAPublicKey> mPubKey;
+    size_t                                mSignatureSize;
+    Error                                 mSignErr;
+};
+
+std::vector<uint8_t> HexToBytes(const char* hex)
+{
+    std::vector<uint8_t> bytes;
+    const std::string    str(hex);
+
+    for (size_t i = 0; i + 1 < str.size(); i += 2) {
+        bytes.push_back(static_cast<uint8_t>(std::stoul(str.substr(i, 2), nullptr, 16)));
+    }
+
+    return bytes;
+}
+
+RSAPublicKey CreateFakeRSAPublicKey(size_t modulusSize)
+{
+    std::vector<uint8_t> modulus(modulusSize, 0xC5);
+    const uint8_t        exponent[] = {0x01, 0x00, 0x01};
+
+    modulus.back() = 0xC7;
+
+    return RSAPublicKey(tests::utils::ConvertToArray(modulus), Array<uint8_t>(exponent, sizeof(exponent)));
+}
+
+template <size_t cSize>
+void ReadTestFile(const std::string& path, StaticString<cSize>& content)
+{
+    ASSERT_TRUE(fs::ReadFileToString(path.c_str(), content).IsNone()) << "can't read file: " << path;
+}
+
+class ASN1ReaderStub : public asn1::ASN1ReaderItf {
+public:
+    explicit ASN1ReaderStub(const Error& err = ErrorEnum::eNone)
+        : mErr(err)
+    {
+    }
+
+    Error OnASN1Element(const asn1::ASN1Value& value) override
+    {
+        mValues.push_back(value.mTagNumber);
+
+        return mErr;
+    }
+
+    std::vector<int32_t> mValues;
+
+private:
+    Error mErr;
+};
+
+} // namespace
+
+TEST_P(CryptoProviderTest, X509CertToPEM)
+{
+    StaticString<cCertPEMLen>         pem;
+    StaticArray<x509::Certificate, 1> certs;
+
+    ReadTestFile(TEST_CERTIFICATES_DIR "/ca.cer", pem);
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(pem, certs).IsNone());
+
+    StaticString<cCertPEMLen> result;
+
+    // MbedTLS implementation writes into the current string size
+    ASSERT_TRUE(result.Resize(result.MaxSize()).IsNone());
+    ASSERT_TRUE(mCryptoProvider->X509CertToPEM(certs[0], result).IsNone());
+
+    StaticArray<x509::Certificate, 1> parsed;
+
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(result, parsed).IsNone());
+    ASSERT_EQ(parsed.Size(), 1u);
+    EXPECT_EQ(parsed[0].mRaw, certs[0].mRaw);
+
+    StaticString<16> small;
+
+    ASSERT_TRUE(small.Resize(small.MaxSize()).IsNone());
+    EXPECT_FALSE(mCryptoProvider->X509CertToPEM(certs[0], small).IsNone());
+}
+
+TEST_P(CryptoProviderTest, PEMToX509CertsInvalidInput)
+{
+    StaticArray<x509::Certificate, 1> certs;
+
+    EXPECT_FALSE(
+        mCryptoProvider->PEMToX509Certs("-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n", certs)
+            .IsNone());
+
+    StaticString<cCertPEMLen> ca;
+    StaticString<cCertPEMLen> client;
+
+    ReadTestFile(TEST_CERTIFICATES_DIR "/ca.cer", ca);
+    ReadTestFile(TEST_CERTIFICATES_DIR "/client.cer", client);
+
+    StaticString<cCertPEMLen * 2> chain;
+
+    chain.Append(ca).Append(client);
+
+    certs.Clear();
+
+    EXPECT_TRUE(mCryptoProvider->PEMToX509Certs(chain, certs).Is(ErrorEnum::eNoMemory));
+
+    const uint8_t     invalidDER[] = {0x30, 0x03, 0x02, 0x01};
+    x509::Certificate cert;
+
+    EXPECT_FALSE(mCryptoProvider->DERToX509Cert(Array<uint8_t>(invalidDER, sizeof(invalidDER)), cert).IsNone());
+}
+
+TEST_P(CryptoProviderTest, PEMToX509CertsSubjectAltNameURIs)
+{
+    StaticString<cCertPEMLen> pem;
+    x509::CertificateChain    chain;
+
+    ReadTestFile(CRYPTOHELPER_CERTS_DIR "/online.pem", pem);
+
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(pem, chain).IsNone());
+    ASSERT_EQ(chain.Size(), 1u);
+    ASSERT_EQ(chain[0].mSubjectURLs.Size(), 1u);
+    EXPECT_EQ(chain[0].mSubjectURLs[0], "urn:aos:unit:c183de63-e2b7-4776-90e0-b7c9b8f740e8");
+    ASSERT_EQ(chain[0].mIssuerURLs.Size(), 1u);
+    EXPECT_EQ(chain[0].mIssuerURLs[0], "https://www.mytest.com");
+
+    for (const auto* name : {"onlineSanTooManyURIs", "onlineSanLongURI"}) {
+        ReadTestFile(std::string(CRYPTOHELPER_CERTS_DIR "/") + name + ".pem", pem);
+
+        chain.Clear();
+
+        EXPECT_TRUE(mCryptoProvider->PEMToX509Certs(pem, chain).Is(ErrorEnum::eNoMemory)) << name;
+    }
+}
+
+TEST_P(CryptoProviderTest, CreateClientCert)
+{
+    StaticString<cCertPEMLen>    caCert;
+    StaticString<cPrivKeyPEMLen> caKey;
+
+    ReadTestFile(TEST_CERTIFICATES_DIR "/ca.cer", caCert);
+    ReadTestFile(TEST_CERTIFICATES_DIR "/ca.key", caKey);
+
+    x509::CSR templ;
+
+    ASSERT_TRUE(mCryptoProvider->ASN1EncodeDN("CN=Client, O=Org, C=UA", templ.mSubject).IsNone());
+
+    auto [privKey, err] = mFactory->GenerateECDSAPrivKey();
+    ASSERT_TRUE(err.IsNone());
+
+    StaticString<cCSRPEMLen> csr;
+
+    ASSERT_TRUE(mCryptoProvider->CreateCSR(templ, *privKey, csr).IsNone());
+
+    const uint8_t             serial[] = {0x01, 0x02, 0x03, 0x04};
+    StaticString<cCertPEMLen> clientCert;
+
+    err = mCryptoProvider->CreateClientCert(csr, caKey, caCert, Array<uint8_t>(serial, sizeof(serial)), clientCert);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    StaticArray<x509::Certificate, 1> certs;
+    StaticArray<x509::Certificate, 1> caCerts;
+
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(clientCert, certs).IsNone());
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(caCert, caCerts).IsNone());
+
+    EXPECT_EQ(certs[0].mSerial, Array<uint8_t>(serial, sizeof(serial)));
+    EXPECT_EQ(certs[0].mSubject, templ.mSubject);
+    EXPECT_EQ(certs[0].mIssuer, caCerts[0].mSubject);
+    EXPECT_TRUE(GetBase<PublicKeyItf>(certs[0].mPublicKey).IsEqual(privKey->GetPublic()));
+
+    const char* cInvalidPEM = "invalid PEM";
+
+    EXPECT_FALSE(mCryptoProvider
+                     ->CreateClientCert(cInvalidPEM, caKey, caCert, Array<uint8_t>(serial, sizeof(serial)), clientCert)
+                     .IsNone());
+    EXPECT_FALSE(
+        mCryptoProvider->CreateClientCert(csr, cInvalidPEM, caCert, Array<uint8_t>(serial, sizeof(serial)), clientCert)
+            .IsNone());
+    EXPECT_FALSE(
+        mCryptoProvider->CreateClientCert(csr, caKey, cInvalidPEM, Array<uint8_t>(serial, sizeof(serial)), clientCert)
+            .IsNone());
+}
+
+TEST_P(CryptoProviderTest, PEMToX509PrivKeyDecrypt)
+{
+    StaticString<cPrivKeyPEMLen> keyPEM;
+    StaticString<cCertPEMLen>    certPEM;
+
+    ReadTestFile(TEST_CERTIFICATES_DIR "/client.key", keyPEM);
+    ReadTestFile(TEST_CERTIFICATES_DIR "/client.cer", certPEM);
+
+    auto [privKey, err] = mCryptoProvider->PEMToX509PrivKey(keyPEM);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    ASSERT_NE(privKey.Get(), nullptr);
+
+    StaticArray<x509::Certificate, 1> certs;
+
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(certPEM, certs).IsNone());
+
+    const char* msgRaw = "secret message";
+    const auto  msg    = Array<uint8_t>(reinterpret_cast<const uint8_t*>(msgRaw), strlen(msgRaw));
+
+    StaticArray<uint8_t, cSignatureSize> cipher;
+
+    ASSERT_TRUE(mFactory->Encrypt(certs[0].mPublicKey.GetValue<RSAPublicKey>(), msg, cipher).IsNone());
+
+    StaticArray<uint8_t, cSignatureSize> result;
+    DecryptionOptions                    options;
+
+    options.SetValue<PKCS1v15DecryptionOptions>();
+
+    ASSERT_TRUE(privKey->Decrypt(cipher, options, result).IsNone());
+    EXPECT_EQ(result, msg);
+
+    PKCS1v15DecryptionOptions keySizeOpts;
+
+    keySizeOpts.mKeySize = 256;
+    options.SetValue<PKCS1v15DecryptionOptions>(keySizeOpts);
+
+    EXPECT_TRUE(privKey->Decrypt(cipher, options, result).Is(ErrorEnum::eNotSupported));
+
+    OAEPDecryptionOptions oaepOpts;
+
+    oaepOpts.mHash = HashEnum::eSHA256;
+    options.SetValue<OAEPDecryptionOptions>(oaepOpts);
+
+    EXPECT_FALSE(privKey->Decrypt(cipher, options, result).IsNone());
+
+    StaticArray<uint8_t, cSignatureSize> signature;
+
+    EXPECT_TRUE(privKey->Sign(msg, {HashEnum::eSHA256}, signature).Is(ErrorEnum::eNotSupported));
+}
+
+TEST_P(CryptoProviderTest, PEMToX509PrivKeyErrors)
+{
+    EXPECT_FALSE(mCryptoProvider->PEMToX509PrivKey("invalid PEM").mError.IsNone());
+
+    StaticString<cPrivKeyPEMLen> keyPEM;
+
+    ReadTestFile(TEST_CERTIFICATES_DIR "/client.key", keyPEM);
+
+    mAllocator.FailAfter(0);
+
+    EXPECT_TRUE(mCryptoProvider->PEMToX509PrivKey(keyPEM).mError.Is(ErrorEnum::eNoMemory));
+
+    mAllocator.Reset();
+}
+
+TEST_P(CryptoProviderTest, CreateHashAllAlgorithms)
+{
+    const struct {
+        HashEnum    mHash;
+        const char* mExpected;
+    } testCases[] = {
+        {HashEnum::eSHA1, "a9993e364706816aba3e25717850c26c9cd0d89d"},
+        {HashEnum::eSHA224, "23097d223405d8228642a477bda255b32aadbce4bda0b3f7e36c9da7"},
+        {HashEnum::eSHA384,
+            "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7"},
+        {HashEnum::eSHA512,
+            "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d44236"
+            "43ce80e2a9ac94fa54ca49f"},
+        {HashEnum::eSHA512_224, "4634270f707b6a54daae7530460842e20e37ed265ceee9a43e8924aa"},
+        {HashEnum::eSHA512_256, "53048e2681941ef99b2e29b76b4c7dabe4c2d0c634fc6d46e0e2f13107e7af23"},
+        {HashEnum::eSHA3_224, "e642824c3f8cf24ad09234ee7d3c766fc9a3a5168d0c94ad73b46fdf"},
+    };
+
+    for (const auto& testCase : testCases) {
+        SCOPED_TRACE(Hash(testCase.mHash).ToString().CStr());
+
+        auto [hasher, err] = mHashProvider->CreateHash(testCase.mHash);
+
+        // PSA build of MbedTLS doesn't support truncated SHA512 variants
+        if (mFactory->GetName() == "MBedTLS"
+            && (testCase.mHash == HashEnum::eSHA512_224 || testCase.mHash == HashEnum::eSHA512_256)) {
+            EXPECT_FALSE(err.IsNone());
+
+            continue;
+        }
+
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        ASSERT_TRUE(hasher->Update(String("abc").AsByteArray()).IsNone());
+
+        StaticArray<uint8_t, cSHA512Size> result;
+
+        ASSERT_TRUE(hasher->Finalize(result).IsNone());
+
+        EXPECT_EQ(std::vector<uint8_t>(result.begin(), result.end()), HexToBytes(testCase.mExpected));
+    }
+}
+
+TEST_P(CryptoProviderTest, CreateHashErrors)
+{
+    EXPECT_FALSE(mHashProvider->CreateHash(HashEnum::eNone).mError.IsNone());
+
+    mAllocator.FailAfter(0);
+
+    EXPECT_TRUE(mHashProvider->CreateHash(HashEnum::eSHA256).mError.Is(ErrorEnum::eNoMemory));
+
+    mAllocator.Reset();
+
+    {
+        auto [hasher, err] = mHashProvider->CreateHash(HashEnum::eSHA256);
+        ASSERT_TRUE(err.IsNone());
+
+        StaticArray<uint8_t, 16> result;
+
+        EXPECT_FALSE(hasher->Finalize(result).IsNone());
+    }
+
+    {
+        auto [hasher, err] = mHashProvider->CreateHash(HashEnum::eSHA256);
+        ASSERT_TRUE(err.IsNone());
+
+        StaticArray<uint8_t, cSHA256Size> result;
+
+        ASSERT_TRUE(hasher->Finalize(result).IsNone());
+
+        EXPECT_FALSE(hasher->Update(String("abc").AsByteArray()).IsNone());
+        EXPECT_FALSE(hasher->Finalize(result).IsNone());
+    }
+}
+
+TEST_P(CryptoProviderTest, CreateUUIDv4)
+{
+    auto [uuid1, err1] = mCryptoProvider->CreateUUIDv4();
+    ASSERT_TRUE(err1.IsNone());
+
+    auto [uuid2, err2] = mCryptoProvider->CreateUUIDv4();
+    ASSERT_TRUE(err2.IsNone());
+
+    ASSERT_EQ(uuid1.Size(), uuid::cUUIDSize);
+    EXPECT_NE(uuid1, uuid2);
+
+    for (const auto& uuid : {uuid1, uuid2}) {
+        EXPECT_EQ(uuid[6] & 0xf0, 0x40);
+        EXPECT_EQ(uuid[8] & 0xc0, 0x80);
+    }
+}
+
+TEST_P(CryptoProviderTest, CreateUUIDv5NameTooLong)
+{
+    std::vector<uint8_t> name(cSHA1InputDataSize + 1, 'a');
+
+    EXPECT_FALSE(mCryptoProvider->CreateUUIDv5(uuid::UUID(), tests::utils::ConvertToArray(name)).mError.IsNone());
+}
+
+TEST_P(CryptoProviderTest, RandBufferDefaultSize)
+{
+    StaticArray<uint8_t, 8> buffer;
+
+    ASSERT_TRUE(mRandomProvider->RandBuffer(buffer).IsNone());
+    EXPECT_EQ(buffer.Size(), buffer.MaxSize());
+}
+
+TEST_P(CryptoProviderTest, ASN1EncodeDNErrors)
+{
+    StaticArray<uint8_t, 100> result;
+
+    EXPECT_FALSE(mCryptoProvider->ASN1EncodeDN("CN", result).IsNone());
+    EXPECT_FALSE(mCryptoProvider->ASN1EncodeDN("UNKNOWNKEY=value", result).IsNone());
+
+    StaticArray<uint8_t, 4> small;
+
+    EXPECT_FALSE(mCryptoProvider->ASN1EncodeDN("C=UA, CN=Aos Core", small).IsNone());
+
+    ASSERT_TRUE(mCryptoProvider->ASN1EncodeDN("C=UA, CN=Aos Core", result).IsNone());
+
+    // OpenSSL implementation skips empty entries
+    if (mFactory->GetName() == "OpenSSL") {
+        StaticArray<uint8_t, 100> withEmpty;
+
+        ASSERT_TRUE(mCryptoProvider->ASN1EncodeDN("C=UA, , CN=Aos Core", withEmpty).IsNone());
+        EXPECT_EQ(withEmpty, result);
+    }
+
+    StaticString<100> decoded;
+
+    ASSERT_TRUE(mCryptoProvider->ASN1DecodeDN(result, decoded).IsNone());
+    EXPECT_EQ(decoded, "C=UA, CN=Aos Core");
+
+    StaticString<5> smallStr;
+
+    EXPECT_FALSE(mCryptoProvider->ASN1DecodeDN(result, smallStr).IsNone());
+}
+
+TEST_P(CryptoProviderTest, ASN1EncodeErrors)
+{
+    StaticArray<uint8_t, 4> small;
+
+    StaticArray<asn1::ObjectIdentifier, 1> oids;
+
+    oids.PushBack("1.3.6.1.5.5.7.3.1");
+
+    EXPECT_FALSE(mCryptoProvider->ASN1EncodeObjectIds(oids, small).IsNone());
+
+    const uint8_t bigInt[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
+
+    EXPECT_FALSE(mCryptoProvider->ASN1EncodeBigInt(Array<uint8_t>(bigInt, sizeof(bigInt)), small).IsNone());
+
+    const uint8_t                  oid[] = {0x6, 0x8, 0x2b, 0x6, 0x1, 0x5, 0x5, 0x7, 0x3, 0x1};
+    StaticArray<Array<uint8_t>, 1> items;
+
+    items.PushBack(Array<uint8_t>(oid, sizeof(oid)));
+
+    EXPECT_FALSE(mCryptoProvider->ASN1EncodeDERSequence(items, small).IsNone());
+}
+
+TEST_P(CryptoProviderTest, ASN1DecodeErrors)
+{
+    StaticArray<uint8_t, 100> result;
+
+    const uint8_t octetString[] = {0x04, 0x04, 0x01, 0x02, 0x03, 0x04};
+    const uint8_t oid[]         = {0x06, 0x03, 0x2b, 0x06, 0x01};
+    const uint8_t truncated[]   = {0x04, 0x10, 0x01};
+
+    EXPECT_FALSE(mCryptoProvider->ASN1DecodeOctetString(Array<uint8_t>(oid, sizeof(oid)), result).IsNone());
+    EXPECT_FALSE(mCryptoProvider->ASN1DecodeOID(Array<uint8_t>(octetString, sizeof(octetString)), result).IsNone());
+
+    EXPECT_FALSE(mCryptoProvider->ASN1DecodeOctetString(Array<uint8_t>(truncated, sizeof(truncated)), result).IsNone());
+    EXPECT_FALSE(mCryptoProvider->ASN1DecodeOID(Array<uint8_t>(truncated, sizeof(truncated)), result).IsNone());
+
+    StaticArray<uint8_t, 2> small;
+
+    EXPECT_FALSE(
+        mCryptoProvider->ASN1DecodeOctetString(Array<uint8_t>(octetString, sizeof(octetString)), small).IsNone());
+    EXPECT_FALSE(mCryptoProvider->ASN1DecodeOID(Array<uint8_t>(oid, sizeof(oid)), small).IsNone());
+}
+
+TEST_P(CryptoProviderTest, VerifySignatureErrors)
+{
+    StaticArray<x509::Certificate, 1> certs;
+    std::shared_ptr<PrivateKeyItf>    rsaKey;
+
+    CreateCertificate(*mFactory, *mCryptoProvider, "CN=Test Subject, O=Org, C=GB", KeyTypeEnum::eRSA, rsaKey, certs);
+
+    StaticArray<uint8_t, cSHA256Size> digest;
+
+    {
+        auto [hasher, err] = mHashProvider->CreateHash(HashEnum::eSHA256);
+        ASSERT_TRUE(err.IsNone());
+        ASSERT_TRUE(hasher->Update(String("Hello world").AsByteArray()).IsNone());
+        ASSERT_TRUE(hasher->Finalize(digest).IsNone());
+    }
+
+    StaticArray<uint8_t, cSignatureSize> signature;
+
+    ASSERT_TRUE(rsaKey->Sign(digest, {HashEnum::eSHA256}, signature).IsNone());
+
+    Variant<ECDSAPublicKey, RSAPublicKey> rsaPubKey;
+    rsaPubKey.SetValue(static_cast<const RSAPublicKey&>(rsaKey->GetPublic()));
+
+    ASSERT_TRUE(mCryptoProvider->Verify(rsaPubKey, HashEnum::eSHA256, x509::PaddingEnum::ePKCS1v1_5, digest, signature)
+                    .IsNone());
+
+    EXPECT_FALSE(
+        mCryptoProvider->Verify(rsaPubKey, HashEnum::eSHA256, x509::PaddingEnum::eNone, digest, signature).IsNone());
+
+    EXPECT_FALSE(
+        mCryptoProvider->Verify(rsaPubKey, HashEnum::eSHA256, x509::PaddingEnum::ePSS, digest, signature).IsNone());
+
+    EXPECT_FALSE(
+        mCryptoProvider->Verify(rsaPubKey, HashEnum::eNone, x509::PaddingEnum::ePKCS1v1_5, digest, signature).IsNone());
+
+    EXPECT_FALSE(mCryptoProvider
+                     ->Verify(rsaPubKey, HashEnum::eSHA256, x509::PaddingEnum::ePKCS1v1_5, Array<uint8_t>(), signature)
+                     .IsNone());
+
+    std::shared_ptr<PrivateKeyItf> ecKey;
+
+    certs.Clear();
+    CreateCertificate(*mFactory, *mCryptoProvider, "CN=Test Subject, O=Org, C=GB", KeyTypeEnum::eECDSA, ecKey, certs);
+
+    const auto& ecPubKey = static_cast<const ECDSAPublicKey&>(ecKey->GetPublic());
+
+    EXPECT_FALSE(rsaKey->GetPublic().IsEqual(ecPubKey));
+    EXPECT_FALSE(ecPubKey.IsEqual(rsaKey->GetPublic()));
+    EXPECT_STREQ(x509::Padding(x509::PaddingEnum::ePSS).ToString().CStr(), "PSS");
+
+    Variant<ECDSAPublicKey, RSAPublicKey> pubKey;
+    pubKey.SetValue(ecPubKey);
+
+    StaticArray<uint8_t, 96> wrongSignature;
+
+    wrongSignature.Resize(wrongSignature.MaxSize(), 0x11);
+
+    EXPECT_FALSE(
+        mCryptoProvider->Verify(pubKey, HashEnum::eSHA256, x509::PaddingEnum::eNone, digest, wrongSignature).IsNone());
+
+    const uint8_t unknownOID[] = {0x2a, 0x03, 0x04};
+
+    pubKey.SetValue<ECDSAPublicKey>(Array<uint8_t>(unknownOID, sizeof(unknownOID)), ecPubKey.GetECPoint());
+
+    EXPECT_FALSE(
+        mCryptoProvider->Verify(pubKey, HashEnum::eSHA256, x509::PaddingEnum::eNone, digest, wrongSignature).IsNone());
+
+    const uint8_t invalidPoint[] = {0x04, 0x01, 0x02, 0x03};
+
+    pubKey.SetValue<ECDSAPublicKey>(ecPubKey.GetECParamsOID(), Array<uint8_t>(invalidPoint, sizeof(invalidPoint)));
+
+    EXPECT_FALSE(
+        mCryptoProvider->Verify(pubKey, HashEnum::eSHA256, x509::PaddingEnum::eNone, digest, wrongSignature).IsNone());
+}
+
+TEST_P(CryptoProviderTest, VerifyCertChainErrors)
+{
+    StaticString<cCertPEMLen>         buff;
+    StaticArray<x509::Certificate, 1> rootCerts;
+    StaticArray<x509::Certificate, 1> intermCerts;
+    StaticArray<x509::Certificate, 1> leafCerts;
+
+    ReadTestFile(TEST_CERTIFICATES_DIR "/ca.cer", buff);
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(buff, rootCerts).IsNone());
+
+    ReadTestFile(TEST_CERTIFICATES_DIR "/client_int.cer", buff);
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(buff, intermCerts).IsNone());
+
+    ReadTestFile(TEST_CERTIFICATES_DIR "/client.cer", buff);
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(buff, leafCerts).IsNone());
+
+    x509::VerifyOptions opts;
+
+    EXPECT_FALSE(mCryptoProvider->Verify(Array<x509::Certificate>(), intermCerts, opts, leafCerts[0]).IsNone());
+
+    EXPECT_FALSE(mCryptoProvider->Verify(rootCerts, Array<x509::Certificate>(), opts, leafCerts[0]).IsNone());
+
+    const uint8_t invalidDER[] = {0x30, 0x03, 0x02, 0x01, 0x01};
+
+    {
+        auto invalidCerts = rootCerts;
+
+        invalidCerts[0].mRaw = Array<uint8_t>(invalidDER, sizeof(invalidDER));
+
+        EXPECT_FALSE(mCryptoProvider->Verify(invalidCerts, intermCerts, opts, leafCerts[0]).IsNone());
+    }
+
+    {
+        auto invalidCerts = intermCerts;
+
+        invalidCerts[0].mRaw = Array<uint8_t>(invalidDER, sizeof(invalidDER));
+
+        EXPECT_FALSE(mCryptoProvider->Verify(rootCerts, invalidCerts, opts, leafCerts[0]).IsNone());
+    }
+
+    {
+        auto invalidCert = leafCerts[0];
+
+        invalidCert.mRaw = Array<uint8_t>(invalidDER, sizeof(invalidDER));
+
+        EXPECT_FALSE(mCryptoProvider->Verify(rootCerts, intermCerts, opts, invalidCert).IsNone());
+    }
+}
+
+TEST_P(CryptoProviderTest, CreateCertificateWithTemplateValues)
+{
+    Error             err;
+    x509::Certificate templ;
+    x509::Certificate parent;
+
+    Tie(templ, err) = CreateCertTemplate("CN=Template, O=Org, C=UA", *mCryptoProvider);
+    ASSERT_TRUE(err.IsNone());
+
+    const uint8_t serial[] = {0x12, 0x34, 0x56, 0x78};
+    const uint8_t skid[]   = {0x04, 0x04, 0x0a, 0x0b, 0x0c, 0x0d};
+
+    templ.mSerial       = Array<uint8_t>(serial, sizeof(serial));
+    templ.mSubjectKeyId = Array<uint8_t>(skid, sizeof(skid));
+
+    templ.mIssuerURLs.PushBack("https://issuer.test");
+
+    auto [privKey, genErr] = mFactory->GenerateECDSAPrivKey();
+    ASSERT_TRUE(genErr.IsNone());
+
+    StaticString<cCertPEMLen> pem;
+
+    err = mCryptoProvider->CreateCertificate(templ, parent, *privKey, pem);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    StaticArray<x509::Certificate, 1> certs;
+
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(pem, certs).IsNone());
+
+    const uint8_t expectedSKID[] = {0x0a, 0x0b, 0x0c, 0x0d};
+
+    EXPECT_EQ(certs[0].mSerial, Array<uint8_t>(serial, sizeof(serial)));
+    EXPECT_EQ(certs[0].mSubjectKeyId, Array<uint8_t>(expectedSKID, sizeof(expectedSKID)));
+
+    if (mFactory->GetName() == "OpenSSL") {
+        ASSERT_EQ(certs[0].mIssuerURLs.Size(), 1u);
+        EXPECT_EQ(certs[0].mIssuerURLs[0], "https://issuer.test");
+    }
+}
+
+TEST_P(CryptoProviderTest, CreateCertificateErrors)
+{
+    Error             err;
+    x509::Certificate templ;
+    x509::Certificate parent;
+
+    Tie(templ, err) = CreateCertTemplate("CN=Template, O=Org, C=UA", *mCryptoProvider);
+    ASSERT_TRUE(err.IsNone());
+
+    auto [privKey, genErr] = mFactory->GenerateECDSAPrivKey();
+    ASSERT_TRUE(genErr.IsNone());
+
+    StaticString<cCertPEMLen> pem;
+
+    {
+        auto          invalidTempl = templ;
+        const uint8_t invalidDN[]  = {0x30, 0x05, 0x01};
+
+        invalidTempl.mSubject = Array<uint8_t>(invalidDN, sizeof(invalidDN));
+
+        EXPECT_FALSE(mCryptoProvider->CreateCertificate(invalidTempl, parent, *privKey, pem).IsNone());
+    }
+
+    {
+        FakePrivateKey failingKey(
+            static_cast<const ECDSAPublicKey&>(privKey->GetPublic()), 96, Error(ErrorEnum::eFailed, "sign failed"));
+
+        EXPECT_FALSE(mCryptoProvider->CreateCertificate(templ, parent, failingKey, pem).IsNone());
+
+        x509::CSR csrTempl;
+
+        csrTempl.mSubject = templ.mSubject;
+
+        StaticString<cCSRPEMLen> csr;
+
+        EXPECT_FALSE(mCryptoProvider->CreateCSR(csrTempl, failingKey, csr).IsNone());
+    }
+}
+
+TEST_P(CryptoProviderTest, CreateCSRErrors)
+{
+    auto [privKey, err] = mFactory->GenerateRSAPrivKey();
+    ASSERT_TRUE(err.IsNone());
+
+    StaticString<cCSRPEMLen> pemCSR;
+
+    {
+        x509::CSR     templ;
+        const uint8_t invalidDN[] = {0x30, 0x05, 0x01};
+
+        templ.mSubject = Array<uint8_t>(invalidDN, sizeof(invalidDN));
+
+        EXPECT_FALSE(mCryptoProvider->CreateCSR(templ, *privKey, pemCSR).IsNone());
+    }
+
+    {
+        x509::CSR     templ;
+        const uint8_t value[] = {0x30, 0x00};
+
+        ASSERT_TRUE(mCryptoProvider->ASN1EncodeDN("CN=Test", templ.mSubject).IsNone());
+
+        templ.mExtraExtensions.Resize(1);
+        templ.mExtraExtensions[0].mID    = "invalid";
+        templ.mExtraExtensions[0].mValue = Array<uint8_t>(value, sizeof(value));
+
+        EXPECT_FALSE(mCryptoProvider->CreateCSR(templ, *privKey, pemCSR).IsNone());
+    }
+}
+
+TEST_P(CryptoProviderTest, CreateCSRWithDifferentKeys)
+{
+    struct TestCase {
+        const char* mName;
+        const char* mOID;
+        const char* mPoint;
+        size_t      mSignatureSize;
+        bool        mOpenSSLSupported;
+        bool        mMbedTLSSupported;
+    };
+
+    const TestCase ecTestCases[] = {
+        {"prime192v1", "2a8648ce3d030101",
+            "04fff826be81e5ce3028b44a763dd629dacaf303ac35c8ab3be63a79655b8894a19432739fca33d6d92984014062c36a22", 48,
+            true, true},
+        {"secp224r1", "2b81040021",
+            "049bb4ec3c8995abb924ed6897f9ac6f2a6b1024bccff8406b64d46aab33120dbf1db84816723ae8b9ff1612b141211fde1c94fbf5"
+            "10954f8d",
+            56, true, true},
+        {"prime256v1", "2a8648ce3d030107",
+            "0449d2e537c544b70072cbebcb27e307d75d2fba5d85236bd4eaad159168b7338eea7b0ee026f0ef962a8eb22bc10ba650e1bd6c88"
+            "db8b459aa4051004cee6e56a",
+            64, true, true},
+        {"secp192k1", "2b8104001f",
+            "048deb0f6871d44692abaf7b619dc0cebd1e3295be2a6f416335c4011e8bcb42818a02573ce8dc97f2b4c0a2b636d6de08", 48,
+            true, true},
+        {"secp224k1", "2b81040020",
+            "041a63807ec53532654898470df3aacd438027ece3c7c87f9876a7a6108d03882aa426c5eeab5fcfab556ef0b286ee9f43fd7076d2"
+            "5e640145",
+            56, true, false},
+        {"secp256k1", "2b8104000a",
+            "04bf2cc0eff65230c34c06368b630ab7ad61a2146f08717c54d0ef3e7d04e6b1718da4acd4ec4c4b055503025eb026203fd6960a26"
+            "8f5db8ae3df032e0c8997a76",
+            64, true, true},
+        {"brainpoolP256r1", "2b2403030208010107",
+            "046d5e20930b1f9636e76a83a5fa1e70579c85245840e59106fe20d7fb76ece485a36f74d52ef9178a46784314209514708e0e1040"
+            "4c65f295bb561fb9c1cbbfa6",
+            64, false, true},
+        {"brainpoolP384r1", "2b240303020801010b",
+            "0449e3e793ab62229ba9c1662161a74e973c7e9ac2ce326a4810ed72c3e5a5bddbcde55feec41559ed70246d34a2e57ca74b053d6"
+            "2bb9a2fff4e373711801bfee2229f94ef3a698db219605cfba98d202f5371e45b367c11f2c240c38ddec1d17c",
+            96, false, true},
+    };
+
+    x509::CSR templ;
+
+    ASSERT_TRUE(mCryptoProvider->ASN1EncodeDN("CN=Test, O=Org, C=UA", templ.mSubject).IsNone());
+
+    for (const auto& testCase : ecTestCases) {
+        SCOPED_TRACE(testCase.mName);
+
+        const auto oid   = HexToBytes(testCase.mOID);
+        const auto point = HexToBytes(testCase.mPoint);
+
+        FakePrivateKey key(ECDSAPublicKey(tests::utils::ConvertToArray(oid), tests::utils::ConvertToArray(point)),
+            testCase.mSignatureSize);
+
+        StaticString<cCSRPEMLen> pemCSR;
+
+        // OpenSSL provider can't hold brainpool OIDs: they don't fit into cECDSAParamsOIDSize with tag and length,
+        // the PSA build of MbedTLS doesn't support secp224k1.
+        const auto supported
+            = mFactory->GetName() == "OpenSSL" ? testCase.mOpenSSLSupported : testCase.mMbedTLSSupported;
+
+        auto err = mCryptoProvider->CreateCSR(templ, key, pemCSR);
+        EXPECT_EQ(err.IsNone(), supported) << tests::utils::ErrorToStr(err);
+    }
+
+    for (const size_t modulusSize : {128, 512}) {
+        SCOPED_TRACE(modulusSize);
+
+        FakePrivateKey key(CreateFakeRSAPublicKey(modulusSize), modulusSize);
+
+        StaticString<cCSRPEMLen> pemCSR;
+
+        auto err = mCryptoProvider->CreateCSR(templ, key, pemCSR);
+        EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    }
+}
+
+TEST_P(CryptoProviderTest, ReadStructErrors)
+{
+    asn1::ASN1ParseOptions optional;
+    optional.mOptional = true;
+
+    ASN1ReaderStub reader;
+
+    EXPECT_TRUE(mCryptoProvider->ReadStruct(Array<uint8_t>(), optional, reader).mError.IsNone());
+
+    const uint8_t truncated[] = {0x30};
+
+    EXPECT_FALSE(mCryptoProvider->ReadStruct(Array<uint8_t>(truncated, sizeof(truncated)), {}, reader).mError.IsNone());
+
+    const uint8_t integer[] = {0x02, 0x01, 0x05};
+    const auto    intData   = Array<uint8_t>(integer, sizeof(integer));
+
+    EXPECT_FALSE(mCryptoProvider->ReadStruct(intData, {}, reader).mError.IsNone());
+
+    auto result = mCryptoProvider->ReadStruct(intData, optional, reader);
+    EXPECT_TRUE(result.mError.Is(ErrorEnum::eNotFound));
+    EXPECT_EQ(result.mRemaining, intData);
+
+    asn1::ASN1ParseOptions tagged;
+    tagged.mTag.SetValue(17);
+
+    const uint8_t seq[]   = {0x30, 0x03, 0x02, 0x01, 0x05};
+    const auto    seqData = Array<uint8_t>(seq, sizeof(seq));
+
+    EXPECT_FALSE(mCryptoProvider->ReadStruct(seqData, tagged, reader).mError.IsNone());
+
+    tagged.mOptional = true;
+
+    EXPECT_TRUE(mCryptoProvider->ReadStruct(seqData, tagged, reader).mError.Is(ErrorEnum::eNotFound));
+
+    asn1::ASN1ParseOptions intTag;
+    intTag.mTag.SetValue(2);
+
+    EXPECT_FALSE(mCryptoProvider->ReadStruct(intData, intTag, reader).mError.IsNone());
+
+    const uint8_t short_[] = {0x30, 0x05, 0x02, 0x01};
+
+    EXPECT_FALSE(mCryptoProvider->ReadStruct(Array<uint8_t>(short_, sizeof(short_)), {}, reader).mError.IsNone());
+
+    ASN1ReaderStub failingReader(ErrorEnum::eFailed);
+
+    EXPECT_TRUE(mCryptoProvider->ReadStruct(seqData, {}, failingReader).mError.Is(ErrorEnum::eFailed));
+}
+
+TEST_P(CryptoProviderTest, ReadContainerErrors)
+{
+    asn1::ASN1ParseOptions optional;
+    optional.mOptional = true;
+
+    ASN1ReaderStub reader;
+
+    EXPECT_TRUE(mCryptoProvider->ReadSequence(Array<uint8_t>(), optional, reader).mError.IsNone());
+    EXPECT_TRUE(mCryptoProvider->ReadSet(Array<uint8_t>(), optional, reader).mError.IsNone());
+
+    const uint8_t truncated[] = {0x30};
+
+    EXPECT_FALSE(
+        mCryptoProvider->ReadSequence(Array<uint8_t>(truncated, sizeof(truncated)), {}, reader).mError.IsNone());
+
+    const uint8_t seq[]   = {0x30, 0x03, 0x02, 0x01, 0x05};
+    const auto    seqData = Array<uint8_t>(seq, sizeof(seq));
+
+    EXPECT_FALSE(mCryptoProvider->ReadSet(seqData, {}, reader).mError.IsNone());
+
+    auto result = mCryptoProvider->ReadSet(seqData, optional, reader);
+    EXPECT_TRUE(result.mError.Is(ErrorEnum::eNotFound));
+    EXPECT_EQ(result.mRemaining, seqData);
+
+    asn1::ASN1ParseOptions tagged;
+    tagged.mTag.SetValue(17);
+
+    EXPECT_FALSE(mCryptoProvider->ReadSequence(seqData, tagged, reader).mError.IsNone());
+
+    tagged.mOptional = true;
+
+    EXPECT_TRUE(mCryptoProvider->ReadSequence(seqData, tagged, reader).mError.Is(ErrorEnum::eNotFound));
+
+    const uint8_t          integer[] = {0x02, 0x01, 0x05};
+    asn1::ASN1ParseOptions intTag;
+    intTag.mTag.SetValue(2);
+
+    EXPECT_FALSE(
+        mCryptoProvider->ReadSequence(Array<uint8_t>(integer, sizeof(integer)), intTag, reader).mError.IsNone());
+
+    const uint8_t short_[] = {0x30, 0x05, 0x02, 0x01};
+
+    EXPECT_FALSE(mCryptoProvider->ReadSequence(Array<uint8_t>(short_, sizeof(short_)), {}, reader).mError.IsNone());
+
+    const uint8_t invalidElem[] = {0x30, 0x02, 0x02, 0x05};
+
+    EXPECT_FALSE(
+        mCryptoProvider->ReadSequence(Array<uint8_t>(invalidElem, sizeof(invalidElem)), {}, reader).mError.IsNone());
+
+    const uint8_t truncatedLongTag[] = {0x30, 0x02, 0x1f, 0x81};
+
+    EXPECT_FALSE(mCryptoProvider->ReadSequence(Array<uint8_t>(truncatedLongTag, sizeof(truncatedLongTag)), {}, reader)
+                     .mError.IsNone());
+
+    const uint8_t longTag[] = {0x30, 0x04, 0x9f, 0x81, 0x01, 0x00};
+
+    reader.mValues.clear();
+
+    ASSERT_TRUE(mCryptoProvider->ReadSequence(Array<uint8_t>(longTag, sizeof(longTag)), {}, reader).mError.IsNone());
+    ASSERT_EQ(reader.mValues.size(), 1u);
+    EXPECT_EQ(reader.mValues[0], 129);
+
+    ASN1ReaderStub failingReader(ErrorEnum::eFailed);
+
+    EXPECT_TRUE(mCryptoProvider->ReadSequence(seqData, {}, failingReader).mError.Is(ErrorEnum::eFailed));
+}
+
+TEST_P(CryptoProviderTest, ReadPrimitiveErrors)
+{
+    asn1::ASN1ParseOptions optional;
+    optional.mOptional = true;
+
+    const uint8_t invalid[]   = {0x05, 0x00};
+    const auto    invalidData = Array<uint8_t>(invalid, sizeof(invalid));
+
+    {
+        int32_t value = 1;
+
+        EXPECT_TRUE(mCryptoProvider->ReadInteger(Array<uint8_t>(), optional, value).mError.Is(ErrorEnum::eNotFound));
+        EXPECT_FALSE(mCryptoProvider->ReadInteger(invalidData, {}, value).mError.IsNone());
+
+        auto result = mCryptoProvider->ReadInteger(invalidData, optional, value);
+        EXPECT_TRUE(result.mError.Is(ErrorEnum::eNotFound));
+        EXPECT_EQ(result.mRemaining, invalidData);
+    }
+
+    {
+        StaticArray<uint8_t, 2> value;
+
+        EXPECT_TRUE(mCryptoProvider->ReadBigInt(Array<uint8_t>(), optional, value).mError.Is(ErrorEnum::eNotFound));
+        EXPECT_FALSE(mCryptoProvider->ReadBigInt(invalidData, {}, value).mError.IsNone());
+        EXPECT_TRUE(mCryptoProvider->ReadBigInt(invalidData, optional, value).mError.Is(ErrorEnum::eNotFound));
+
+        const uint8_t bigInt[] = {0x02, 0x04, 0x01, 0x02, 0x03, 0x04};
+
+        EXPECT_FALSE(mCryptoProvider->ReadBigInt(Array<uint8_t>(bigInt, sizeof(bigInt)), {}, value).mError.IsNone());
+    }
+
+    {
+        asn1::ObjectIdentifier oid;
+
+        EXPECT_TRUE(mCryptoProvider->ReadOID(Array<uint8_t>(), optional, oid).mError.Is(ErrorEnum::eNotFound));
+        EXPECT_FALSE(mCryptoProvider->ReadOID(invalidData, {}, oid).mError.IsNone());
+        EXPECT_TRUE(mCryptoProvider->ReadOID(invalidData, optional, oid).mError.Is(ErrorEnum::eNotFound));
+    }
+
+    {
+        StaticArray<uint8_t, 2> value;
+
+        EXPECT_TRUE(
+            mCryptoProvider->ReadOctetString(Array<uint8_t>(), optional, value).mError.Is(ErrorEnum::eNotFound));
+        EXPECT_FALSE(mCryptoProvider->ReadOctetString(invalidData, {}, value).mError.IsNone());
+        EXPECT_TRUE(mCryptoProvider->ReadOctetString(invalidData, optional, value).mError.Is(ErrorEnum::eNotFound));
+
+        const uint8_t octetString[] = {0x04, 0x04, 0x01, 0x02, 0x03, 0x04};
+
+        EXPECT_FALSE(mCryptoProvider->ReadOctetString(Array<uint8_t>(octetString, sizeof(octetString)), {}, value)
+                         .mError.IsNone());
+    }
+
+    {
+        asn1::ASN1Value value;
+
+        EXPECT_TRUE(mCryptoProvider->ReadRawValue(Array<uint8_t>(), optional, value).mError.Is(ErrorEnum::eNotFound));
+
+        const uint8_t truncated[] = {0x04, 0x05, 0x01};
+
+        EXPECT_FALSE(
+            mCryptoProvider->ReadRawValue(Array<uint8_t>(truncated, sizeof(truncated)), {}, value).mError.IsNone());
+
+        asn1::ASN1ParseOptions tagged;
+        tagged.mTag.SetValue(4);
+
+        EXPECT_FALSE(mCryptoProvider->ReadRawValue(invalidData, tagged, value).mError.IsNone());
+    }
+}
+
+TEST_P(CryptoProviderTest, ReadAIDVariants)
+{
+    asn1::ASN1ParseOptions optional;
+    optional.mOptional = true;
+
+    asn1::AlgorithmIdentifier aid;
+
+    EXPECT_TRUE(mCryptoProvider->ReadAID(Array<uint8_t>(), optional, aid).mError.Is(ErrorEnum::eNotFound));
+
+    const uint8_t noParams[] = {0x30, 0x0b, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x01, 0x02};
+
+    ASSERT_TRUE(mCryptoProvider->ReadAID(Array<uint8_t>(noParams, sizeof(noParams)), {}, aid).mError.IsNone());
+    EXPECT_EQ(aid.mOID, "2.16.840.1.101.3.4.1.2");
+    EXPECT_TRUE(aid.mParams.mValue.IsEmpty());
+
+    const uint8_t trailing[]
+        = {0x30, 0x0f, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x01, 0x02, 0x05, 0x00, 0x05, 0x00};
+
+    EXPECT_FALSE(mCryptoProvider->ReadAID(Array<uint8_t>(trailing, sizeof(trailing)), {}, aid).mError.IsNone());
+
+    const uint8_t truncatedParams[]
+        = {0x30, 0x0c, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x01, 0x02, 0x04};
+
+    EXPECT_FALSE(
+        mCryptoProvider->ReadAID(Array<uint8_t>(truncatedParams, sizeof(truncatedParams)), {}, aid).mError.IsNone());
+
+    const uint8_t notOID[] = {0x30, 0x03, 0x02, 0x01, 0x05};
+
+    EXPECT_FALSE(mCryptoProvider->ReadAID(Array<uint8_t>(notOID, sizeof(notOID)), {}, aid).mError.IsNone());
+
+    // context specific tag with sequence number
+    const uint8_t contextTag[] = {0xb0, 0x0b, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x01, 0x02};
+
+    EXPECT_FALSE(mCryptoProvider->ReadAID(Array<uint8_t>(contextTag, sizeof(contextTag)), {}, aid).mError.IsNone());
+}
+
+namespace {
+const char* const cEd25519CertPEM = R"(-----BEGIN CERTIFICATE-----
+MIIBGTCBzKADAgECAhRkbztAI8dMVxYOJzUVg53GlX/VtTAFBgMrZXAwEjEQMA4G
+A1UEAwwHZWQyNTUxOTAgFw0yNjExMTkxMzQ4NDVaGA8yMTI2MTAyNjEzNDg0NVow
+EjEQMA4GA1UEAwwHZWQyNTUxOTAqMAUGAytlcAMhAKUK3ZQl+HSTurVQekBisahv
+hoD1hMPdZVhJBmRgWUCNozIwMDAdBgNVHQ4EFgQUXSAZyRMTt5BpGswrh3s3PLMk
+FTswDwYDVR0TAQH/BAUwAwEB/zAFBgMrZXADQQCCo3smvZCvrHxxy6CO/Xe9yxTd
+bN4EwBu4tB8Y5Ik8kiLjbs2yS3joJ8vRkT4HpGs2+R1npyMj+9E1DXsQ1fMO
+-----END CERTIFICATE-----
+)";
+
+const HashEnum cAllHashes[]
+    = {HashEnum::eSHA1, HashEnum::eSHA224, HashEnum::eSHA256, HashEnum::eSHA384, HashEnum::eSHA512,
+        HashEnum::eSHA512_224, HashEnum::eSHA512_256, HashEnum::eSHA3_224, HashEnum::eSHA3_256, HashEnum::eNone};
+
+const char* const cECPrivKeyPEM = R"(-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgZXK/LQJH0IG+UEze
+Zl982xo0eJdAus8GJWhiTofwoXqhRANCAARXmTvj1/SYft05SSOHrlwFScy4dBZS
+b7E4JP94WH+v3DwvZc/pwphEzZ1lKcAO6BN1uMgAs5ufOWMmqjVmj86F
+-----END PRIVATE KEY-----
+)";
+
+} // namespace
+
+TEST_P(CryptoProviderTest, VerifySignatureWithAllHashes)
+{
+    for (const auto keyType : {KeyTypeEnum::eRSA, KeyTypeEnum::eECDSA}) {
+        StaticArray<x509::Certificate, 1> certs;
+        std::shared_ptr<PrivateKeyItf>    privKey;
+
+        CreateCertificate(*mFactory, *mCryptoProvider, "CN=Test Subject, O=Org, C=GB", keyType, privKey, certs);
+
+        for (const auto hash : cAllHashes) {
+            SCOPED_TRACE(std::string(KeyType(keyType).ToString().CStr()) + " " + Hash(hash).ToString().CStr());
+
+            StaticArray<uint8_t, cSHA2DigestSize> digest;
+
+            if (auto [hasher, err] = mHashProvider->CreateHash(hash); err.IsNone()) {
+                ASSERT_TRUE(hasher->Update(String("Hello world").AsByteArray()).IsNone());
+                ASSERT_TRUE(hasher->Finalize(digest).IsNone());
+            } else {
+                digest.Resize(32, 0x11);
+            }
+
+            StaticArray<uint8_t, cSignatureSize> signature;
+
+            // test keys sign digests of a single hash only
+            const auto signed_ = privKey->Sign(digest, {hash}, signature).IsNone();
+            if (!signed_) {
+                signature.Resize(64, 0x22);
+            }
+
+            const auto padding
+                = keyType == KeyTypeEnum::eRSA ? x509::PaddingEnum::ePKCS1v1_5 : x509::PaddingEnum::eNone;
+
+            // a signature is verified with the hash it's made with
+            EXPECT_EQ(mCryptoProvider->Verify(certs[0].mPublicKey, hash, padding, digest, signature).IsNone(), signed_);
+        }
+
+        if (keyType == KeyTypeEnum::eECDSA) {
+            StaticArray<uint8_t, cSHA2DigestSize> digest;
+            StaticArray<uint8_t, cSignatureSize>  signature;
+
+            digest.Resize(cSHA384Size, 0x11);
+            ASSERT_TRUE(privKey->Sign(digest, {HashEnum::eSHA384}, signature).IsNone());
+            ASSERT_TRUE(
+                mCryptoProvider
+                    ->Verify(certs[0].mPublicKey, HashEnum::eSHA384, x509::PaddingEnum::eNone, digest, signature)
+                    .IsNone());
+
+            EXPECT_FALSE(mCryptoProvider
+                             ->Verify(certs[0].mPublicKey, HashEnum::eSHA384, x509::PaddingEnum::eNone,
+                                 Array<uint8_t>(), signature)
+                             .IsNone());
+
+            // RSA padding doesn't apply to ECDSA: OpenSSL rejects it, MbedTLS ignores it
+            EXPECT_EQ(mCryptoProvider
+                          ->Verify(certs[0].mPublicKey, HashEnum::eSHA384, x509::PaddingEnum::ePSS, digest, signature)
+                          .IsNone(),
+                mFactory->GetName() != "OpenSSL");
+        }
+    }
+}
+
+TEST_P(CryptoProviderTest, CreateCSRWithUnsupportedCurves)
+{
+    struct TestCase {
+        const char* mName;
+        const char* mOID;
+        size_t      mPointSize;
+    };
+
+    const TestCase testCases[] = {
+        {"x25519", "2b656e", 32},
+        {"x448", "2b656f", 56},
+        {"unknown OID", "2a0304", 65},
+        {"not a curve", "2b0e03021a", 65},
+        {"invalid OID", "80", 65},
+        {"long OID", "2b0601040182370a0301", 65},
+        {"point of a wrong size", "2a8648ce3d030107", 64},
+    };
+
+    x509::CSR templ;
+
+    ASSERT_TRUE(mCryptoProvider->ASN1EncodeDN("CN=Test, O=Org, C=UA", templ.mSubject).IsNone());
+
+    for (const auto& testCase : testCases) {
+        SCOPED_TRACE(testCase.mName);
+
+        const auto           oid = HexToBytes(testCase.mOID);
+        std::vector<uint8_t> point(testCase.mPointSize, 0x09);
+
+        point[0] = 0x04;
+
+        FakePrivateKey key(ECDSAPublicKey(tests::utils::ConvertToArray(oid), tests::utils::ConvertToArray(point)), 64);
+
+        StaticString<cCSRPEMLen> pemCSR;
+
+        auto err = mCryptoProvider->CreateCSR(templ, key, pemCSR);
+        EXPECT_FALSE(err.IsNone());
+    }
+}
+
+TEST_P(CryptoProviderTest, CreateCSRWithUnsupportedExtensions)
+{
+    auto [privKey, err] = mFactory->GenerateRSAPrivKey();
+    ASSERT_TRUE(err.IsNone());
+
+    struct TestCase {
+        const char*          mOID;
+        std::vector<uint8_t> mValue;
+    };
+
+    const TestCase testCases[] = {{"2.5.29.17", {0x30, 0x00}}, {"2.5.29.37", {0x01, 0x02}}};
+
+    for (const auto& testCase : testCases) {
+        SCOPED_TRACE(testCase.mOID);
+
+        x509::CSR templ;
+
+        ASSERT_TRUE(mCryptoProvider->ASN1EncodeDN("CN=Test", templ.mSubject).IsNone());
+
+        templ.mExtraExtensions.Resize(1);
+        templ.mExtraExtensions[0].mID    = testCase.mOID;
+        templ.mExtraExtensions[0].mValue = Array<uint8_t>(testCase.mValue.data(), testCase.mValue.size());
+
+        StaticString<cCSRPEMLen> pemCSR;
+
+        // MbedTLS adds extra extensions as is
+        auto csrErr = mCryptoProvider->CreateCSR(templ, *privKey, pemCSR);
+        EXPECT_EQ(csrErr.IsNone(), mFactory->GetName() != "OpenSSL") << tests::utils::ErrorToStr(csrErr);
+    }
+}
+
+TEST_P(CryptoProviderTest, CreateCertificateWithInvalidTemplate)
+{
+    Error             err;
+    x509::Certificate templ;
+
+    Tie(templ, err) = CreateCertTemplate("CN=Template, O=Org, C=UA", *mCryptoProvider);
+    ASSERT_TRUE(err.IsNone());
+
+    auto [privKey, genErr] = mFactory->GenerateECDSAPrivKey();
+    ASSERT_TRUE(genErr.IsNone());
+
+    const bool    isOpenSSL        = mFactory->GetName() == "OpenSSL";
+    const uint8_t notOctetString[] = {0x01, 0x02};
+
+    StaticString<cCertPEMLen> pem;
+
+    // OpenSSL expects DER encoded key identifiers, MbedTLS adds them as is
+    {
+        auto invalid = templ;
+
+        invalid.mSubjectKeyId = Array<uint8_t>(notOctetString, sizeof(notOctetString));
+
+        EXPECT_EQ(mCryptoProvider->CreateCertificate(invalid, x509::Certificate(), *privKey, pem).IsNone(), !isOpenSSL);
+    }
+
+    {
+        auto invalid = templ;
+
+        invalid.mAuthorityKeyId = Array<uint8_t>(notOctetString, sizeof(notOctetString));
+
+        EXPECT_EQ(mCryptoProvider->CreateCertificate(invalid, x509::Certificate(), *privKey, pem).IsNone(), !isOpenSSL);
+    }
+
+    // OpenSSL parses the parent certificate
+    {
+        x509::Certificate parent;
+
+        parent.mRaw = Array<uint8_t>(notOctetString, sizeof(notOctetString));
+
+        EXPECT_EQ(mCryptoProvider->CreateCertificate(templ, parent, *privKey, pem).IsNone(), !isOpenSSL);
+    }
+
+    // MbedTLS requires the validity period
+    {
+        auto invalid = templ;
+
+        invalid.mNotBefore = Time();
+
+        err = mCryptoProvider->CreateCertificate(invalid, x509::Certificate(), *privKey, pem);
+        EXPECT_TRUE(isOpenSSL ? err.IsNone() : err.Is(ErrorEnum::eInvalidArgument)) << tests::utils::ErrorToStr(err);
+    }
+
+    {
+        auto invalid = templ;
+
+        invalid.mNotAfter = Time();
+
+        err = mCryptoProvider->CreateCertificate(invalid, x509::Certificate(), *privKey, pem);
+        EXPECT_TRUE(isOpenSSL ? err.IsNone() : err.Is(ErrorEnum::eInvalidArgument)) << tests::utils::ErrorToStr(err);
+    }
+}
+
+TEST_P(CryptoProviderTest, VerifyCertChainCurTimeBeforeValidity)
+{
+    StaticString<cCertPEMLen>         buff;
+    StaticArray<x509::Certificate, 1> rootCerts;
+    StaticArray<x509::Certificate, 1> intermCerts;
+    StaticArray<x509::Certificate, 1> leafCerts;
+
+    ASSERT_TRUE(fs::ReadFileToString(TEST_CERTIFICATES_DIR "/ca.cer", buff).IsNone());
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(buff, rootCerts).IsNone());
+    ASSERT_TRUE(fs::ReadFileToString(TEST_CERTIFICATES_DIR "/client_int.cer", buff).IsNone());
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(buff, intermCerts).IsNone());
+    ASSERT_TRUE(fs::ReadFileToString(TEST_CERTIFICATES_DIR "/client.cer", buff).IsNone());
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(buff, leafCerts).IsNone());
+
+    x509::VerifyOptions opts;
+
+    opts.mCurrentTime = Time::Unix(1000);
+
+    EXPECT_FALSE(mCryptoProvider->Verify(rootCerts, intermCerts, opts, leafCerts[0]).IsNone());
+}
+
+TEST_P(CryptoProviderTest, PEMToX509CertsUnsupportedKeyType)
+{
+    StaticArray<x509::Certificate, 1> certs;
+
+    EXPECT_FALSE(mCryptoProvider->PEMToX509Certs(cEd25519CertPEM, certs).IsNone());
+}
+
+TEST_P(CryptoProviderTest, PrivKeyDecryptErrors)
+{
+    StaticString<cPrivKeyPEMLen> keyPEM;
+
+    ReadTestFile(TEST_CERTIFICATES_DIR "/client.key", keyPEM);
+
+    auto [privKey, err] = mCryptoProvider->PEMToX509PrivKey(keyPEM);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    StaticArray<uint8_t, cSignatureSize> cipher;
+    StaticArray<uint8_t, cSignatureSize> result;
+    DecryptionOptions                    options;
+
+    // cipher of the key size that is greater than the modulus: the key's own public part isn't available
+    StaticString<cCertPEMLen>         certPEM;
+    StaticArray<x509::Certificate, 1> certs;
+
+    ReadTestFile(TEST_CERTIFICATES_DIR "/client.cer", certPEM);
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(certPEM, certs).IsNone());
+
+    cipher.Resize(certs[0].mPublicKey.GetValue<RSAPublicKey>().GetN().Size(), 0xff);
+
+    options.SetValue<PKCS1v15DecryptionOptions>();
+
+    EXPECT_FALSE(privKey->Decrypt(cipher, options, result).IsNone());
+
+    // OAEP with any hash, including none
+    for (const auto hash : cAllHashes) {
+        SCOPED_TRACE(Hash(hash).ToString().CStr());
+
+        OAEPDecryptionOptions oaepOpts;
+
+        oaepOpts.mHash = hash;
+        options.SetValue<OAEPDecryptionOptions>(oaepOpts);
+
+        EXPECT_FALSE(privKey->Decrypt(cipher, options, result).IsNone());
+    }
+}
+
+#ifdef WITH_OPENSSL
+
+TEST_P(CryptoProviderTest, PrivKeyDecryptOAEP)
+{
+    StaticString<cPrivKeyPEMLen> keyPEM;
+
+    ReadTestFile(TEST_CERTIFICATES_DIR "/client.key", keyPEM);
+
+    auto [privKey, err] = mCryptoProvider->PEMToX509PrivKey(keyPEM);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    const std::string    msg = "secret message";
+    std::vector<uint8_t> cipher;
+
+    {
+        auto* file = fopen(TEST_CERTIFICATES_DIR "/client.cer", "r");
+        ASSERT_NE(file, nullptr);
+
+        auto* cert = PEM_read_X509(file, nullptr, nullptr, nullptr);
+        fclose(file);
+        ASSERT_NE(cert, nullptr);
+
+        auto*  ctx = EVP_PKEY_CTX_new(X509_get0_pubkey(cert), nullptr);
+        size_t len = 0;
+
+        ASSERT_NE(ctx, nullptr);
+        EXPECT_EQ(EVP_PKEY_encrypt_init(ctx), 1);
+        EXPECT_EQ(EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING), 1);
+        EXPECT_EQ(EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_sha256()), 1);
+        EXPECT_EQ(EVP_PKEY_encrypt(ctx, nullptr, &len, reinterpret_cast<const uint8_t*>(msg.data()), msg.size()), 1);
+
+        cipher.resize(len);
+
+        EXPECT_EQ(
+            EVP_PKEY_encrypt(ctx, cipher.data(), &len, reinterpret_cast<const uint8_t*>(msg.data()), msg.size()), 1);
+
+        cipher.resize(len);
+
+        EVP_PKEY_CTX_free(ctx);
+        X509_free(cert);
+    }
+
+    StaticArray<uint8_t, cSignatureSize> result;
+    DecryptionOptions                    options;
+    OAEPDecryptionOptions                oaepOpts;
+
+    oaepOpts.mHash = HashEnum::eSHA256;
+    options.SetValue<OAEPDecryptionOptions>(oaepOpts);
+
+    ASSERT_TRUE(privKey->Decrypt(Array<uint8_t>(cipher.data(), cipher.size()), options, result).IsNone());
+    EXPECT_EQ(std::string(result.begin(), result.end()), msg);
+}
+
+#endif
+
+TEST_P(CryptoProviderTest, PEMToX509PrivKeyNotRSA)
+{
+    auto [privKey, err] = mCryptoProvider->PEMToX509PrivKey(cECPrivKeyPEM);
+
+    // OpenSSL provider loads RSA keys only
+    if (mFactory->GetName() == "OpenSSL") {
+        EXPECT_TRUE(err.Is(ErrorEnum::eNotSupported)) << tests::utils::ErrorToStr(err);
+    } else {
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+        ASSERT_NE(privKey.Get(), nullptr);
+
+        // RSA decryption isn't supported by an EC key
+        const uint8_t                        cipher[] = {0x01, 0x02};
+        StaticArray<uint8_t, cSignatureSize> result;
+        DecryptionOptions                    options;
+
+        options.SetValue<PKCS1v15DecryptionOptions>();
+
+        EXPECT_TRUE(
+            privKey->Decrypt(Array<uint8_t>(cipher, sizeof(cipher)), options, result).Is(ErrorEnum::eNotSupported));
+
+        OAEPDecryptionOptions oaepOpts;
+
+        oaepOpts.mHash = HashEnum::eSHA256;
+        options.SetValue<OAEPDecryptionOptions>(oaepOpts);
+
+        EXPECT_TRUE(
+            privKey->Decrypt(Array<uint8_t>(cipher, sizeof(cipher)), options, result).Is(ErrorEnum::eNotSupported));
+    }
+}
+
+TEST_P(CryptoProviderTest, ASN1EncodeDNLongEntry)
+{
+    StaticArray<uint8_t, 256> result;
+
+    const auto err = mCryptoProvider->ASN1EncodeDN(("CN=" + std::string(60, 'a')).c_str(), result);
+
+    // OpenSSL provider limits the size of a DN entry
+    EXPECT_EQ(err.IsNone(), mFactory->GetName() != "OpenSSL") << tests::utils::ErrorToStr(err);
+}
+
+TEST_P(CryptoProviderTest, CreateCertificateWithInvalidTime)
+{
+    Error             err;
+    x509::Certificate templ;
+
+    Tie(templ, err) = CreateCertTemplate("CN=Template, O=Org, C=UA", *mCryptoProvider);
+    ASSERT_TRUE(err.IsNone());
+
+    auto [privKey, genErr] = mFactory->GenerateECDSAPrivKey();
+    ASSERT_TRUE(genErr.IsNone());
+
+    StaticString<cCertPEMLen> pem;
+
+    for (const auto field : {0, 1}) {
+        auto invalid = templ;
+
+        (field == 0 ? invalid.mNotBefore : invalid.mNotAfter) = Time::Unix(300000000000);
+
+        err = mCryptoProvider->CreateCertificate(invalid, x509::Certificate(), *privKey, pem);
+        // year doesn't fit ASN.1 time
+        EXPECT_FALSE(err.IsNone());
+    }
 }
 
 } // namespace aos::crypto

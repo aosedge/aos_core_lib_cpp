@@ -7,15 +7,20 @@
 
 #include <gtest/gtest.h>
 
+#include <functional>
+#include <string>
+#include <vector>
+
 #include <core/common/crypto/certloader.hpp>
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
 #include <core/common/tests/crypto/softhsmenv.hpp>
+#include <core/common/tests/stubs/testallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
+#include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/heapallocator.hpp>
 
 namespace aos::crypto {
-
 /***********************************************************************************************************************
  * Suite
  **********************************************************************************************************************/
@@ -337,6 +342,161 @@ TEST_F(CertloaderTest, FindCertificatesFromFile)
 
     ASSERT_TRUE(mCryptoProvider->ASN1DecodeDN((*chain)[1].mIssuer, issuer).IsNone());
     EXPECT_EQ(std::string(issuer.CStr()), std::string("CN=Aos Cloud"));
+}
+
+TEST_F(CertloaderTest, LoadPrivKeyFromFile)
+{
+    SharedPtr<PrivateKeyItf> privKey;
+    Error                    error;
+
+    Tie(privKey, error) = mCertLoader.LoadPrivKeyByURL("file:" TEST_CERTIFICATES_DIR "/client.key");
+    ASSERT_TRUE(error.IsNone());
+    EXPECT_TRUE(privKey);
+
+    Tie(privKey, error) = mCertLoader.LoadPrivKeyByURL("file:" TEST_CERTIFICATES_DIR "/not-existing.key");
+    EXPECT_FALSE(error.IsNone());
+    EXPECT_FALSE(privKey);
+}
+
+TEST_F(CertloaderTest, LoadByInvalidURL)
+{
+    const std::string tooLongPath = "file:/" + std::string(cFilePathLen, 'a');
+    const std::string badPIN
+        = "pkcs11:token=cryptoutils;object=cryptoutils;id=%AA%BB%CC?module-path=" SOFTHSM2_LIB "&pin-value=wrong";
+
+    const std::string testCases[] = {
+        "no scheme",
+        "http://localhost/cert.pem",
+        "file:" CERTIFICATES_DIR "/not-existing.pem",
+        tooLongPath,
+        "pkcs11:token=cryptoutils;id=%AA%BB%CC",
+        "pkcs11:token=unknown;object=cryptoutils;id=%AA%BB%CC?module-path=" SOFTHSM2_LIB,
+        "pkcs11:token=cryptoutils;object=cryptoutils;id=%AA%BB%CC?module-path=/not-existing.so",
+        badPIN,
+    };
+
+    for (const auto& url : testCases) {
+        SCOPED_TRACE(url);
+
+        auto [chain, certsErr] = mCertLoader.LoadCertsChainByURL(url.c_str());
+        EXPECT_FALSE(certsErr.IsNone());
+        EXPECT_FALSE(chain);
+
+        auto [key, keyErr] = mCertLoader.LoadPrivKeyByURL(url.c_str());
+        EXPECT_FALSE(keyErr.IsNone());
+        EXPECT_FALSE(key);
+    }
+
+    EXPECT_TRUE(mCertLoader.LoadCertsChainByURL("http://localhost/cert.pem").mError.Is(ErrorEnum::eInvalidArgument));
+    EXPECT_TRUE(mCertLoader.LoadPrivKeyByURL("http://localhost/key.pem").mError.Is(ErrorEnum::eInvalidArgument));
+}
+
+TEST_F(CertloaderTest, ParsePKCS11URLErrors)
+{
+    const std::string tooLong(cFilePathLen + 1, 'a');
+
+    const char* cInvalidURLs[] = {
+        "file:/usr/share/.ssh/rsa.pub",
+        "pkcs11:token=aoscore;id=%00%01",
+        "pkcs11:token=aoscore;object=diskencryption",
+        "pkcs11:object=diskencryption;id=%00%0",
+        "pkcs11:object=diskencryption;id=%00x01",
+        "pkcs11:object=diskencryption;id=%00%zz",
+    };
+
+    StaticString<cFilePathLen>            library;
+    StaticString<pkcs11::cLabelLen>       token;
+    StaticString<pkcs11::cLabelLen>       label;
+    StaticArray<uint8_t, pkcs11::cIDSize> id;
+    StaticString<pkcs11::cPINLen>         userPIN;
+
+    for (const auto* url : cInvalidURLs) {
+        EXPECT_FALSE(ParsePKCS11URL(url, library, token, label, id, userPIN).IsNone()) << url;
+    }
+
+    const std::string cInvalidStrURLs[] = {
+        "pkcs11:object=diskencryption;id=%00?module-path=" + tooLong,
+        "pkcs11:token=" + tooLong + ";object=diskencryption;id=%00",
+        "pkcs11:object=diskencryption;id=%00?pin-value=" + tooLong,
+        "pkcs11:object=diskencryption;id=%00?pin-source=" + tooLong,
+        "pkcs11:object=diskencryption;id=%00?pin-source=/not-existing-pin-file",
+    };
+
+    for (const auto& url : cInvalidStrURLs) {
+        EXPECT_FALSE(ParsePKCS11URL(url.c_str(), library, token, label, id, userPIN).IsNone()) << url;
+    }
+
+    StaticArray<uint8_t, 2> smallID;
+
+    EXPECT_FALSE(
+        ParsePKCS11URL("pkcs11:object=diskencryption;id=%00%01%02", library, token, label, smallID, userPIN).IsNone());
+}
+
+TEST_F(CertloaderTest, EncodePKCS11ID)
+{
+    const uint8_t id[] = {0x00, 0xAB, 0x10};
+
+    StaticString<pkcs11::cIDStrLen> idStr;
+
+    ASSERT_TRUE(EncodePKCS11ID(Array<uint8_t>(id, sizeof(id)), idStr).IsNone());
+    EXPECT_EQ(idStr, "%00%AB%10");
+
+    StaticArray<uint8_t, pkcs11::cIDSize> decoded;
+
+    ASSERT_TRUE(DecodeToPKCS11ID(idStr, decoded).IsNone());
+    EXPECT_EQ(decoded, Array<uint8_t>(id, sizeof(id)));
+
+    StaticString<4> small;
+
+    EXPECT_FALSE(EncodePKCS11ID(Array<uint8_t>(id, sizeof(id)), small).IsNone());
+
+    StaticString<3> tiny = "%00";
+
+    EXPECT_FALSE(EncodePKCS11ID(Array<uint8_t>(id, sizeof(id)), tiny).IsNone());
+}
+
+TEST_F(CertloaderTest, LoadFailsOnAnyAllocationFailure)
+{
+    constexpr uint8_t caID[]     = {0x00, 0x01, 0x02};
+    constexpr uint8_t clientID[] = {0x00, 0x01, 0x03};
+
+    ImportCertificateChainToPKCS11(Array(caID, ArraySize(caID)), Array(clientID, ArraySize(clientID)));
+
+    const auto pkcs11URL = "pkcs11:token=cryptoutils;object=cryptoutils;id=%00%01%03?module-"
+                           "path=" SOFTHSM2_LIB "&pin-source="
+        + std::string(mPINSource);
+
+    tests::TestAllocator allocator;
+    CertLoader           certLoader;
+
+    ASSERT_TRUE(certLoader.Init(allocator, *mCryptoProvider, mSoftHSMEnv.GetManager()).IsNone());
+
+    const std::vector<std::function<Error()>> loaders = {
+        [&] { return certLoader.LoadCertsChainByURL("file:" CERTIFICATES_DIR "/client-ca-chain.pem").mError; },
+        [&] { return certLoader.LoadPrivKeyByURL("file:" TEST_CERTIFICATES_DIR "/client.key").mError; },
+        [&] { return certLoader.LoadCertsChainByURL(pkcs11URL.c_str()).mError; },
+    };
+
+    for (size_t i = 0; i < loaders.size(); i++) {
+        for (size_t allocation = 0;; allocation++) {
+            SCOPED_TRACE("loader " + std::to_string(i) + " allocation " + std::to_string(allocation));
+
+            allocator.FailAfter(allocation);
+
+            const auto err = loaders[i]();
+
+            allocator.Reset();
+
+            if (err.IsNone()) {
+                break;
+            }
+
+            // PKCS11 search skips certificates it can't process and reports them as not found
+            EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory) || (i == 2 && err.Is(ErrorEnum::eNotFound)))
+                << tests::utils::ErrorToStr(err);
+            ASSERT_LT(allocation, 100);
+        }
+    }
 }
 
 } // namespace aos::crypto

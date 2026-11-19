@@ -909,3 +909,140 @@ TEST_F(FSTest, ParentPath)
 
     check("/file", "/");
 }
+
+TEST_F(FSTest, DirIteratorMove)
+{
+    const auto root = cBaseTestDir / "dir-iterator-move";
+
+    ASSERT_TRUE(fs::MakeDirAll((root / "d1").c_str()).IsNone());
+
+    fs::DirIterator source(root.c_str());
+    fs::DirIterator moved(std::move(source));
+
+    EXPECT_FALSE(source.Next());
+    ASSERT_TRUE(moved.Next());
+    EXPECT_STREQ(moved->mPath.CStr(), "d1");
+    EXPECT_STREQ(moved.GetRootPath().CStr(), root.c_str());
+
+    fs::DirIterator assigned((root / "not-existing").c_str());
+
+    assigned = std::move(moved);
+
+    EXPECT_FALSE(moved.Next());
+    EXPECT_STREQ(assigned.GetRootPath().CStr(), root.c_str());
+    EXPECT_FALSE(assigned.Next());
+}
+
+TEST_F(FSTest, PathUnderRegularFileErrors)
+{
+    const auto file = cBaseTestDir / "regular-file";
+    const auto path = file / "child";
+
+    CreateFile(file.c_str());
+
+    EXPECT_EQ(fs::DirExist(file.c_str()).mError.Code(), ENOTDIR);
+    EXPECT_EQ(fs::FileExist(path.c_str()).mError.Code(), ENOTDIR);
+    EXPECT_EQ(fs::ClearDir(file.c_str()).Code(), ENOTDIR);
+    EXPECT_EQ(fs::Remove(path.c_str()).Code(), ENOTDIR);
+    EXPECT_EQ(fs::RemoveAll(path.c_str()).Code(), ENOTDIR);
+    EXPECT_EQ(fs::MakeDir(path.c_str()).Code(), ENOTDIR);
+    EXPECT_EQ(fs::MakeDirAll((path / "sub").c_str()).Code(), ENOTDIR);
+    EXPECT_EQ(fs::WriteStringToFile(path.c_str(), "data", 0600).Code(), ENOTDIR);
+    EXPECT_EQ(fs::WriteStringToFile(cBaseTestDir.c_str(), "data", 0600).Code(), EISDIR);
+}
+
+TEST_F(FSTest, CopyFileMissingDestinationDir)
+{
+    EXPECT_EQ(
+        fs::CopyFile(mAllocator, "/dev/null", (cBaseTestDir / "missing-dir" / "dst").c_str()), ErrorEnum::eNotFound);
+}
+
+TEST_F(FSTest, ReadLineErrors)
+{
+    StaticString<16> line;
+
+    EXPECT_FALSE(fs::ReadLine(-1, 0, line).IsNone());
+
+    const auto dir = cBaseTestDir / "read-line-dir";
+
+    ASSERT_TRUE(fs::MakeDirAll(dir.c_str()).IsNone());
+
+    auto fd = open(dir.c_str(), O_RDONLY);
+    ASSERT_GE(fd, 0);
+
+    EXPECT_EQ(fs::ReadLine(fd, 0, line).Code(), EISDIR);
+
+    close(fd);
+}
+
+TEST_F(FSTest, FileWrongState)
+{
+    fs::File                 file;
+    StaticArray<uint8_t, 16> buff;
+    const Array<uint8_t>     data(reinterpret_cast<const uint8_t*>("data"), 4);
+
+    EXPECT_EQ(file.ReadBlock(buff), ErrorEnum::eWrongState);
+    EXPECT_EQ(file.WriteBlock(data), ErrorEnum::eWrongState);
+
+    const auto testFile = cBaseTestDir / "wrong-state-file";
+
+    CreateFile(testFile.c_str());
+
+    ASSERT_TRUE(file.Open(testFile.c_str(), fs::File::Mode::Read).IsNone());
+    EXPECT_EQ(file.WriteBlock(data).Code(), EBADF);
+
+    const auto dir = cBaseTestDir / "wrong-state-dir";
+
+    ASSERT_TRUE(fs::MakeDirAll(dir.c_str()).IsNone());
+    ASSERT_TRUE(file.Open(dir.c_str(), fs::File::Mode::Read).IsNone());
+    EXPECT_EQ(file.ReadBlock(buff).Code(), EISDIR);
+}
+
+TEST_F(FSTest, BaseNameParentPathNoMemory)
+{
+    StaticString<2> small;
+
+    EXPECT_FALSE(fs::BaseName("/long/path/name", small).IsNone());
+    EXPECT_FALSE(fs::ParentPath("/long/path/name", small).IsNone());
+
+    StaticString<cFilePathLen> parent;
+
+    EXPECT_TRUE(fs::ParentPath("//a", parent).IsNone());
+    EXPECT_STREQ(parent.CStr(), "/");
+}
+
+namespace {
+
+class NullAllocator : public AllocatorItf {
+public:
+    void* Allocate(size_t) override { return nullptr; }
+    void  Free(void*) override { }
+};
+
+} // namespace
+
+TEST_F(FSTest, CalculateSizeAllocatorNoMemory)
+{
+    const auto root = cBaseTestDir / "calculate-no-memory-dir";
+
+    ASSERT_TRUE(fs::MakeDirAll(root.c_str()).IsNone());
+
+    NullAllocator allocator;
+
+    EXPECT_EQ(fs::CalculateSize(allocator, root.c_str()).mError, ErrorEnum::eNoMemory);
+    EXPECT_EQ(fs::CalculateSize(mAllocator, (root / "missing").c_str()).mError, ErrorEnum::eNotFound);
+}
+
+TEST_F(FSTest, CalculateSizeTooDeep)
+{
+    auto path = cBaseTestDir / "calculate-too-deep";
+
+    for (size_t i = 0; i <= cDirIteratorMaxSize; ++i) {
+        path /= "d";
+    }
+
+    ASSERT_TRUE(fs::MakeDirAll(path.c_str()).IsNone());
+
+    EXPECT_EQ(
+        fs::CalculateSize(mAllocator, (cBaseTestDir / "calculate-too-deep").c_str()).mError, ErrorEnum::eNoMemory);
+}
