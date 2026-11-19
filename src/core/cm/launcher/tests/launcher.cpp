@@ -4,18 +4,24 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <algorithm>
+#include <atomic>
 #include <cerrno>
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
+#include <cstdlib>
 #include <ctime>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <core/cm/launcher/launcher.hpp>
+#include <core/cm/tests/mocks/nodeinfoprovidermock.hpp>
+#include <core/common/tests/mocks/identprovidermock.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/heapallocator.hpp>
@@ -35,7 +41,6 @@
 using namespace testing;
 
 namespace aos::cm::launcher {
-
 /***********************************************************************************************************************
  * Constants
  **********************************************************************************************************************/
@@ -2992,6 +2997,2889 @@ TEST_F(CMLauncherTest, ReusedInstanceUpdatesIndexDigest)
     EXPECT_EQ((*storedInstances)[0].mInstanceIdent, expectedIdent);
     EXPECT_EQ((*storedInstances)[0].mUID, cUID);
     EXPECT_EQ((*storedInstances)[0].mIndexDigest, imagemanager::ImageStoreStub::BuildIndexDigest(cService1, cVersion));
+}
+
+/***********************************************************************************************************************
+ * Unit test helpers
+ **********************************************************************************************************************/
+
+class FaultyStorageStub : public StorageStub {
+public:
+    Error AddInstance(const InstanceInfo& info) override
+    {
+        return mAddErr.IsNone() ? StorageStub::AddInstance(info) : mAddErr;
+    }
+
+    Error UpdateInstance(const InstanceInfo& info) override
+    {
+        auto err = mUpdateErr.IsNone() ? StorageStub::UpdateInstance(info) : mUpdateErr;
+
+        std::lock_guard lock {mMutex};
+
+        ++mUpdateCount;
+        mCondVar.notify_all();
+
+        return err;
+    }
+
+    Error SaveOverrideEnvVars(const OverrideEnvVarsRequest& envVars) override
+    {
+        auto err = mSaveEnvVarsErr.IsNone() ? StorageStub::SaveOverrideEnvVars(envVars) : mSaveEnvVarsErr;
+
+        std::lock_guard lock {mMutex};
+
+        ++mSaveEnvVarsCount;
+        mCondVar.notify_all();
+
+        return err;
+    }
+
+    bool WaitForUpdateCount(size_t count)
+    {
+        std::unique_lock lock {mMutex};
+
+        return mCondVar.wait_for(lock, std::chrono::seconds(5), [&]() { return mUpdateCount >= count; });
+    }
+
+    bool WaitForSaveEnvVarsCount(size_t count)
+    {
+        std::unique_lock lock {mMutex};
+
+        return mCondVar.wait_for(lock, std::chrono::seconds(5), [&]() { return mSaveEnvVarsCount >= count; });
+    }
+
+    size_t GetSaveEnvVarsCount()
+    {
+        std::lock_guard lock {mMutex};
+
+        return mSaveEnvVarsCount;
+    }
+
+    Error RemoveInstance(const InstanceIdent& instanceID) override
+    {
+        return mRemoveErr.IsNone() ? StorageStub::RemoveInstance(instanceID) : mRemoveErr;
+    }
+
+    Error LoadActiveInstances(Array<InstanceInfo>& instances) const override
+    {
+        return mLoadInstancesErr.IsNone() ? StorageStub::LoadActiveInstances(instances) : mLoadInstancesErr;
+    }
+
+    Error LoadOverrideEnvVars(OverrideEnvVarsRequest& envVars) const override
+    {
+        return mLoadEnvVarsErr.IsNone() ? StorageStub::LoadOverrideEnvVars(envVars) : mLoadEnvVarsErr;
+    }
+
+    Error LoadRunRequests(Array<RunInstanceRequest>& requests) const override
+    {
+        return mLoadRunRequestsErr.IsNone() ? StorageStub::LoadRunRequests(requests) : mLoadRunRequestsErr;
+    }
+
+    Error SaveRunRequests(const Array<RunInstanceRequest>& requests) override
+    {
+        return mSaveRunRequestsErr.IsNone() ? StorageStub::SaveRunRequests(requests) : mSaveRunRequestsErr;
+    }
+
+    Error mAddErr;
+    Error mUpdateErr;
+    Error mRemoveErr;
+    Error mLoadInstancesErr;
+    Error mLoadEnvVarsErr;
+    Error mLoadRunRequestsErr;
+    Error mSaveRunRequestsErr;
+    Error mSaveEnvVarsErr;
+
+private:
+    std::mutex              mMutex;
+    std::condition_variable mCondVar;
+    size_t                  mUpdateCount {};
+    size_t                  mSaveEnvVarsCount {};
+};
+
+class FailingAllocator : public AllocatorItf {
+public:
+    static constexpr size_t cAnySize = 0;
+
+    void Fail(size_t size, size_t skip = 0, size_t count = 1)
+    {
+        std::lock_guard lock {mMutex};
+
+        mFailSize  = size;
+        mSkip      = skip;
+        mFailCount = count;
+    }
+
+    void* Allocate(size_t size) override
+    {
+        std::lock_guard lock {mMutex};
+
+        if (mFailCount != 0 && (mFailSize == cAnySize || mFailSize == size)) {
+            if (mSkip != 0) {
+                mSkip--;
+            } else {
+                mFailCount--;
+
+                return nullptr;
+            }
+        }
+
+        return std::malloc(size);
+    }
+
+    void Free(void* data) override { std::free(data); }
+
+private:
+    std::mutex mMutex;
+    size_t     mFailSize {};
+    size_t     mSkip {};
+    size_t     mFailCount {};
+};
+
+class FaultyImageStoreStub : public imagemanager::ImageStoreStub {
+public:
+    Error LoadImageIndex(const String& path, oci::ImageIndex& index) override
+    {
+        return mIndexErr.IsNone() ? ImageStoreStub::LoadImageIndex(path, index) : mIndexErr;
+    }
+
+    Error LoadImageManifest(const String& path, oci::ImageManifest& manifest) override
+    {
+        if (!mManifestErr.IsNone()) {
+            return mManifestErr;
+        }
+
+        auto err = ImageStoreStub::LoadImageManifest(path, manifest);
+
+        if (mNoItemConfig) {
+            manifest.mItemConfig.Reset();
+        }
+
+        return err;
+    }
+
+    Error LoadImageConfig(const String& path, oci::ImageConfig& imageConfig) override
+    {
+        return mImageConfigErr.IsNone() ? ImageStoreStub::LoadImageConfig(path, imageConfig) : mImageConfigErr;
+    }
+
+    Error LoadItemConfig(const String& path, oci::ItemConfig& itemConfig) override
+    {
+        return mItemConfigErr.IsNone() ? ImageStoreStub::LoadItemConfig(path, itemConfig) : mItemConfigErr;
+    }
+
+    Error mIndexErr;
+    Error mManifestErr;
+    Error mImageConfigErr;
+    Error mItemConfigErr;
+    bool  mNoItemConfig {};
+};
+
+class CountingMonitoringProvider : public MonitoringProviderStub {
+public:
+    Error GetAverageMonitoring(const String& nodeID, monitoring::NodeMonitoringData& monitoring) override
+    {
+        auto err = MonitoringProviderStub::GetAverageMonitoring(nodeID, monitoring);
+
+        std::lock_guard lock {mMutex};
+
+        ++mRequestCount;
+        mCondVar.notify_all();
+
+        return err;
+    }
+
+    bool WaitForRequestCount(size_t count)
+    {
+        std::unique_lock lock {mMutex};
+
+        return mCondVar.wait_for(lock, std::chrono::seconds(5), [&]() { return mRequestCount >= count; });
+    }
+
+private:
+    std::mutex              mMutex;
+    std::condition_variable mCondVar;
+    size_t                  mRequestCount {};
+};
+
+class FaultySenderStub : public SenderStub {
+public:
+    Error SendOverrideEnvsStatuses(const OverrideEnvVarsStatuses& statuses) override
+    {
+        if (!mSendErr.IsNone()) {
+            return mSendErr;
+        }
+
+        ++mSendCount;
+
+        return SenderStub::SendOverrideEnvsStatuses(statuses);
+    }
+
+    Error  mSendErr;
+    size_t mSendCount {};
+};
+
+class FaultyStorageStateStub : public storagestate::StorageStateStub {
+public:
+    Error Setup(const InstanceIdent& instanceIdent, const storagestate::SetupParams& setupParams, String& storagePath,
+        String& statePath) override
+    {
+        return mSetupErr.IsNone() ? StorageStateStub::Setup(instanceIdent, setupParams, storagePath, statePath)
+                                  : mSetupErr;
+    }
+
+    Error Cleanup(const InstanceIdent& instanceIdent) override
+    {
+        return mCleanupErr.IsNone() ? StorageStateStub::Cleanup(instanceIdent) : mCleanupErr;
+    }
+
+    Error Remove(const InstanceIdent& instanceIdent) override
+    {
+        return mRemoveErr.IsNone() ? StorageStateStub::Remove(instanceIdent) : mRemoveErr;
+    }
+
+    RetWithError<size_t> GetTotalStateSize() const override
+    {
+        if (!mStateSizeErr.IsNone()) {
+            return {0, mStateSizeErr};
+        }
+
+        return StorageStateStub::GetTotalStateSize();
+    }
+
+    RetWithError<size_t> GetTotalStorageSize() const override
+    {
+        if (!mStorageSizeErr.IsNone()) {
+            return {0, mStorageSizeErr};
+        }
+
+        return StorageStateStub::GetTotalStorageSize();
+    }
+
+    bool IsSamePartition() const override { return mSamePartition; }
+
+    Error mSetupErr;
+    Error mCleanupErr;
+    Error mRemoveErr;
+    Error mStateSizeErr;
+    Error mStorageSizeErr;
+    bool  mSamePartition {true};
+};
+
+class InstanceRunnerMock : public InstanceRunnerItf {
+public:
+    MOCK_METHOD(Error, UpdateInstances,
+        (const String& nodeID, const Array<aos::InstanceInfo>& stopInstances,
+            const Array<aos::InstanceInfo>& startInstances),
+        (override));
+};
+
+class AlertsProviderMock : public alerts::AlertsProviderItf {
+public:
+    MOCK_METHOD(
+        Error, SubscribeListener, (const Array<AlertTag>& tags, alerts::AlertsListenerItf& listener), (override));
+    MOCK_METHOD(Error, UnsubscribeListener, (alerts::AlertsListenerItf & listener), (override));
+};
+
+class OverrideEnvVarsListenerStub : public OverrideEnvVarsListenerItf {
+public:
+    void OnOverrideEnvVarsChanged() override { }
+};
+
+class TestNode : public NodeItf {
+public:
+    explicit TestNode(const char* nodeID = cNodeIDLocalSM) { mConfig.mNodeID = nodeID; }
+
+    void SetNeedBalancing(bool needBalancing) { mNeedBalancing = needBalancing; }
+    void SetResourceRatios(const ResourceRatios& ratios) { mConfig.mResourceRatios.SetValue(ratios); }
+    void SetReserveError(const Error& err) { mReserveErr = err; }
+
+    Error ReserveResources(const InstanceIdent& instanceIdent, const String& runtimeID, size_t reqCPU, size_t reqRAM,
+        const Array<oci::ResourceInfo>& reqResources) override
+    {
+        (void)instanceIdent;
+        (void)runtimeID;
+        (void)reqCPU;
+        (void)reqRAM;
+        (void)reqResources;
+
+        return mReserveErr;
+    }
+
+    size_t GetAvailableResourceCount(const String& resourceName) const override
+    {
+        (void)resourceName;
+
+        return 1;
+    }
+
+private:
+    Error mReserveErr;
+};
+
+oci::IndexContentDescriptor CreateImageDescriptor(const std::string& itemID, const std::string& imageID = cImageID1)
+{
+    oci::IndexContentDescriptor descriptor;
+
+    descriptor.mDigest = BuildManifestDigest(itemID, imageID);
+
+    return descriptor;
+}
+
+ResourceRatios CreateResourceRatios(double cpu, double ram, double storage, double state)
+{
+    ResourceRatios ratios;
+
+    ratios.mCPU.SetValue(cpu);
+    ratios.mRAM.SetValue(ram);
+    ratios.mStorage.SetValue(storage);
+    ratios.mState.SetValue(state);
+
+    return ratios;
+}
+
+/***********************************************************************************************************************
+ * InstanceManager tests
+ **********************************************************************************************************************/
+
+class CMLauncherInstanceManagerTest : public Test {
+protected:
+    void SetUp() override
+    {
+        tests::utils::InitLog();
+
+        mStorageState.Init();
+        mImageStore.Init();
+        mStorage.Init();
+
+        ASSERT_TRUE(mInstanceManager
+                        ->Init(mAllocator, CreateConfig(), mImageStore, mStorageState, mImageStore, ValidateGID,
+                            ValidateUID, mStorage)
+                        .IsNone());
+    }
+
+    void TearDown() override { EXPECT_TRUE(mInstanceManager->Stop().IsNone()); }
+
+    FailingAllocator                 mAllocator;
+    imagemanager::ImageStoreStub     mImageStore;
+    FaultyStorageStateStub           mStorageState;
+    FaultyStorageStub                mStorage;
+    std::unique_ptr<InstanceManager> mInstanceManager = std::make_unique<InstanceManager>();
+};
+
+TEST_F(CMLauncherInstanceManagerTest, StartFailsOnStorageStateError)
+{
+    mStorageState.mStateSizeErr = ErrorEnum::eFailed;
+
+    EXPECT_TRUE(mInstanceManager->Start().Is(ErrorEnum::eFailed));
+
+    mStorageState.mStateSizeErr   = ErrorEnum::eNone;
+    mStorageState.mStorageSizeErr = ErrorEnum::eWrongState;
+    mStorageState.mSamePartition  = false;
+
+    EXPECT_TRUE(mInstanceManager->Start().Is(ErrorEnum::eWrongState));
+}
+
+TEST_F(CMLauncherInstanceManagerTest, StartFailsOnLoadInstancesError)
+{
+    mStorage.mLoadInstancesErr = ErrorEnum::eFailed;
+
+    EXPECT_TRUE(mInstanceManager->Start().Is(ErrorEnum::eFailed));
+}
+
+TEST_F(CMLauncherInstanceManagerTest, StartFailsOnRemoveCachedInstanceWithInvalidImage)
+{
+    ASSERT_TRUE(mStorage
+                    .AddInstance(CreateInstanceInfo(CreateInstanceIdent(cService1), "sha256:invalid", cRunnerRunc, "",
+                        InstanceStateEnum::eCached, 0, 0, Time::Now()))
+                    .IsNone());
+
+    mStorageState.mRemoveErr = ErrorEnum::eFailed;
+
+    EXPECT_TRUE(mInstanceManager->Start().Is(ErrorEnum::eFailed));
+    EXPECT_TRUE(mInstanceManager->GetCachedInstances().IsEmpty());
+}
+
+TEST_F(CMLauncherInstanceManagerTest, StartFailsOnRemoveOutdatedInstance)
+{
+    ASSERT_TRUE(mStorage
+                    .AddInstance(CreateInstanceInfo(CreateInstanceIdent(cService1), {}, cRunnerRunc, "",
+                        InstanceStateEnum::eCached, 0, 0, Time::Now().Add(-25 * Time::cHours)))
+                    .IsNone());
+
+    mStorage.mRemoveErr = ErrorEnum::eFailed;
+
+    EXPECT_TRUE(mInstanceManager->Start().Is(ErrorEnum::eFailed));
+    EXPECT_TRUE(mInstanceManager->GetCachedInstances().IsEmpty());
+}
+
+TEST_F(CMLauncherInstanceManagerTest, InvalidStoredInstancesAreSkipped)
+{
+    ASSERT_TRUE(
+        mStorage.AddInstance(CreateInstanceInfo(CreateInstanceIdent(cLayer1, "", 0, UpdateItemTypeEnum::eLayer)))
+            .IsNone());
+
+    ASSERT_TRUE(mStorage
+                    .AddInstance(CreateInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0), {}, cRunnerRunc, "",
+                        InstanceStateEnum::eActive, 7000))
+                    .IsNone());
+    ASSERT_TRUE(mStorage
+                    .AddInstance(CreateInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 1), {}, cRunnerRunc, "",
+                        InstanceStateEnum::eActive, 7000))
+                    .IsNone());
+
+    ASSERT_TRUE(mStorage
+                    .AddInstance(CreateInstanceInfo(CreateInstanceIdent(cService2, cSubject1, 0), {}, cRunnerRunc, "",
+                        InstanceStateEnum::eActive, 0, 6000))
+                    .IsNone());
+    ASSERT_TRUE(mStorage
+                    .AddInstance(CreateInstanceInfo(CreateInstanceIdent(cService2, "subject2", 0), {}, cRunnerRunc, "",
+                        InstanceStateEnum::eActive, 0, 6001))
+                    .IsNone());
+
+    mStorageState.mRemoveErr = ErrorEnum::eFailed;
+
+    ASSERT_TRUE(mInstanceManager->Start().IsNone());
+
+    const auto& activeInstances = mInstanceManager->GetActiveInstances();
+
+    ASSERT_EQ(activeInstances.Size(), 2);
+    EXPECT_EQ(activeInstances[0]->GetInfo().mInstanceIdent.mItemID, cService1);
+    EXPECT_EQ(activeInstances[1]->GetInfo().mInstanceIdent.mItemID, cService2);
+}
+
+TEST_F(CMLauncherInstanceManagerTest, UpdateStatus)
+{
+    ASSERT_TRUE(mInstanceManager->Start().IsNone());
+
+    auto [instance, createErr] = mInstanceManager->CreateInstance(CreateRunRequest(cService1, cSubject1), 0);
+    ASSERT_TRUE(createErr.IsNone());
+
+    mInstanceManager->ScheduleInstance(instance, ErrorEnum::eFailed);
+    ASSERT_TRUE(mInstanceManager->SubmitScheduledInstances().IsNone());
+    ASSERT_EQ(mInstanceManager->GetActiveInstances().Size(), 1);
+
+    auto status = CreateInstanceStatus(
+        CreateInstanceIdent(cService1, cSubject1, 0), "", "", aos::InstanceStateEnum::eActive, ErrorEnum::eNone);
+
+    // Status for active instance missing in status list.
+    EXPECT_TRUE(mInstanceManager->UpdateStatus(status).IsNone());
+    EXPECT_EQ(instance->GetStatus().mState, aos::InstanceStateEnum::eActive);
+
+    mStorage.mUpdateErr = ErrorEnum::eFailed;
+
+    EXPECT_TRUE(mInstanceManager->UpdateStatus(status).Is(ErrorEnum::eFailed));
+
+    auto statuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    statuses->PushBack(status);
+    statuses->PushBack(CreateInstanceStatus(
+        CreateInstanceIdent(cService2, cSubject1, 0), "", "", aos::InstanceStateEnum::eActive, ErrorEnum::eNone));
+
+    EXPECT_TRUE(mInstanceManager->UpdateRunningInstances("", *statuses).Is(ErrorEnum::eFailed));
+    EXPECT_EQ(mInstanceManager->GetRunningInstances().Size(), 2);
+
+    mStorage.mUpdateErr = ErrorEnum::eNone;
+
+    EXPECT_TRUE(mInstanceManager
+                    ->UpdateStatus(CreateInstanceStatus(CreateInstanceIdent(cService3, cSubject1, 0), "", "",
+                        aos::InstanceStateEnum::eActive, ErrorEnum::eNone))
+                    .IsNone());
+
+    auto componentIdent = CreateInstanceIdent(cComponent1, "", 0, UpdateItemTypeEnum::eComponent);
+
+    auto component = CreateInstanceStatus(
+        componentIdent, cNodeIDLocalSM, cRunnerRootfs, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", true);
+
+    EXPECT_TRUE(mInstanceManager->UpdateStatus(component).IsNone());
+    EXPECT_EQ(mInstanceManager->FindPreinstalledComponent(componentIdent), nullptr);
+
+    statuses->Clear();
+    statuses->PushBack(component);
+
+    EXPECT_TRUE(mInstanceManager->UpdateRunningInstances(cNodeIDLocalSM, *statuses).IsNone());
+    ASSERT_EQ(mInstanceManager->GetPreinstalledComponents().Size(), 1);
+    ASSERT_NE(mInstanceManager->FindPreinstalledComponent(componentIdent), nullptr);
+
+    component.mState = aos::InstanceStateEnum::eFailed;
+
+    EXPECT_TRUE(mInstanceManager->UpdateStatus(component).IsNone());
+    EXPECT_EQ(mInstanceManager->FindPreinstalledComponent(componentIdent)->mState, aos::InstanceStateEnum::eFailed);
+
+    auto otherVersionIdent = componentIdent;
+
+    otherVersionIdent.mVersion = "1.0.0";
+
+    EXPECT_EQ(mInstanceManager->FindPreinstalledComponent(otherVersionIdent), nullptr);
+}
+
+TEST_F(CMLauncherInstanceManagerTest, CreateInstanceErrors)
+{
+    ASSERT_TRUE(mInstanceManager->Start().IsNone());
+
+    auto request      = CreateRunRequest(cService1, cSubject1);
+    auto newInstances = std::make_unique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>();
+
+    mStorage.mAddErr = ErrorEnum::eFailed;
+
+    auto [failed1, addErr1] = mInstanceManager->CreateInstance(request, 0);
+    EXPECT_TRUE(addErr1.Is(ErrorEnum::eFailed));
+    EXPECT_FALSE(failed1);
+
+    auto [failed2, addErr2] = mInstanceManager->CreateInstance(request, cNodeIDLocalSM, cRunnerRunc, *newInstances);
+    EXPECT_TRUE(addErr2.Is(ErrorEnum::eFailed));
+    EXPECT_FALSE(failed2);
+
+    mStorage.mAddErr = ErrorEnum::eNone;
+
+    // Scheduled instance with changed index digest fails to update storage.
+    auto [instance, createErr] = mInstanceManager->CreateInstance(request, 0);
+    ASSERT_TRUE(createErr.IsNone());
+
+    mInstanceManager->ScheduleInstance(instance, ErrorEnum::eFailed);
+    EXPECT_EQ(mInstanceManager->GetScheduledInstances().Size(), 1);
+
+    request.mIndexDigest = "newIndexDigest";
+    mStorage.mUpdateErr  = ErrorEnum::eFailed;
+
+    auto [failed3, updateErr] = mInstanceManager->CreateInstance(request, 0);
+    EXPECT_TRUE(updateErr.Is(ErrorEnum::eFailed));
+    EXPECT_FALSE(failed3);
+
+    mStorage.mUpdateErr = ErrorEnum::eNone;
+
+    // Cached instance is reused.
+    ASSERT_TRUE(mInstanceManager->SubmitScheduledInstances().IsNone());
+    mInstanceManager->DisableInstance(instance);
+
+    ASSERT_EQ(mInstanceManager->GetCachedInstances().Size(), 1);
+
+    auto [cached, cachedErr] = mInstanceManager->CreateInstance(request, 0);
+    ASSERT_TRUE(cachedErr.IsNone());
+    EXPECT_EQ(cached.Get(), instance.Get());
+}
+
+TEST_F(CMLauncherInstanceManagerTest, GeneratedComponentInstances)
+{
+    auto activeInfo = CreateInstanceInfo(CreateInstanceIdent(cComponent1, cSubject1, 0, UpdateItemTypeEnum::eComponent),
+        {}, cRunnerRootfs, cNodeIDLocalSM, InstanceStateEnum::eActive);
+    activeInfo.mDisableRebalancing = true;
+
+    auto cachedInfo
+        = CreateInstanceInfo(CreateInstanceIdent("component2", cSubject1, 0, UpdateItemTypeEnum::eComponent), {},
+            cRunnerRootfs, cNodeIDLocalSM, InstanceStateEnum::eCached, 0, 0, Time::Now().Add(Time::cHours));
+    cachedInfo.mDisableRebalancing = true;
+
+    ASSERT_TRUE(mStorage.AddInstance(activeInfo).IsNone());
+    ASSERT_TRUE(mStorage.AddInstance(cachedInfo).IsNone());
+
+    ASSERT_TRUE(mInstanceManager->Start().IsNone());
+    ASSERT_EQ(mInstanceManager->GetActiveInstances().Size(), 1);
+    ASSERT_EQ(mInstanceManager->GetCachedInstances().Size(), 1);
+
+    auto activeRequest = CreateRunRequest(cComponent1, cSubject1, 0, 0, "", {}, UpdateItemTypeEnum::eComponent, "");
+    auto cachedRequest = CreateRunRequest("component2", cSubject1, 0, 0, "", {}, UpdateItemTypeEnum::eComponent, "");
+    auto newInstances  = std::make_unique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>();
+
+    // Existing instances are reused.
+    auto [active, activeErr]
+        = mInstanceManager->CreateInstance(activeRequest, cNodeIDLocalSM, cRunnerRootfs, *newInstances);
+    ASSERT_TRUE(activeErr.IsNone());
+    EXPECT_EQ(active.Get(), mInstanceManager->GetActiveInstances()[0].Get());
+
+    auto [cached, cachedErr]
+        = mInstanceManager->CreateInstance(cachedRequest, cNodeIDLocalSM, cRunnerRootfs, *newInstances);
+    ASSERT_TRUE(cachedErr.IsNone());
+    EXPECT_EQ(cached.Get(), mInstanceManager->GetCachedInstances()[0].Get());
+
+    // Not component request is ignored.
+    EXPECT_TRUE(mInstanceManager->RemoveGeneratedInstances(CreateRunRequest(cService1, cSubject1)).IsNone());
+
+    // Remove errors are reported but instances are removed from the lists.
+    mStorage.mRemoveErr = ErrorEnum::eFailed;
+
+    EXPECT_TRUE(mInstanceManager->RemoveGeneratedInstances(cachedRequest).Is(ErrorEnum::eFailed));
+    EXPECT_TRUE(mInstanceManager->GetCachedInstances().IsEmpty());
+
+    EXPECT_TRUE(mInstanceManager->RemoveGeneratedInstances(activeRequest).Is(ErrorEnum::eFailed));
+    EXPECT_TRUE(mInstanceManager->GetActiveInstances().IsEmpty());
+}
+
+TEST_F(CMLauncherInstanceManagerTest, CacheErrors)
+{
+    for (const auto& itemID : {cService1, cService2}) {
+        ASSERT_TRUE(mStorage
+                        .AddInstance(CreateInstanceInfo(CreateInstanceIdent(itemID, cSubject1, 0), {}, cRunnerRunc,
+                            cNodeIDLocalSM, InstanceStateEnum::eActive))
+                        .IsNone());
+    }
+
+    const auto componentIdent = CreateInstanceIdent(cComponent1, cSubject1, 0, UpdateItemTypeEnum::eComponent);
+
+    ASSERT_TRUE(mStorage
+                    .AddInstance(CreateInstanceInfo(
+                        componentIdent, {}, cRunnerRootfs, cNodeIDLocalSM, InstanceStateEnum::eActive))
+                    .IsNone());
+
+    ASSERT_TRUE(mInstanceManager->Start().IsNone());
+    ASSERT_EQ(mInstanceManager->GetActiveInstances().Size(), 3);
+
+    auto findActive = [this](const char* itemID) {
+        return *mInstanceManager->GetActiveInstances().FindIf([itemID](const SharedPtr<Instance>& instance) {
+            return instance->GetInfo().mInstanceIdent.mItemID == itemID;
+        });
+    };
+
+    auto component = findActive(cComponent1);
+    auto service1  = findActive(cService1);
+
+    // Disable fails to update storage.
+    mStorage.mUpdateErr = ErrorEnum::eFailed;
+
+    mInstanceManager->DisableInstance(component);
+    mInstanceManager->DisableInstance(service1);
+
+    EXPECT_EQ(mInstanceManager->GetActiveInstances().Size(), 1);
+    EXPECT_EQ(mInstanceManager->GetCachedInstances().Size(), 2);
+
+    // Cache fails to cleanup storage state.
+    mStorage.mUpdateErr       = ErrorEnum::eNone;
+    mStorageState.mCleanupErr = ErrorEnum::eFailed;
+
+    ASSERT_TRUE(mInstanceManager->PrepareForBalancing().IsNone());
+    EXPECT_TRUE(mInstanceManager->SubmitScheduledInstances().IsNone());
+
+    EXPECT_TRUE(mInstanceManager->GetActiveInstances().IsEmpty());
+    EXPECT_EQ(mInstanceManager->GetCachedInstances().Size(), 3);
+}
+
+TEST_F(CMLauncherInstanceManagerTest, SetSubjects)
+{
+    ASSERT_TRUE(mStorage
+                    .AddInstance(CreateInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0), {}, cRunnerRunc,
+                        cNodeIDLocalSM, InstanceStateEnum::eActive, 0, 0, Time::Now(), "", true))
+                    .IsNone());
+
+    ASSERT_TRUE(mInstanceManager->Start().IsNone());
+
+    StaticArray<StaticString<cIDLen>, 1> subjects;
+
+    // Active instance subject is disabled.
+    auto [rebalance1, err1] = mInstanceManager->SetSubjects(subjects);
+    ASSERT_TRUE(err1.IsNone());
+    EXPECT_TRUE(rebalance1);
+
+    auto instance = mInstanceManager->GetActiveInstances()[0];
+
+    mInstanceManager->DisableInstance(instance);
+
+    // Disabled cached instance subject is enabled.
+    subjects.PushBack(cSubject1);
+
+    auto [rebalance2, err2] = mInstanceManager->SetSubjects(subjects);
+    ASSERT_TRUE(err2.IsNone());
+    EXPECT_TRUE(rebalance2);
+}
+
+TEST_F(CMLauncherInstanceManagerTest, ScheduleInstanceFails)
+{
+    ASSERT_TRUE(mInstanceManager->Start().IsNone());
+
+    auto [instance, createErr] = mInstanceManager->CreateInstance(
+        CreateRunRequest(cComponent1, cSubject1, 0, 1, "", {}, UpdateItemTypeEnum::eComponent), 0);
+    ASSERT_TRUE(createErr.IsNone());
+
+    TestNode node;
+
+    mStorage.mUpdateErr = ErrorEnum::eFailed;
+
+    EXPECT_TRUE(mInstanceManager->ScheduleInstance(instance, node, cRunnerRootfs).Is(ErrorEnum::eFailed));
+    EXPECT_TRUE(mInstanceManager->GetScheduledInstances().IsEmpty());
+}
+
+TEST_F(CMLauncherInstanceManagerTest, PrepareForBalancingFails)
+{
+    ASSERT_TRUE(mInstanceManager->Start().IsNone());
+
+    mStorageState.mStateSizeErr = ErrorEnum::eFailed;
+
+    EXPECT_TRUE(mInstanceManager->PrepareForBalancing().Is(ErrorEnum::eFailed));
+}
+
+/***********************************************************************************************************************
+ * Instance tests
+ **********************************************************************************************************************/
+
+class CMLauncherInstanceTest : public Test {
+protected:
+    void SetUp() override
+    {
+        tests::utils::InitLog();
+
+        mImageStore.Init();
+        mStorage.Init();
+        mStorageStateStub.Init();
+
+        mImageInfoProvider.Init(mAllocator, mImageStore, mImageStore);
+        mStorageState.Init(mAllocator, mStorageStateStub);
+
+        ASSERT_TRUE(mStorageState.Start().IsNone());
+        ASSERT_TRUE(mUIDPool.Init(ValidateUID).IsNone());
+        ASSERT_TRUE(mGIDPool.Init(ValidateGID).IsNone());
+    }
+
+    std::unique_ptr<ServiceInstance> CreateService(const InstanceInfo& info)
+    {
+        EXPECT_TRUE(mStorage.AddInstance(info).IsNone());
+
+        return std::make_unique<ServiceInstance>(
+            mAllocator, info, mUIDPool, mGIDPool, mStorage, mStorageState, mImageInfoProvider);
+    }
+
+    std::unique_ptr<ServiceInstance> CreateServiceWithConfig(const std::string& itemID, const oci::ItemConfig& config)
+    {
+        AddItem(itemID, cImageID1, config);
+
+        auto instance = CreateService(CreateInstanceInfo(CreateInstanceIdent(itemID, cSubject1, 0)));
+
+        EXPECT_TRUE(instance->Init().IsNone());
+        EXPECT_TRUE(instance->LoadConfigs(CreateImageDescriptor(itemID)).IsNone());
+
+        return instance;
+    }
+
+    void AddItem(const std::string& itemID, const std::string& imageID, const oci::ItemConfig& config)
+    {
+        mImageStore.AddItem(itemID.c_str(), imageID.c_str(), config, CreateImageConfig());
+    }
+
+    FailingAllocator             mAllocator;
+    imagemanager::ImageStoreStub mImageStore;
+    FaultyStorageStub            mStorage;
+    FaultyStorageStateStub       mStorageStateStub;
+    StorageState                 mStorageState;
+    ImageInfoProvider            mImageInfoProvider;
+    UIDPool                      mUIDPool;
+    GIDPool                      mGIDPool;
+};
+
+TEST_F(CMLauncherInstanceTest, LoadConfigs)
+{
+    auto instance = CreateService(CreateInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0)));
+
+    EXPECT_TRUE(instance->LoadConfigs(CreateImageDescriptor(cService1)).Is(ErrorEnum::eNotFound));
+
+    oci::ItemConfig itemConfig;
+
+    AddItem(cService1, cImageID1, itemConfig);
+    mImageStore.SetBlobError("service1:image1:config", ErrorEnum::eFailed);
+
+    EXPECT_TRUE(instance->LoadConfigs(CreateImageDescriptor(cService1)).Is(ErrorEnum::eFailed));
+
+    AddItem(cService2, cImageID1, itemConfig);
+
+    ASSERT_TRUE(instance->LoadConfigs(CreateImageDescriptor(cService2)).IsNone());
+
+    EXPECT_TRUE(instance->IsRuntimeTypeOk("crun", "crun"));
+    EXPECT_TRUE(instance->IsRuntimeTypeOk("runc", "runc"));
+    EXPECT_FALSE(instance->IsRuntimeTypeOk("runx", "runx"));
+
+    EXPECT_TRUE(instance->IsPlatformOk(CreatePlatform()));
+    EXPECT_FALSE(instance->IsPlatformOk(CreatePlatform("x86_64", "other")));
+    EXPECT_FALSE(instance->IsPlatformOk(CreatePlatform("x86_64", "generic", "linux", "6.0.0")));
+    EXPECT_FALSE(instance->IsPlatformOk(CreatePlatform("x86_64", "generic", "linux", "5.4.0", "feature2")));
+}
+
+TEST_F(CMLauncherInstanceTest, OverrideEnvVars)
+{
+    auto instance = CreateService(CreateInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0)));
+
+    auto request = std::make_unique<OverrideEnvVarsRequest>();
+
+    EnvVarsInstanceInfo otherItem;
+    EnvVarInfo          var;
+
+    otherItem.mItemID.EmplaceValue(cService2);
+    static_cast<EnvVar&>(var) = CreateEnvVar("VAR0", "value0");
+    otherItem.mVariables.PushBack(var);
+    request->mItems.PushBack(otherItem);
+
+    EnvVarsInstanceInfo item1;
+
+    item1.mItemID.EmplaceValue(cService1);
+    static_cast<EnvVar&>(var) = CreateEnvVar("VAR1", "value1");
+    item1.mVariables.PushBack(var);
+    request->mItems.PushBack(item1);
+
+    EnvVarsInstanceInfo item2;
+
+    item2.mItemID.EmplaceValue(cService1);
+    static_cast<EnvVar&>(var) = CreateEnvVar("VAR1", "value2");
+    item2.mVariables.PushBack(var);
+    static_cast<EnvVar&>(var) = CreateEnvVar("VAR2", "value3");
+    item2.mVariables.PushBack(var);
+    request->mItems.PushBack(item2);
+
+    auto [changed, err] = instance->OverrideEnvVars(*request);
+    ASSERT_TRUE(err.IsNone());
+    EXPECT_TRUE(changed);
+
+    EnvVarArray expectedEnvVars;
+
+    expectedEnvVars.PushBack(CreateEnvVar("VAR1", "value2"));
+    expectedEnvVars.PushBack(CreateEnvVar("VAR2", "value3"));
+
+    EXPECT_EQ(instance->GetSMInfo().mEnvVars, expectedEnvVars);
+
+    auto [changedAgain, errAgain] = instance->OverrideEnvVars(*request);
+    ASSERT_TRUE(errAgain.IsNone());
+    EXPECT_FALSE(changedAgain);
+}
+
+TEST_F(CMLauncherInstanceTest, StorageErrors)
+{
+    auto instance = CreateService(CreateInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0)));
+
+    mStorage.mUpdateErr = ErrorEnum::eFailed;
+
+    EXPECT_TRUE(instance
+                    ->UpdateStatus(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), cNodeIDLocalSM,
+                        cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone))
+                    .Is(ErrorEnum::eFailed));
+
+    instance->SetError(ErrorEnum::eTimeout);
+
+    EXPECT_EQ(instance->GetStatus().mState, aos::InstanceStateEnum::eFailed);
+    EXPECT_TRUE(instance->GetStatus().mError.Is(ErrorEnum::eTimeout));
+    EXPECT_TRUE(instance->GetStatus().mNodeID.IsEmpty());
+}
+
+TEST_F(CMLauncherInstanceTest, ServiceInitErrors)
+{
+    auto instance1 = CreateService(CreateInstanceInfo(
+        CreateInstanceIdent(cService1, cSubject1, 0), {}, cRunnerRunc, "", InstanceStateEnum::eActive, 7100, 6100));
+    ASSERT_TRUE(instance1->Init().IsNone());
+
+    auto instance2 = CreateService(CreateInstanceInfo(
+        CreateInstanceIdent(cService2, cSubject1, 0), {}, cRunnerRunc, "", InstanceStateEnum::eActive, 7100, 6200));
+    EXPECT_FALSE(instance2->Init().IsNone());
+
+    auto instance3 = CreateService(CreateInstanceInfo(
+        CreateInstanceIdent(cService1, cSubject1, 1), {}, cRunnerRunc, "", InstanceStateEnum::eActive, 7101, 6101));
+    EXPECT_TRUE(instance3->Init().Is(ErrorEnum::eInvalidArgument));
+}
+
+TEST_F(CMLauncherInstanceTest, ServiceRemoveAndCacheErrors)
+{
+    auto instance = CreateService(CreateInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0)));
+    ASSERT_TRUE(instance->Init().IsNone());
+
+    mStorage.mUpdateErr = ErrorEnum::eFailed;
+
+    EXPECT_TRUE(instance->Cache().Is(ErrorEnum::eFailed));
+
+    mStorage.mUpdateErr           = ErrorEnum::eNone;
+    mStorageStateStub.mCleanupErr = ErrorEnum::eWrongState;
+
+    EXPECT_TRUE(instance->Cache(true).Is(ErrorEnum::eWrongState));
+    EXPECT_EQ(instance->GetInfo().mState, InstanceStateEnum::eDisabled);
+
+    mStorageStateStub.mRemoveErr = ErrorEnum::eFailed;
+
+    EXPECT_TRUE(instance->Remove().Is(ErrorEnum::eFailed));
+
+    mStorageStateStub.mRemoveErr = ErrorEnum::eNone;
+    mStorage.mRemoveErr          = ErrorEnum::eWrongState;
+
+    EXPECT_TRUE(instance->Remove().Is(ErrorEnum::eWrongState));
+}
+
+TEST_F(CMLauncherInstanceTest, ServiceRequestedResources)
+{
+    TestNode node;
+
+    // Requested resources are clamped by quotas.
+    oci::ItemConfig clampConfig;
+
+    CreateItemConfig(clampConfig, {cRunnerRunc}, oci::BalancingPolicyEnum::eEnabled,
+        CreateServiceQuotas(1000, 1000, 100, 200), CreateRequestedResources(10, 10, 500, 800));
+
+    auto clamped = CreateServiceWithConfig(cService1, clampConfig);
+
+    EXPECT_TRUE(clamped->IsAvailableCpuOk(100, node));
+    EXPECT_FALSE(clamped->IsAvailableCpuOk(99, node));
+    EXPECT_TRUE(clamped->IsAvailableRamOk(200, node));
+    EXPECT_FALSE(clamped->IsAvailableRamOk(199, node));
+
+    // Monitoring data is used for node which requires balancing.
+    auto monitoringData = CreateInstanceMonitoring(CreateInstanceIdent(cService1, cSubject1, 0), 150.0).mMonitoringData;
+
+    monitoringData.mRAM = 300;
+
+    clamped->UpdateMonitoringData(monitoringData);
+    node.SetNeedBalancing(true);
+
+    EXPECT_FALSE(clamped->IsAvailableCpuOk(149, node));
+    EXPECT_TRUE(clamped->IsAvailableCpuOk(150, node));
+    EXPECT_FALSE(clamped->IsAvailableRamOk(299, node));
+    EXPECT_TRUE(clamped->IsAvailableRamOk(300, node));
+
+    node.SetNeedBalancing(false);
+
+    // Node ratios greater than 100% are limited.
+    oci::ItemConfig ratioConfig;
+
+    CreateItemConfig(
+        ratioConfig, {cRunnerRunc}, oci::BalancingPolicyEnum::eEnabled, CreateServiceQuotas(100, 100, 100, 200));
+
+    auto ratio = CreateServiceWithConfig(cService2, ratioConfig);
+
+    node.SetResourceRatios(CreateResourceRatios(150, 150, 150, 150));
+
+    EXPECT_FALSE(ratio->IsAvailableCpuOk(99, node));
+    EXPECT_TRUE(ratio->IsAvailableCpuOk(100, node));
+    EXPECT_FALSE(ratio->IsAvailableRamOk(199, node));
+    EXPECT_TRUE(ratio->IsAvailableRamOk(200, node));
+
+    ASSERT_TRUE(ratio->Schedule(node, cRunnerRunc).IsNone());
+    EXPECT_EQ(ratio->GetSMInfo().mStoragePath, "storage_path");
+    EXPECT_EQ(ratio->GetStatus().mNodeID, cNodeIDLocalSM);
+
+    // Resource limits are skipped.
+    oci::ItemConfig skipConfig;
+
+    CreateItemConfig(skipConfig, {cRunnerRunc}, oci::BalancingPolicyEnum::eEnabled,
+        CreateServiceQuotas(2000, 2000, 100, 200), CreateRequestedResources(2000, 2000, 500, 800));
+    skipConfig.mSkipResourceLimits = true;
+
+    auto skip = CreateServiceWithConfig(cService3, skipConfig);
+
+    EXPECT_TRUE(skip->IsAvailableCpuOk(0, node));
+    EXPECT_TRUE(skip->IsAvailableRamOk(0, node));
+    EXPECT_TRUE(skip->Schedule(node, cRunnerRunc).IsNone());
+}
+
+TEST_F(CMLauncherInstanceTest, ServiceScheduleErrors)
+{
+    TestNode        node;
+    oci::ItemConfig itemConfig;
+
+    CreateItemConfig(itemConfig, {cRunnerRunc});
+
+    auto instance = CreateServiceWithConfig(cService1, itemConfig);
+
+    node.SetReserveError(ErrorEnum::eNoMemory);
+
+    EXPECT_TRUE(instance->Schedule(node, cRunnerRunc).Is(ErrorEnum::eNoMemory));
+
+    node.SetReserveError(ErrorEnum::eNone);
+    mStorage.mUpdateErr = ErrorEnum::eFailed;
+
+    EXPECT_TRUE(instance->Schedule(node, cRunnerRunc).Is(ErrorEnum::eFailed));
+}
+
+TEST_F(CMLauncherInstanceTest, Component)
+{
+    auto info = CreateInstanceInfo(CreateInstanceIdent(cComponent1, cSubject1, 0, UpdateItemTypeEnum::eComponent));
+
+    ASSERT_TRUE(mStorage.AddInstance(info).IsNone());
+
+    ComponentInstance instance(mAllocator, info, mStorage, mImageInfoProvider);
+    TestNode          node;
+
+    ASSERT_TRUE(instance.Init().IsNone());
+    EXPECT_EQ(instance.GetBalancingPolicy(), oci::BalancingPolicyEnum::eDisabled);
+
+    mStorage.mUpdateErr = ErrorEnum::eFailed;
+
+    EXPECT_TRUE(instance.Schedule(node, cRunnerRootfs).Is(ErrorEnum::eFailed));
+    EXPECT_TRUE(instance.Cache().Is(ErrorEnum::eFailed));
+
+    mStorage.mUpdateErr = ErrorEnum::eNone;
+    mStorage.mRemoveErr = ErrorEnum::eFailed;
+
+    EXPECT_TRUE(instance.Remove().Is(ErrorEnum::eFailed));
+
+    mStorage.mRemoveErr = ErrorEnum::eNone;
+
+    EXPECT_TRUE(instance.Remove().IsNone());
+    EXPECT_TRUE(instance.Remove().IsNone());
+}
+
+/***********************************************************************************************************************
+ * Node tests
+ **********************************************************************************************************************/
+
+class CMLauncherNodeTest : public Test {
+protected:
+    void SetUp() override
+    {
+        tests::utils::InitLog();
+
+        auto runtimeX = CreateRuntime(cRunnerRunx);
+        runtimeX.mAllowedDMIPS.SetValue(100);
+        runtimeX.mAllowedRAM.SetValue(200);
+
+        mNodeInfo = CreateNodeInfo(
+            cNodeIDLocalSM, 1000, 1000, {CreateRuntime(cRunnerRunc, 1), runtimeX}, {CreateResource("resource1", 1)});
+
+        mNode.Init(mAllocator, cNodeIDLocalSM, mNodeConfigProvider, mRunner);
+        (void)mNode.UpdateInfo(mNodeInfo);
+        mNode.NotifyInstanceStatusReceived();
+    }
+
+    void SetNodeConfig(const AlertRules& alertRules = {})
+    {
+        NodeConfig nodeConfig;
+
+        CreateNodeConfig(nodeConfig, cNodeIDLocalSM, 0, {}, {}, alertRules);
+        mNodeConfigProvider.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, nodeConfig);
+    }
+
+    FailingAllocator                     mAllocator;
+    resourcemanager::ResourceManagerStub mNodeConfigProvider;
+    StrictMock<InstanceRunnerMock>       mRunner;
+    UnitNodeInfo                         mNodeInfo;
+    Node                                 mNode;
+};
+
+TEST_F(CMLauncherNodeTest, ReserveResources)
+{
+    SetNodeConfig();
+    mNode.PrepareForBalancing(false);
+
+    auto ident = CreateInstanceIdent(cService1, cSubject1, 0);
+
+    EXPECT_EQ(mNode.GetAvailableCPU(cRunnerRunx), 100);
+    EXPECT_EQ(mNode.GetAvailableRAM(cRunnerRunx), 200);
+    EXPECT_EQ(mNode.GetAvailableCPU("unknown"), 0);
+    EXPECT_EQ(mNode.GetAvailableRAM("unknown"), 0);
+    EXPECT_TRUE(mNode.IsMaxNumInstancesReached("unknown"));
+
+    EXPECT_TRUE(mNode.ReserveResources(ident, "unknown", 0, 0, {}).Is(ErrorEnum::eFailed));
+
+    EXPECT_TRUE(mNode.ReserveResources(ident, cRunnerRunc, 0, 2000, {}).Is(ErrorEnum::eNoMemory));
+
+    EXPECT_TRUE(mNode.ReserveResources(ident, cRunnerRunc, 2000, 10, {}).Is(ErrorEnum::eNoMemory));
+    EXPECT_EQ(mNode.GetAvailableRAM(cRunnerRunc), 1000);
+
+    StaticArray<oci::ResourceInfo, 2> resources;
+    oci::ResourceInfo                 resource;
+
+    resource.mName = "resource1";
+    resources.PushBack(resource);
+    resource.mName = "resource2";
+    resources.PushBack(resource);
+
+    EXPECT_TRUE(mNode.ReserveResources(ident, cRunnerRunc, 10, 10, resources).Is(ErrorEnum::eNoMemory));
+    EXPECT_EQ(mNode.GetAvailableResourceCount("resource1"), 1);
+    EXPECT_EQ(mNode.GetAvailableCPU(cRunnerRunc), 1000);
+    EXPECT_EQ(mNode.GetAvailableRAM(cRunnerRunc), 1000);
+
+    resources.Resize(1);
+
+    EXPECT_TRUE(mNode.ReserveResources(ident, cRunnerRunc, 10, 10, resources).IsNone());
+    EXPECT_EQ(mNode.GetAvailableResourceCount("resource1"), 0);
+    EXPECT_TRUE(mNode.IsMaxNumInstancesReached(cRunnerRunc));
+    EXPECT_TRUE(mNode.ReserveResources(ident, cRunnerRunc, 0, 0, {}).Is(ErrorEnum::eNoMemory));
+}
+
+TEST_F(CMLauncherNodeTest, PrepareForRebalancing)
+{
+    mNode.PrepareForBalancing(true);
+    EXPECT_FALSE(mNode.NeedBalancing());
+
+    SetNodeConfig(CreateAlertRules(0, 50));
+
+    // Instances consume more than node total usage.
+    auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+
+    CreateNodeMonitoring(
+        *nodeMonitoring, cNodeIDLocalSM, 100.0, {CreateInstanceMonitoring(CreateInstanceIdent(cService1), 200.0)});
+
+    nodeMonitoring->mMonitoringData.mRAM               = 900;
+    nodeMonitoring->mInstances[0].mMonitoringData.mRAM = 950;
+
+    mNode.UpdateMonitoringData(*nodeMonitoring);
+    mNode.PrepareForBalancing(true);
+
+    EXPECT_TRUE(mNode.NeedBalancing());
+    EXPECT_EQ(mNode.GetAvailableCPU(), 1000);
+    EXPECT_EQ(mNode.GetAvailableRAM(), 500);
+}
+
+TEST_F(CMLauncherNodeTest, SendInstancesErrors)
+{
+    auto running = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    auto active  = std::make_unique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>();
+
+    running->PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), cNodeIDLocalSM, cRunnerRunc,
+        aos::InstanceStateEnum::eActive, ErrorEnum::eNone));
+
+    EXPECT_CALL(mRunner, UpdateInstances(_, _, _)).WillRepeatedly(Return(ErrorEnum::eFailed));
+
+    EXPECT_TRUE(mNode.SendScheduledInstances(*active, *running).Is(ErrorEnum::eFailed));
+
+    auto [sent, err] = mNode.ResendInstances(*active, *running, false);
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed));
+    EXPECT_FALSE(sent);
+
+    mNodeInfo.mIsConnected = false;
+
+    (void)mNode.UpdateInfo(mNodeInfo);
+    EXPECT_FALSE(mNode.IsConnected());
+}
+
+/***********************************************************************************************************************
+ * NodeManager tests
+ **********************************************************************************************************************/
+
+class CMLauncherNodeManagerTest : public Test {
+protected:
+    void SetUp() override
+    {
+        tests::utils::InitLog();
+
+        mImageStore.Init();
+        mStorage.Init();
+        mImageInfoProvider.Init(mAllocator, mImageStore, mImageStore);
+
+        ASSERT_TRUE(mOverrideEnvVarsProcessor.Init(CreateConfig(), mStorage, mSender, mListener).IsNone());
+
+        mNodeManager->Init(mAllocator, mNodeInfoProvider, mNodeConfigProvider, mRunner, mOverrideEnvVarsProcessor);
+    }
+
+    void TearDown() override { EXPECT_TRUE(mNodeManager->Stop().IsNone()); }
+
+    SharedPtr<Instance> CreateComponent(
+        const std::string& itemID, const std::string& manifestDigest, const std::string& nodeID = cNodeIDLocalSM)
+    {
+        auto info = CreateInstanceInfo(CreateInstanceIdent(itemID, cSubject1, 0, UpdateItemTypeEnum::eComponent),
+            manifestDigest.c_str(), cRunnerRootfs, nodeID.c_str());
+
+        EXPECT_TRUE(mStorage.AddInstance(info).IsNone());
+
+        return MakeShared<ComponentInstance>(&mAllocator, mAllocator, info, mStorage, mImageInfoProvider);
+    }
+
+    FailingAllocator                                 mAllocator;
+    NiceMock<nodeinfoprovider::NodeInfoProviderMock> mNodeInfoProvider;
+    resourcemanager::ResourceManagerStub             mNodeConfigProvider;
+    StrictMock<InstanceRunnerMock>                   mRunner;
+    imagemanager::ImageStoreStub                     mImageStore;
+    ImageInfoProvider                                mImageInfoProvider;
+    FaultyStorageStub                                mStorage;
+    SenderStub                                       mSender;
+    OverrideEnvVarsListenerStub                      mListener;
+    OverrideEnvVarsProcessor                         mOverrideEnvVarsProcessor;
+    std::unique_ptr<NodeManager>                     mNodeManager = std::make_unique<NodeManager>();
+};
+
+TEST_F(CMLauncherNodeManagerTest, StartErrors)
+{
+    EXPECT_CALL(mNodeInfoProvider, GetAllNodeIDs(_)).WillOnce(Return(ErrorEnum::eFailed));
+
+    EXPECT_TRUE(mNodeManager->Start().Is(ErrorEnum::eFailed));
+
+    EXPECT_CALL(mNodeInfoProvider, GetAllNodeIDs(_)).WillOnce(Invoke([](Array<StaticString<cIDLen>>& ids) {
+        return ids.PushBack(cNodeIDLocalSM);
+    }));
+    EXPECT_CALL(mNodeInfoProvider, GetNodeInfo(_, _)).WillOnce(Return(ErrorEnum::eNotFound));
+
+    EXPECT_TRUE(mNodeManager->Start().Is(ErrorEnum::eNotFound));
+}
+
+TEST_F(CMLauncherNodeManagerTest, UpdateNodes)
+{
+    // Status received before node info.
+    ASSERT_TRUE(mNodeManager->NotifyNodeStatusReceived(cNodeIDRemoteSM1).IsNone());
+    ASSERT_NE(mNodeManager->FindNode(cNodeIDRemoteSM1), nullptr);
+    EXPECT_FALSE(mNodeManager->FindNode(cNodeIDRemoteSM1)->IsConnected());
+
+    auto nodeInfo = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)});
+
+    EXPECT_TRUE(mNodeManager->UpdateNodeInfo(nodeInfo));
+    EXPECT_FALSE(mNodeManager->UpdateNodeInfo(nodeInfo));
+    EXPECT_EQ(mNodeManager->GetNodes().Size(), 2);
+
+    nodeInfo.mState = NodeStateEnum::eUnprovisioned;
+
+    EXPECT_TRUE(mNodeManager->UpdateNodeInfo(nodeInfo));
+    EXPECT_EQ(mNodeManager->FindNode(cNodeIDLocalSM)->GetInfo().mState, NodeStateEnum::eUnprovisioned);
+}
+
+TEST_F(CMLauncherNodeManagerTest, SendInstancesErrors)
+{
+    ASSERT_TRUE(mNodeManager->UpdateNodeInfo(CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)})));
+    ASSERT_TRUE(mNodeManager->NotifyNodeStatusReceived(cNodeIDLocalSM).IsNone());
+
+    auto running = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    auto active  = std::make_unique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>();
+
+    running->PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), cNodeIDLocalSM, cRunnerRunc,
+        aos::InstanceStateEnum::eActive, ErrorEnum::eNone));
+
+    EXPECT_CALL(mRunner, UpdateInstances(_, _, _)).WillRepeatedly(Return(ErrorEnum::eFailed));
+
+    Mutex             mutex;
+    UniqueLock<Mutex> lock {mutex};
+
+    EXPECT_TRUE(mNodeManager->SendScheduledInstances(lock, *active, *running).Is(ErrorEnum::eFailed));
+
+    StaticArray<StaticString<cIDLen>, 1> updatedNodes;
+
+    // Node is not updated.
+    updatedNodes.PushBack(cNodeIDRemoteSM1);
+
+    EXPECT_TRUE(mNodeManager->ResendInstances(lock, updatedNodes, *active, *running).IsNone());
+
+    updatedNodes[0] = cNodeIDLocalSM;
+
+    EXPECT_TRUE(mNodeManager->ResendInstances(lock, updatedNodes, *active, *running).Is(ErrorEnum::eFailed));
+}
+
+TEST_F(CMLauncherNodeManagerTest, LoadSMDataForActiveInstances)
+{
+    ASSERT_TRUE(
+        mNodeManager->UpdateNodeInfo(CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRootfs)})));
+
+    oci::ItemConfig itemConfig;
+
+    CreateItemConfig(itemConfig, {cRunnerRootfs});
+
+    for (const auto& itemID : {"component2", "component3", "component4"}) {
+        mImageStore.AddItem(itemID, cImageID1, itemConfig, CreateImageConfig());
+    }
+
+    mImageStore.SetBlobError("component3:image1:item", ErrorEnum::eFailed);
+
+    auto instances = std::make_unique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>();
+
+    instances->PushBack(CreateComponent("component0", "", ""));
+    instances->PushBack(CreateComponent(cComponent1, BuildManifestDigest(cComponent1).CStr(), cNodeIDRemoteSM1));
+    instances->PushBack(CreateComponent("component5", BuildManifestDigest("component5").CStr()));
+    instances->PushBack(CreateComponent("component2", "unknownManifest"));
+    instances->PushBack(CreateComponent("component3", BuildManifestDigest("component3").CStr()));
+    instances->PushBack(CreateComponent("component4", BuildManifestDigest("component4").CStr()));
+
+    mStorage.mUpdateErr = ErrorEnum::eFailed;
+
+    EXPECT_TRUE(mNodeManager->LoadSMDataForActiveInstances(*instances, mImageInfoProvider).IsNone());
+
+    for (size_t i = 0; i < 5; i++) {
+        EXPECT_TRUE((*instances)[i]->GetSMInfo().mRuntimeID.IsEmpty());
+    }
+
+    EXPECT_EQ((*instances)[5]->GetSMInfo().mRuntimeID, cRunnerRootfs);
+}
+
+TEST_F(CMLauncherInstanceManagerTest, RunRequestsLoader)
+{
+    ASSERT_TRUE(mInstanceManager->Start().IsNone());
+
+    ImageInfoProvider imageInfoProvider;
+
+    imageInfoProvider.Init(mAllocator, mImageStore, mImageStore);
+
+    auto loader = std::make_unique<RunRequestsLoader>();
+
+    loader->Init(mAllocator, mStorage, *mInstanceManager, imageInfoProvider);
+
+    oci::ItemConfig itemConfig;
+
+    CreateItemConfig(itemConfig, {cRunnerRootfs, cRunnerRootfs});
+
+    for (const auto& itemID : {"component2", "component3"}) {
+        mImageStore.AddItem(itemID, cImageID1, itemConfig, CreateImageConfig());
+    }
+
+    mImageStore.SetBlobError("component3:image1:item", ErrorEnum::eFailed);
+
+    resourcemanager::ResourceManagerStub nodeConfigProvider;
+    NiceMock<InstanceRunnerMock>         runner;
+    auto                                 nodes = std::make_unique<StaticArray<Node, 1>>();
+
+    nodes->EmplaceBack();
+    nodes->Back().Init(mAllocator, cNodeIDLocalSM, nodeConfigProvider, runner);
+    (void)nodes->Back().UpdateInfo(
+        CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc), CreateRuntime(cRunnerRootfs)}));
+
+    // Requests: unknown component image, generated component, component with broken item config and service. Unit
+    // subjects are not enabled.
+    auto requests  = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    auto instances = std::make_unique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>();
+
+    requests->PushBack(CreateRunRequest(cComponent1, cSubject1, 0, 0, "", {}, UpdateItemTypeEnum::eComponent));
+    requests->PushBack(CreateRunRequest("component2", cSubject1, 0, 0, "", {}, UpdateItemTypeEnum::eComponent));
+    requests->PushBack(CreateRunRequest("component3", cSubject1, 0, 0, "", {}, UpdateItemTypeEnum::eComponent));
+    requests->PushBack(CreateRunRequest(cService1, cSubject1, 0, 1));
+
+    ASSERT_TRUE(loader->Save(*requests).IsNone());
+
+    loader->CreateInstances(*nodes, *instances);
+
+    EXPECT_TRUE(instances->IsEmpty());
+    ASSERT_EQ(mInstanceManager->GetCachedInstances().Size(), 2);
+    EXPECT_EQ(mInstanceManager->GetCachedInstances()[0]->GetInfo().mInstanceIdent.mItemID, "component2");
+    EXPECT_EQ(mInstanceManager->GetCachedInstances()[0]->GetInfo().mRuntimeID, cRunnerRootfs);
+    EXPECT_EQ(mInstanceManager->GetCachedInstances()[0]->GetInfo().mState, InstanceStateEnum::eDisabled);
+    EXPECT_EQ(mInstanceManager->GetCachedInstances()[1]->GetInfo().mInstanceIdent.mItemID, cService1);
+    EXPECT_EQ(mInstanceManager->GetCachedInstances()[1]->GetInfo().mState, InstanceStateEnum::eDisabled);
+
+    mStorage.mAddErr    = ErrorEnum::eFailed;
+    mStorage.mRemoveErr = ErrorEnum::eFailed;
+
+    requests->Clear();
+    requests->PushBack(CreateRunRequest("component2", cSubject1, 0, 0, "", {}, UpdateItemTypeEnum::eComponent));
+    requests->PushBack(CreateRunRequest(cService2, cSubject1, 0, 1));
+
+    ASSERT_TRUE(loader->Save(*requests).IsNone());
+
+    loader->CreateInstances(*nodes, *instances);
+
+    EXPECT_TRUE(instances->IsEmpty());
+    ASSERT_EQ(mInstanceManager->GetCachedInstances().Size(), 1);
+    EXPECT_EQ(mInstanceManager->GetCachedInstances()[0]->GetInfo().mInstanceIdent.mItemID, cService1);
+
+    // Run requests are restored from storage.
+    ASSERT_TRUE(loader->Load().IsNone());
+}
+
+/***********************************************************************************************************************
+ * Launcher error tests
+ **********************************************************************************************************************/
+
+class CMLauncherErrorTest : public Test {
+protected:
+    void SetUp() override
+    {
+        tests::utils::InitLog();
+
+        mStorage.Init();
+        mStorageState.Init();
+        mImageStore.Init();
+        mMonitoringProvider.Init();
+        mResourceManager.Init();
+    }
+
+    Error InitLauncher()
+    {
+        return mLauncher->Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+            mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider, ValidateGID,
+            ValidateUID, mStorage, mSender);
+    }
+
+    FailingAllocator                                 mAllocator;
+    NiceMock<nodeinfoprovider::NodeInfoProviderMock> mNodeInfoProvider;
+    NiceMock<InstanceRunnerMock>                     mInstanceRunner;
+    imagemanager::ImageStoreStub                     mImageStore;
+    resourcemanager::ResourceManagerStub             mResourceManager;
+    FaultyStorageStateStub                           mStorageState;
+    CountingMonitoringProvider                       mMonitoringProvider;
+    NiceMock<AlertsProviderMock>                     mAlertsProvider;
+    NiceMock<iamclient::IdentProviderMock>           mIdentProvider;
+    FaultyStorageStub                                mStorage;
+    SenderStub                                       mSender;
+    std::unique_ptr<Launcher>                        mLauncher = std::make_unique<Launcher>();
+};
+
+TEST_F(CMLauncherErrorTest, StartFailsOnInstanceManagerError)
+{
+    mStorage.mLoadInstancesErr = ErrorEnum::eFailed;
+
+    ASSERT_TRUE(InitLauncher().IsNone());
+    EXPECT_TRUE(mLauncher->Start().Is(ErrorEnum::eFailed));
+}
+
+TEST_F(CMLauncherErrorTest, StartFailsOnNodeManagerError)
+{
+    EXPECT_CALL(mNodeInfoProvider, GetAllNodeIDs(_)).WillOnce(Return(ErrorEnum::eFailed));
+
+    ASSERT_TRUE(InitLauncher().IsNone());
+    EXPECT_TRUE(mLauncher->Start().Is(ErrorEnum::eFailed));
+}
+
+TEST_F(CMLauncherErrorTest, StartFailsOnSubscribeNodeInfoError)
+{
+    EXPECT_CALL(mNodeInfoProvider, SubscribeListener(_)).WillOnce(Return(ErrorEnum::eFailed));
+
+    ASSERT_TRUE(InitLauncher().IsNone());
+    EXPECT_TRUE(mLauncher->Start().Is(ErrorEnum::eFailed));
+}
+
+TEST_F(CMLauncherErrorTest, StartFailsOnSubscribeSubjectsError)
+{
+    EXPECT_CALL(mIdentProvider, SubscribeListener(_)).WillOnce(Return(ErrorEnum::eFailed));
+
+    ASSERT_TRUE(InitLauncher().IsNone());
+    EXPECT_TRUE(mLauncher->Start().Is(ErrorEnum::eFailed));
+}
+
+TEST_F(CMLauncherErrorTest, StartFailsOnSubscribeAlertsError)
+{
+    EXPECT_CALL(mAlertsProvider, SubscribeListener(_, _)).WillOnce(Return(ErrorEnum::eFailed));
+
+    ASSERT_TRUE(InitLauncher().IsNone());
+    EXPECT_TRUE(mLauncher->Start().Is(ErrorEnum::eFailed));
+}
+
+TEST_F(CMLauncherErrorTest, StartFailsOnGetSubjectsError)
+{
+    EXPECT_CALL(mIdentProvider, GetSubjects(_)).WillOnce(Return(ErrorEnum::eFailed));
+
+    ASSERT_TRUE(InitLauncher().IsNone());
+    EXPECT_TRUE(mLauncher->Start().Is(ErrorEnum::eFailed));
+}
+
+TEST_F(CMLauncherErrorTest, StartFailsOnLoadRunRequestsError)
+{
+    mStorage.mLoadRunRequestsErr = ErrorEnum::eFailed;
+
+    ASSERT_TRUE(InitLauncher().IsNone());
+    EXPECT_TRUE(mLauncher->Start().Is(ErrorEnum::eFailed));
+}
+
+TEST_F(CMLauncherErrorTest, StartFailsOnLoadOverrideEnvVarsError)
+{
+    mStorage.mLoadEnvVarsErr = ErrorEnum::eFailed;
+
+    ASSERT_TRUE(InitLauncher().IsNone());
+    EXPECT_TRUE(mLauncher->Start().Is(ErrorEnum::eFailed));
+}
+
+TEST_F(CMLauncherErrorTest, StopErrors)
+{
+    EXPECT_CALL(mIdentProvider, UnsubscribeListener(_))
+        .WillOnce(Return(ErrorEnum::eFailed))
+        .WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mAlertsProvider, UnsubscribeListener(_))
+        .WillOnce(Return(ErrorEnum::eFailed))
+        .WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mNodeInfoProvider, UnsubscribeListener(_))
+        .WillOnce(Return(ErrorEnum::eFailed))
+        .WillRepeatedly(Return(ErrorEnum::eNone));
+
+    ASSERT_TRUE(InitLauncher().IsNone());
+    ASSERT_TRUE(mLauncher->Start().IsNone());
+
+    EXPECT_TRUE(mLauncher->Stop().Is(ErrorEnum::eFailed));
+    EXPECT_TRUE(mLauncher->Stop().Is(ErrorEnum::eFailed));
+    EXPECT_TRUE(mLauncher->Stop().Is(ErrorEnum::eFailed));
+    EXPECT_TRUE(mLauncher->Stop().IsNone());
+}
+
+TEST_F(CMLauncherErrorTest, Listeners)
+{
+    nodeinfoprovider::NodeInfoListenerItf* nodeInfoListener {};
+    alerts::AlertsListenerItf*             alertsListener {};
+
+    EXPECT_CALL(mNodeInfoProvider, SubscribeListener(_))
+        .WillOnce(Invoke([&nodeInfoListener](nodeinfoprovider::NodeInfoListenerItf& listener) {
+            nodeInfoListener = &listener;
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mAlertsProvider, SubscribeListener(_, _))
+        .WillOnce(Invoke([&alertsListener](const Array<AlertTag>&, alerts::AlertsListenerItf& listener) {
+            alertsListener = &listener;
+
+            return ErrorEnum::eNone;
+        }));
+
+    ASSERT_TRUE(InitLauncher().IsNone());
+
+    // Run requests are not saved.
+    auto runRequests = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    runRequests->PushBack(CreateRunRequest(cService1, cSubject1));
+
+    mStorage.mSaveRunRequestsErr = ErrorEnum::eFailed;
+
+    EXPECT_TRUE(mLauncher->RunInstances(*runRequests, *runStatuses).Is(ErrorEnum::eFailed));
+
+    // Launcher is not started.
+    mStorage.mSaveRunRequestsErr = ErrorEnum::eNone;
+
+    EXPECT_TRUE(mLauncher->RunInstances(*runRequests, *runStatuses).Is(ErrorEnum::eCanceled));
+
+    InstanceStatusReceiverItf& statusReceiver = *mLauncher;
+
+    EXPECT_TRUE(statusReceiver.OnNodeInstancesStatusesReceived(cNodeIDLocalSM, Array<InstanceStatus>()).IsNone());
+
+    EXPECT_TRUE(statusReceiver
+                    .OnInstanceStatusReceived(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0),
+                        cNodeIDLocalSM, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone))
+                    .IsNone());
+
+    InstanceStatusListenerStub statusListener;
+
+    EXPECT_TRUE(mLauncher->UnsubscribeListener(statusListener).Is(ErrorEnum::eNotFound));
+
+    ASSERT_TRUE(mLauncher->Start().IsNone());
+    ASSERT_NE(nodeInfoListener, nullptr);
+    ASSERT_NE(alertsListener, nullptr);
+
+    // Not system quota alert is ignored.
+    AlertVariant alert;
+
+    alert.SetValue(CoreAlert {});
+
+    EXPECT_TRUE(alertsListener->OnAlertReceived(alert).IsNone());
+
+    nodeInfoListener->OnNodeInfoChanged(CreateNodeInfo(
+        cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}, {}, NodeStateEnum::eUnprovisioned, false));
+
+    EXPECT_TRUE(mLauncher->Stop().IsNone());
+}
+
+/***********************************************************************************************************************
+ * Launcher balancing tests
+ **********************************************************************************************************************/
+
+TEST_F(CMLauncherTest, RunInstancesFailsOnMonitoringError)
+{
+    mStorageState.Init();
+    mNodeInfoProvider.Init();
+    mMonitoringProvider.Init();
+    mResourceManager.Init();
+    mImageStore.Init();
+    mStorage.Init();
+
+    mNodeInfoProvider.AddNodeInfo(
+        cNodeIDLocalSM, CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}));
+
+    auto nodeConfig = std::make_unique<NodeConfig>();
+
+    CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
+    mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
+
+    oci::ItemConfig itemConfig;
+
+    CreateItemConfig(itemConfig, {cRunnerRunc});
+    AddItem(cService1, cImageID1, itemConfig, CreateImageConfig());
+
+    mInstanceRunner.Init(mLauncher);
+
+    ASSERT_TRUE(mLauncher
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
+                        ValidateGID, ValidateUID, mStorage, mSender)
+                    .IsNone());
+
+    ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    mInstanceRunner.SendInitialStatuses(cNodeIDLocalSM);
+
+    auto runRequests = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    runRequests->PushBack(CreateRunRequest(cService1, cSubject1));
+
+    EXPECT_TRUE(mLauncher.RunInstances(*runRequests, *runStatuses).Is(ErrorEnum::eNotFound));
+
+    ASSERT_TRUE(mLauncher.Stop().IsNone());
+}
+
+TEST_F(CMLauncherTest, ScheduleErrors)
+{
+    mStorageState.Init();
+    mNodeInfoProvider.Init();
+    mMonitoringProvider.Init();
+    mResourceManager.Init();
+    mImageStore.Init();
+    mStorage.Init();
+
+    mNodeInfoProvider.AddNodeInfo(
+        cNodeIDLocalSM, CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc, 1)}));
+
+    auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+
+    CreateNodeMonitoring(*nodeMonitoring, cNodeIDLocalSM, 0.0);
+    mMonitoringProvider.SetAverageMonitoring(cNodeIDLocalSM, *nodeMonitoring);
+
+    auto nodeConfig = std::make_unique<NodeConfig>();
+
+    CreateNodeConfig(*nodeConfig, cNodeIDLocalSM);
+    mResourceManager.SetNodeConfig(cNodeIDLocalSM, cNodeTypeVM, *nodeConfig);
+
+    auto itemConfig = std::make_unique<oci::ItemConfig>();
+
+    oci::ResourceInfo resource;
+
+    resource.mName = "unknownResource";
+
+    CreateItemConfig(*itemConfig, {cRunnerRunc}, oci::BalancingPolicyEnum::eEnabled, {}, {}, {}, {}, {resource});
+    AddItem(cService1, cImageID1, *itemConfig, CreateImageConfig());
+
+    *itemConfig = oci::ItemConfig {};
+    CreateItemConfig(*itemConfig, {cRunnerRunx});
+    AddItem(cService2, cImageID1, *itemConfig, CreateImageConfig());
+
+    *itemConfig = oci::ItemConfig {};
+    CreateItemConfig(
+        *itemConfig, {cRunnerRunc}, oci::BalancingPolicyEnum::eEnabled, {}, CreateRequestedResources(0, 0, 5000, 0));
+    AddItem(cService3, cImageID1, *itemConfig, CreateImageConfig());
+
+    *itemConfig = oci::ItemConfig {};
+    CreateItemConfig(
+        *itemConfig, {cRunnerRunc}, oci::BalancingPolicyEnum::eEnabled, {}, CreateRequestedResources(0, 0, 0, 5000));
+    AddItem("service4", cImageID1, *itemConfig, CreateImageConfig());
+
+    // Max number of instances reached for the second one.
+    *itemConfig = oci::ItemConfig {};
+    CreateItemConfig(*itemConfig, {cRunnerRunc});
+    AddItem("service5", cImageID1, *itemConfig, CreateImageConfig());
+    AddItem("service6", cImageID1, *itemConfig, CreateImageConfig());
+
+    mInstanceRunner.Init(mLauncher, true, aos::InstanceStateEnum::eActive);
+
+    ASSERT_TRUE(mLauncher
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
+                        ValidateGID, ValidateUID, mStorage, mSender)
+                    .IsNone());
+
+    ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    mInstanceRunner.SendInitialStatuses(cNodeIDLocalSM);
+
+    auto runRequests = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    for (const auto& serviceID : {cService1, cService2, cService3, "service4", "service5", "service6"}) {
+        runRequests->PushBack(CreateRunRequest(serviceID, cSubject1));
+    }
+
+    ASSERT_TRUE(mLauncher.RunInstances(*runRequests, *runStatuses).IsNone());
+    ASSERT_TRUE(mLauncher.Stop().IsNone());
+
+    ASSERT_EQ(runStatuses->Size(), 6);
+
+    size_t numFailed = 0;
+
+    for (const auto& status : *runStatuses) {
+        if (status.mState == aos::InstanceStateEnum::eFailed) {
+            EXPECT_TRUE(status.mError.Is(ErrorEnum::eNotFound)) << status.mItemID.CStr();
+            numFailed++;
+        } else {
+            EXPECT_EQ(status.mNodeID, cNodeIDLocalSM) << status.mItemID.CStr();
+        }
+    }
+
+    EXPECT_EQ(numFailed, 5);
+}
+
+TEST_F(CMLauncherTest, PolicyRebalancingOnNodeInfoChange)
+{
+    using namespace std::chrono_literals;
+
+    mStorageState.Init();
+    mNodeInfoProvider.Init();
+    mMonitoringProvider.Init();
+    mResourceManager.Init();
+    mImageStore.Init();
+    mStorage.Init();
+
+    for (const auto& nodeID : {cNodeIDLocalSM, cNodeIDRemoteSM1}) {
+        auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+
+        CreateNodeMonitoring(*nodeMonitoring, nodeID, 0.0);
+        mMonitoringProvider.SetAverageMonitoring(nodeID, *nodeMonitoring);
+
+        auto nodeConfig = std::make_unique<NodeConfig>();
+
+        CreateNodeConfig(*nodeConfig, nodeID);
+        mResourceManager.SetNodeConfig(nodeID, cNodeTypeVM, *nodeConfig);
+    }
+
+    mNodeInfoProvider.AddNodeInfo(
+        cNodeIDLocalSM, CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)}));
+
+    oci::ItemConfig itemConfig;
+
+    CreateItemConfig(itemConfig, {cRunnerRunc}, oci::BalancingPolicyEnum::eDisabled);
+
+    for (const auto& serviceID : {cService1, cService2, cService3, "service4"}) {
+        AddItem(serviceID, cImageID1, itemConfig, CreateImageConfig());
+    }
+
+    std::mutex              mutex;
+    std::condition_variable condVar;
+    size_t                  numRunRequests = 0;
+
+    EXPECT_CALL(mInstanceRunner, OnRunRequest()).WillRepeatedly(Invoke([&]() {
+        std::lock_guard lock {mutex};
+
+        numRunRequests++;
+        condVar.notify_all();
+    }));
+
+    mInstanceRunner.Init(mLauncher, true, aos::InstanceStateEnum::eActive);
+
+    ASSERT_TRUE(mLauncher
+                    .Init(mAllocator, CreateConfig(), mNodeInfoProvider, mInstanceRunner, mImageStore, mImageStore,
+                        mResourceManager, mStorageState, mMonitoringProvider, mAlertsProvider, mIdentProvider,
+                        ValidateGID, ValidateUID, mStorage, mSender)
+                    .IsNone());
+
+    ASSERT_TRUE(mLauncher.Start().IsNone());
+
+    mInstanceRunner.SendInitialStatuses(cNodeIDLocalSM);
+
+    auto runRequests = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    for (const auto& serviceID : {cService1, cService2, cService3, "service4"}) {
+        runRequests->PushBack(CreateRunRequest(serviceID, cSubject1));
+    }
+
+    ASSERT_TRUE(mLauncher.RunInstances(*runRequests, *runStatuses).IsNone());
+
+    size_t expectedRunRequests = 0;
+
+    {
+        std::lock_guard lock {mutex};
+
+        expectedRunRequests = numRunRequests + 2;
+    }
+
+    // Break images of running instances: unknown index, broken item config and removed manifest.
+    mImageStore.SetBlobError(imagemanager::ImageStoreStub::BuildIndexDigest(cService2, ""), ErrorEnum::eFailed);
+    mImageStore.SetBlobError("service3:image1:item", ErrorEnum::eFailed);
+    mImageStore.AddItem("service4", "image2", itemConfig, CreateImageConfig());
+
+    // New node triggers rebalancing.
+    mNodeInfoProvider.AddNodeInfo(
+        cNodeIDRemoteSM1, CreateNodeInfo(cNodeIDRemoteSM1, 2000, 2048, {CreateRuntime(cRunnerRunc)}));
+    mInstanceRunner.SendInitialStatuses(cNodeIDRemoteSM1);
+
+    {
+        std::unique_lock lock {mutex};
+
+        ASSERT_TRUE(condVar.wait_for(lock, 5s, [&]() { return numRunRequests >= expectedRunRequests; }));
+    }
+
+    ASSERT_TRUE(mLauncher.Stop().IsNone());
+
+    // Service with disabled balancing policy stays on its node.
+    const auto& nodeRequests = mInstanceRunner.GetRunRequests();
+
+    ASSERT_EQ(nodeRequests.count(cNodeIDLocalSM), 1);
+    ASSERT_EQ(nodeRequests.count(cNodeIDRemoteSM1), 1);
+
+    const auto& localStartInstances = nodeRequests.at(cNodeIDLocalSM).mStartInstances;
+
+    EXPECT_TRUE(std::any_of(localStartInstances.begin(), localStartInstances.end(),
+        [](const aos::InstanceInfo& info) { return info.mItemID == cService1; }));
+}
+
+/***********************************************************************************************************************
+ * ImageInfoProvider tests
+ **********************************************************************************************************************/
+
+class CMLauncherImageInfoProviderTest : public Test {
+protected:
+    void SetUp() override
+    {
+        tests::utils::InitLog();
+
+        mImageStore.Init();
+
+        oci::ItemConfig itemConfig;
+
+        CreateItemConfig(itemConfig, {cRunnerRunc});
+        mImageStore.AddItem(cService1, cImageID1, itemConfig, CreateImageConfig());
+
+        mProvider.Init(mAllocator, mImageStore, mImageStore);
+    }
+
+    FailingAllocator     mAllocator;
+    FaultyImageStoreStub mImageStore;
+    ImageInfoProvider    mProvider;
+};
+
+TEST_F(CMLauncherImageInfoProviderTest, GetImageConfigErrors)
+{
+    using PathType = StaticString<cFilePathLen>;
+
+    const auto descriptor = CreateImageDescriptor(cService1);
+    auto       config     = std::make_unique<oci::ImageConfig>();
+
+    ASSERT_TRUE(mProvider.GetImageConfig(descriptor, *config).IsNone());
+    EXPECT_EQ(config->mArchitecture, "x86_64");
+
+    mAllocator.Fail(sizeof(PathType));
+    EXPECT_TRUE(mProvider.GetImageConfig(descriptor, *config).Is(ErrorEnum::eNoMemory));
+
+    mAllocator.Fail(sizeof(oci::ImageManifest));
+    EXPECT_TRUE(mProvider.GetImageConfig(descriptor, *config).Is(ErrorEnum::eNoMemory));
+
+    mAllocator.Fail(sizeof(PathType), 1);
+    EXPECT_TRUE(mProvider.GetImageConfig(descriptor, *config).Is(ErrorEnum::eNoMemory));
+
+    EXPECT_TRUE(mProvider.GetImageConfig(CreateImageDescriptor(cService2), *config).Is(ErrorEnum::eNotFound));
+
+    mImageStore.mManifestErr = ErrorEnum::eFailed;
+    EXPECT_TRUE(mProvider.GetImageConfig(descriptor, *config).Is(ErrorEnum::eFailed));
+    mImageStore.mManifestErr = ErrorEnum::eNone;
+
+    mImageStore.mImageConfigErr = ErrorEnum::eWrongState;
+    EXPECT_TRUE(mProvider.GetImageConfig(descriptor, *config).Is(ErrorEnum::eWrongState));
+}
+
+TEST_F(CMLauncherImageInfoProviderTest, GetItemConfigErrors)
+{
+    using PathType = StaticString<cFilePathLen>;
+
+    const auto descriptor = CreateImageDescriptor(cService1);
+    auto       config     = std::make_unique<oci::ItemConfig>();
+
+    ASSERT_TRUE(mProvider.GetItemConfig(descriptor, *config).IsNone());
+    ASSERT_EQ(config->mRuntimes.Size(), 1);
+    EXPECT_EQ(config->mRuntimes[0], cRunnerRunc);
+
+    mAllocator.Fail(sizeof(PathType));
+    EXPECT_TRUE(mProvider.GetItemConfig(descriptor, *config).Is(ErrorEnum::eNoMemory));
+
+    mAllocator.Fail(sizeof(oci::ImageManifest));
+    EXPECT_TRUE(mProvider.GetItemConfig(descriptor, *config).Is(ErrorEnum::eNoMemory));
+
+    mAllocator.Fail(sizeof(PathType), 1);
+    EXPECT_TRUE(mProvider.GetItemConfig(descriptor, *config).Is(ErrorEnum::eNoMemory));
+
+    mImageStore.mManifestErr = ErrorEnum::eFailed;
+    EXPECT_TRUE(mProvider.GetItemConfig(descriptor, *config).Is(ErrorEnum::eFailed));
+    mImageStore.mManifestErr = ErrorEnum::eNone;
+
+    // Manifest without item config.
+    mImageStore.mNoItemConfig = true;
+    EXPECT_TRUE(mProvider.GetItemConfig(descriptor, *config).Is(ErrorEnum::eNotFound));
+    mImageStore.mNoItemConfig = false;
+
+    mImageStore.mItemConfigErr = ErrorEnum::eWrongState;
+    EXPECT_TRUE(mProvider.GetItemConfig(descriptor, *config).Is(ErrorEnum::eWrongState));
+}
+
+TEST_F(CMLauncherImageInfoProviderTest, GetImageIndexErrors)
+{
+    const auto indexDigest = imagemanager::ImageStoreStub::BuildIndexDigest(cService1, "");
+    auto       index       = std::make_unique<oci::ImageIndex>();
+
+    ASSERT_TRUE(mProvider.GetImageIndex(indexDigest, *index).IsNone());
+    EXPECT_EQ(index->mManifests.Size(), 1);
+
+    EXPECT_TRUE(mProvider.GetImageIndex("", *index).Is(ErrorEnum::eInvalidArgument));
+
+    mAllocator.Fail(sizeof(StaticString<cFilePathLen>));
+    EXPECT_TRUE(mProvider.GetImageIndex(indexDigest, *index).Is(ErrorEnum::eNoMemory));
+
+    EXPECT_TRUE(mProvider.GetImageIndex("unknown", *index).Is(ErrorEnum::eNotFound));
+
+    mImageStore.mIndexErr = ErrorEnum::eFailed;
+    EXPECT_TRUE(mProvider.GetImageIndex(indexDigest, *index).Is(ErrorEnum::eFailed));
+}
+
+/***********************************************************************************************************************
+ * OverrideEnvVarsProcessor tests
+ **********************************************************************************************************************/
+
+class OverrideEnvVarsListenerCounter : public OverrideEnvVarsListenerItf {
+public:
+    void OnOverrideEnvVarsChanged() override { mCount++; }
+
+    std::atomic<size_t> mCount {};
+};
+
+class CMLauncherOverrideEnvVarsTest : public Test {
+protected:
+    void SetUp() override
+    {
+        tests::utils::InitLog();
+
+        mStorage.Init();
+    }
+
+    Error InitProcessor(Duration checkPeriod = Time::cMinutes)
+    {
+        auto config = CreateConfig();
+
+        config.mCheckOverrideEnvVarsPeriod = checkPeriod;
+
+        return mProcessor->Init(config, mStorage, mSender, mListener);
+    }
+
+    static std::unique_ptr<OverrideEnvVarsRequest> CreateRequest(const Optional<Time>& ttl = {})
+    {
+        auto                request = std::make_unique<OverrideEnvVarsRequest>();
+        EnvVarsInstanceInfo item;
+        EnvVarInfo          var;
+
+        item.mItemID.EmplaceValue(cService1);
+        static_cast<EnvVar&>(var) = CreateEnvVar("VAR1", "value1");
+        var.mTTL                  = ttl;
+        item.mVariables.PushBack(var);
+        request->mItems.PushBack(item);
+
+        return request;
+    }
+
+    FaultyStorageStub                         mStorage;
+    FaultySenderStub                          mSender;
+    OverrideEnvVarsListenerCounter            mListener;
+    std::unique_ptr<OverrideEnvVarsProcessor> mProcessor = std::make_unique<OverrideEnvVarsProcessor>();
+};
+
+TEST_F(CMLauncherOverrideEnvVarsTest, StartFailsOnSaveExpiredVars)
+{
+    ASSERT_TRUE(InitProcessor().IsNone());
+
+    // Variable expired while offline.
+    ASSERT_TRUE(mStorage.StorageStub::SaveOverrideEnvVars(*CreateRequest(Time::Now().Add(-Time::cHours))).IsNone());
+
+    mStorage.mSaveEnvVarsErr = ErrorEnum::eFailed;
+
+    auto [changed, err] = mProcessor->Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed));
+    EXPECT_TRUE(changed);
+
+    // Expired variable is removed on successful start.
+    mStorage.mSaveEnvVarsErr = ErrorEnum::eNone;
+
+    auto [changedAgain, errAgain] = mProcessor->Start();
+    EXPECT_TRUE(errAgain.IsNone());
+    EXPECT_TRUE(changedAgain);
+    EXPECT_TRUE((*mProcessor->GetOverrideEnvVars()).mItems.IsEmpty());
+
+    EXPECT_TRUE(mProcessor->Stop().IsNone());
+}
+
+TEST_F(CMLauncherOverrideEnvVarsTest, OverrideEnvVarsSaveError)
+{
+    ASSERT_TRUE(InitProcessor().IsNone());
+
+    auto request = CreateRequest(Time::Now().Add(Time::cHours));
+
+    mStorage.mSaveEnvVarsErr = ErrorEnum::eFailed;
+
+    auto [changed, err] = mProcessor->OverrideEnvVars(*request);
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed));
+    EXPECT_TRUE(changed);
+    EXPECT_EQ(mListener.mCount, 0);
+
+    mStorage.mSaveEnvVarsErr = ErrorEnum::eNone;
+
+    // Variables are already applied, so nothing is changed.
+    auto [changedAgain, errAgain] = mProcessor->OverrideEnvVars(*request);
+    EXPECT_TRUE(errAgain.IsNone());
+    EXPECT_FALSE(changedAgain);
+    EXPECT_EQ(mListener.mCount, 0);
+}
+
+TEST_F(CMLauncherOverrideEnvVarsTest, TTLTimerSaveError)
+{
+    ASSERT_TRUE(InitProcessor(10 * Time::cMilliseconds).IsNone());
+
+    ASSERT_TRUE(mStorage.StorageStub::SaveOverrideEnvVars(*CreateRequest(Time::Now().Add(Time::cSeconds))).IsNone());
+
+    auto [changed, err] = mProcessor->Start();
+    ASSERT_TRUE(err.IsNone());
+    EXPECT_FALSE(changed);
+
+    auto saveCount = mStorage.GetSaveEnvVarsCount();
+
+    mStorage.mSaveEnvVarsErr = ErrorEnum::eFailed;
+
+    // Timer detects expired variable and fails to save the update.
+    EXPECT_TRUE(mStorage.WaitForSaveEnvVarsCount(saveCount + 1));
+    EXPECT_TRUE(mProcessor->Stop().IsNone());
+
+    EXPECT_EQ(mListener.mCount, 0);
+    EXPECT_TRUE((*mProcessor->GetOverrideEnvVars()).mItems.IsEmpty());
+}
+
+TEST_F(CMLauncherOverrideEnvVarsTest, SendStatuses)
+{
+    ASSERT_TRUE(InitProcessor().IsNone());
+
+    auto statuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    statuses->PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), cNodeIDLocalSM, cRunnerRunc,
+        aos::InstanceStateEnum::eActive, ErrorEnum::eNone));
+    statuses->PushBack(CreateInstanceStatus(CreateInstanceIdent(cService2, cSubject1, 0), cNodeIDLocalSM, cRunnerRunc,
+        aos::InstanceStateEnum::eActive, ErrorEnum::eNone));
+    (*statuses)[1].mEnvVarsStatuses.PushBack(EnvVarStatus {"VAR1", ErrorEnum::eNone});
+
+    ASSERT_TRUE(mProcessor->AddStatuses(cNodeIDLocalSM, *statuses).IsNone());
+
+    mProcessor->SendStatuses();
+
+    EXPECT_EQ(mSender.mSendCount, 1);
+    EXPECT_EQ(mSender.GetOverrideEnvVarsStatuses(),
+        CreateOverrideEnvVarsStatuses({CreateEnvVarsInstanceStatus(
+            CreateInstanceIdent(cService2, cSubject1, 0), {EnvVarStatus {"VAR1", ErrorEnum::eNone}})}));
+
+    // Statuses of the same node are replaced, unchanged statuses are not sent.
+    ASSERT_TRUE(mProcessor->AddStatuses(cNodeIDLocalSM, *statuses).IsNone());
+
+    mProcessor->SendStatuses();
+
+    EXPECT_EQ(mSender.mSendCount, 1);
+
+    ASSERT_TRUE(mProcessor->AddStatuses(cNodeIDRemoteSM1, *statuses).IsNone());
+
+    mSender.mSendErr = ErrorEnum::eFailed;
+
+    mProcessor->SendStatuses();
+
+    EXPECT_EQ(mSender.mSendCount, 1);
+
+    // Statuses are sent after error.
+    mSender.mSendErr = ErrorEnum::eNone;
+
+    mProcessor->SendStatuses();
+
+    EXPECT_EQ(mSender.mSendCount, 2);
+    EXPECT_EQ(mSender.GetOverrideEnvVarsStatuses().mStatuses.Size(), 2);
+}
+
+/***********************************************************************************************************************
+ * Allocation error tests
+ **********************************************************************************************************************/
+
+TEST_F(CMLauncherNodeTest, SendInstancesNoMemory)
+{
+    using InstanceInfoArray = StaticArray<aos::InstanceInfo, cMaxNumInstances>;
+
+    auto running = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    auto active  = std::make_unique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>();
+
+    for (size_t skip = 0; skip < 2; skip++) {
+        mAllocator.Fail(sizeof(InstanceInfoArray), skip);
+
+        EXPECT_TRUE(mNode.SendScheduledInstances(*active, *running).Is(ErrorEnum::eNoMemory));
+
+        mAllocator.Fail(sizeof(InstanceInfoArray), skip);
+
+        auto [sent, err] = mNode.ResendInstances(*active, *running, false);
+        EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory));
+        EXPECT_FALSE(sent);
+    }
+
+    // Nothing to resend.
+    auto [sent, err] = mNode.ResendInstances(*active, *running, false);
+    EXPECT_TRUE(err.IsNone());
+    EXPECT_FALSE(sent);
+}
+
+TEST_F(CMLauncherInstanceTest, AllocationErrors)
+{
+    oci::ItemConfig itemConfig;
+
+    CreateItemConfig(itemConfig, {cRunnerRunc});
+    AddItem(cService1, cImageID1, itemConfig);
+
+    auto instance = CreateService(
+        CreateInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0), BuildManifestDigest(cService1)));
+    ASSERT_TRUE(instance->Init().IsNone());
+
+    const auto descriptor = CreateImageDescriptor(cService1);
+
+    EXPECT_TRUE(instance->IsImageValid());
+
+    mAllocator.Fail(sizeof(oci::ImageIndex));
+    EXPECT_FALSE(instance->IsImageValid());
+
+    mAllocator.Fail(sizeof(oci::ItemConfig));
+    EXPECT_TRUE(instance->LoadConfigs(descriptor).Is(ErrorEnum::eNoMemory));
+
+    mAllocator.Fail(sizeof(oci::ImageConfig));
+    EXPECT_TRUE(instance->LoadConfigs(descriptor).Is(ErrorEnum::eNoMemory));
+
+    ASSERT_TRUE(instance->LoadConfigs(descriptor).IsNone());
+
+    auto request = std::make_unique<OverrideEnvVarsRequest>();
+
+    mAllocator.Fail(sizeof(EnvVarArray));
+
+    auto [changed, err] = instance->OverrideEnvVars(*request);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory));
+    EXPECT_FALSE(changed);
+
+    for (size_t i = 0; i < 2; i++) {
+        EnvVarsInstanceInfo item;
+
+        item.mItemID.EmplaceValue(cService1);
+
+        for (size_t j = 0; j < cMaxNumEnvVariables; j++) {
+            EnvVarInfo var;
+
+            static_cast<EnvVar&>(var)
+                = CreateEnvVar("VAR_" + std::to_string(i) + "_" + std::to_string(j), std::to_string(j));
+            ASSERT_TRUE(item.mVariables.PushBack(var).IsNone());
+        }
+
+        ASSERT_TRUE(request->mItems.PushBack(item).IsNone());
+    }
+
+    auto [changedMany, errMany] = instance->OverrideEnvVars(*request);
+    EXPECT_TRUE(errMany.Is(ErrorEnum::eNoMemory));
+    EXPECT_FALSE(changedMany);
+}
+
+TEST_F(CMLauncherInstanceManagerTest, AllocationErrors)
+{
+    mAllocator.Fail(sizeof(StaticArray<InstanceInfo, cMaxNumInstances>));
+
+    EXPECT_TRUE(mInstanceManager->Start().Is(ErrorEnum::eNoMemory));
+    ASSERT_TRUE(mInstanceManager->Stop().IsNone());
+    ASSERT_TRUE(mInstanceManager->Start().IsNone());
+
+    auto request      = CreateRunRequest(cService1, cSubject1);
+    auto newInstances = std::make_unique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>();
+
+    mAllocator.Fail(sizeof(InstanceInfo));
+
+    auto [instance1, err1] = mInstanceManager->CreateInstance(request, 0);
+    EXPECT_TRUE(err1.Is(ErrorEnum::eNoMemory));
+    EXPECT_FALSE(instance1);
+
+    mAllocator.Fail(sizeof(InstanceInfo));
+
+    auto [instance2, err2] = mInstanceManager->CreateInstance(request, cNodeIDLocalSM, cRunnerRunc, *newInstances);
+    EXPECT_TRUE(err2.Is(ErrorEnum::eNoMemory));
+    EXPECT_FALSE(instance2);
+
+    mAllocator.Fail(sizeof(SharedObjectControlBlock<ServiceInstance>));
+
+    auto [instance3, err3] = mInstanceManager->CreateInstance(request, 0);
+    EXPECT_TRUE(err3.Is(ErrorEnum::eNoMemory));
+    EXPECT_FALSE(instance3);
+}
+
+TEST_F(CMLauncherInstanceManagerTest, ScheduledGeneratedInstanceIsReused)
+{
+    ASSERT_TRUE(mInstanceManager->Start().IsNone());
+
+    auto request      = CreateRunRequest(cComponent1, cSubject1, 0, 0, "", {}, UpdateItemTypeEnum::eComponent);
+    auto newInstances = std::make_unique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>();
+
+    auto [instance, createErr]
+        = mInstanceManager->CreateInstance(request, cNodeIDLocalSM, cRunnerRootfs, *newInstances);
+    ASSERT_TRUE(createErr.IsNone());
+
+    TestNode node;
+
+    ASSERT_TRUE(mInstanceManager->ScheduleInstance(instance, node, cRunnerRootfs).IsNone());
+
+    auto [scheduled, scheduledErr]
+        = mInstanceManager->CreateInstance(request, cNodeIDLocalSM, cRunnerRootfs, *newInstances);
+    ASSERT_TRUE(scheduledErr.IsNone());
+    EXPECT_EQ(scheduled.Get(), instance.Get());
+
+    request.mIndexDigest = "newIndexDigest";
+    mStorage.mUpdateErr  = ErrorEnum::eFailed;
+
+    auto [failed, updateErr] = mInstanceManager->CreateInstance(request, cNodeIDLocalSM, cRunnerRootfs, *newInstances);
+    EXPECT_TRUE(updateErr.Is(ErrorEnum::eFailed));
+    EXPECT_FALSE(failed);
+}
+
+TEST_F(CMLauncherInstanceManagerTest, PreinstalledComponentsAreReplaced)
+{
+    ASSERT_TRUE(mInstanceManager->Start().IsNone());
+
+    auto componentIdent = CreateInstanceIdent(cComponent1, "", 0, UpdateItemTypeEnum::eComponent);
+
+    auto statuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    statuses->PushBack(CreateInstanceStatus(
+        componentIdent, cNodeIDLocalSM, cRunnerRootfs, aos::InstanceStateEnum::eActive, ErrorEnum::eNone, "", true));
+
+    ASSERT_TRUE(mInstanceManager->UpdateRunningInstances(cNodeIDLocalSM, *statuses).IsNone());
+    ASSERT_TRUE(mInstanceManager->UpdateRunningInstances(cNodeIDRemoteSM1, *statuses).IsNone());
+    EXPECT_EQ(mInstanceManager->GetPreinstalledComponents().Size(), 1);
+
+    statuses->Clear();
+
+    ASSERT_TRUE(mInstanceManager->UpdateRunningInstances(cNodeIDLocalSM, *statuses).IsNone());
+    EXPECT_TRUE(mInstanceManager->GetPreinstalledComponents().IsEmpty());
+}
+
+TEST_F(CMLauncherInstanceManagerTest, CacheIsClearedWhenLimitReached)
+{
+    ASSERT_TRUE(mInstanceManager->Start().IsNone());
+
+    auto request = CreateRunRequest(cService1, cSubject1);
+
+    for (size_t i = 0; i < cMaxNumInstances; i++) {
+        auto [instance, err] = mInstanceManager->CreateInstance(request, i);
+        ASSERT_TRUE(err.IsNone()) << i;
+
+        mInstanceManager->DisableInstance(instance);
+    }
+
+    ASSERT_EQ(mInstanceManager->GetCachedInstances().Size(), cMaxNumInstances);
+
+    auto [instance, err] = mInstanceManager->CreateInstance(request, cMaxNumInstances);
+    ASSERT_TRUE(err.IsNone());
+
+    mInstanceManager->ScheduleInstance(instance, ErrorEnum::eFailed);
+
+    // Remove errors are ignored.
+    mStorage.mRemoveErr = ErrorEnum::eFailed;
+
+    ASSERT_TRUE(mInstanceManager->SubmitScheduledInstances().IsNone());
+
+    EXPECT_EQ(mInstanceManager->GetActiveInstances().Size(), 1);
+    EXPECT_TRUE(mInstanceManager->GetCachedInstances().IsEmpty());
+}
+
+TEST_F(CMLauncherInstanceManagerTest, ExpiredActivatingInstancesFail)
+{
+    ASSERT_TRUE(mStorage
+                    .AddInstance(CreateInstanceInfo(CreateInstanceIdent(cService1, cSubject1, 0), {}, cRunnerRunc,
+                        cNodeIDLocalSM, InstanceStateEnum::eActive))
+                    .IsNone());
+
+    auto config = CreateConfig();
+
+    config.mNodesConnectionTimeout = Time::cMilliseconds;
+
+    auto instanceManager = std::make_unique<InstanceManager>();
+
+    ASSERT_TRUE(
+        instanceManager
+            ->Init(mAllocator, config, mImageStore, mStorageState, mImageStore, ValidateGID, ValidateUID, mStorage)
+            .IsNone());
+    ASSERT_TRUE(instanceManager->Start().IsNone());
+
+    // Instance status is not received during nodes connection timeout.
+    ASSERT_TRUE(mStorage.WaitForUpdateCount(1));
+    ASSERT_EQ(instanceManager->GetActiveInstances().Size(), 1);
+    EXPECT_EQ(instanceManager->GetActiveInstances()[0]->GetStatus().mState, aos::InstanceStateEnum::eFailed);
+    EXPECT_TRUE(instanceManager->GetActiveInstances()[0]->GetStatus().mError.Is(ErrorEnum::eFailed));
+    EXPECT_TRUE(instanceManager->Stop().IsNone());
+}
+
+TEST_F(CMLauncherInstanceManagerTest, RunRequestsLoaderErrors)
+{
+    ASSERT_TRUE(mInstanceManager->Start().IsNone());
+
+    StaticArray<StaticString<cIDLen>, 1> subjects;
+
+    subjects.PushBack(cSubject1);
+    ASSERT_TRUE(mInstanceManager->SetSubjects(subjects).mError.IsNone());
+
+    ImageInfoProvider imageInfoProvider;
+
+    imageInfoProvider.Init(mAllocator, mImageStore, mImageStore);
+
+    FailingAllocator loaderAllocator;
+    auto             loader = std::make_unique<RunRequestsLoader>();
+
+    loader->Init(loaderAllocator, mStorage, *mInstanceManager, imageInfoProvider);
+
+    oci::ItemConfig itemConfig;
+
+    CreateItemConfig(itemConfig, {cRunnerRootfs});
+    mImageStore.AddItem(cComponent1, cImageID1, itemConfig, CreateImageConfig());
+
+    resourcemanager::ResourceManagerStub nodeConfigProvider;
+    NiceMock<InstanceRunnerMock>         runner;
+    auto                                 nodes = std::make_unique<StaticArray<Node, 2>>();
+
+    for (const auto& nodeID : {cNodeIDLocalSM, cNodeIDRemoteSM1}) {
+        nodes->EmplaceBack();
+        nodes->Back().Init(mAllocator, nodeID, nodeConfigProvider, runner);
+        (void)nodes->Back().UpdateInfo(CreateNodeInfo(nodeID, 1000, 1024, {CreateRuntime(cRunnerRootfs)}));
+    }
+
+    auto tooManyRequests = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances + 1>>();
+
+    ASSERT_TRUE(tooManyRequests->Resize(cMaxNumInstances + 1).IsNone());
+    EXPECT_FALSE(loader->Save(*tooManyRequests).IsNone());
+
+    // cppcheck-suppress templateRecursion
+    auto requests  = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    auto instances = std::make_unique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>();
+
+    requests->PushBack(CreateRunRequest(cComponent1, cSubject1, 0, 0, "", {}, UpdateItemTypeEnum::eComponent));
+
+    ASSERT_TRUE(loader->Save(*requests).IsNone());
+
+    for (size_t skip = 0; skip < 3; skip++) {
+        loaderAllocator.Fail(FailingAllocator::cAnySize, skip);
+
+        loader->CreateInstances(*nodes, *instances);
+        EXPECT_TRUE(instances->IsEmpty());
+    }
+
+    // Generated instances don't fit into result array.
+    auto oneInstance = std::make_unique<StaticArray<SharedPtr<Instance>, 1>>();
+
+    loader->CreateInstances(*nodes, *oneInstance);
+    ASSERT_EQ(oneInstance->Size(), 1);
+    EXPECT_EQ(oneInstance->Front()->GetInfo().mNodeID, cNodeIDLocalSM);
+
+    // Service instances don't fit into result array.
+    requests->Clear();
+    requests->PushBack(CreateRunRequest(cService1, cSubject1, 0, 2));
+
+    ASSERT_TRUE(loader->Save(*requests).IsNone());
+
+    loader->CreateInstances(*nodes, *oneInstance);
+    ASSERT_EQ(oneInstance->Size(), 1);
+    EXPECT_EQ(oneInstance->Front()->GetInfo().mInstanceIdent, CreateInstanceIdent(cService1, cSubject1, 0));
+}
+
+TEST_F(CMLauncherNodeManagerTest, StartAllocationErrors)
+{
+    EXPECT_CALL(mNodeInfoProvider, GetAllNodeIDs(_)).WillRepeatedly(Invoke([](Array<StaticString<cIDLen>>& ids) {
+        return ids.PushBack(cNodeIDLocalSM);
+    }));
+    EXPECT_CALL(mNodeInfoProvider, GetNodeInfo(_, _))
+        .WillRepeatedly(Invoke([](const String& nodeID, UnitNodeInfo& info) {
+            info = CreateNodeInfo(nodeID.CStr(), 1000, 1024, {CreateRuntime(cRunnerRunc)});
+
+            return ErrorEnum::eNone;
+        }));
+
+    mAllocator.Fail(sizeof(StaticArray<StaticString<cIDLen>, cMaxNumNodes>));
+    EXPECT_TRUE(mNodeManager->Start().Is(ErrorEnum::eNoMemory));
+
+    mAllocator.Fail(sizeof(UnitNodeInfo));
+    EXPECT_TRUE(mNodeManager->Start().Is(ErrorEnum::eNoMemory));
+
+    ASSERT_TRUE(mNodeManager->Start().IsNone());
+    EXPECT_EQ(mNodeManager->GetNodes().Size(), 1);
+}
+
+TEST_F(CMLauncherNodeManagerTest, TooManyNodes)
+{
+    for (size_t i = 0; i < cMaxNumNodes; i++) {
+        auto nodeID = "node" + std::to_string(i);
+
+        ASSERT_TRUE(mNodeManager->UpdateNodeInfo(CreateNodeInfo(nodeID, 1000, 1024, {CreateRuntime(cRunnerRunc)})));
+    }
+
+    EXPECT_FALSE(mNodeManager->UpdateNodeInfo(CreateNodeInfo("extraNode", 1000, 1024, {CreateRuntime(cRunnerRunc)})));
+    EXPECT_FALSE(mNodeManager->NotifyNodeStatusReceived("extraNode").IsNone());
+    EXPECT_EQ(mNodeManager->FindNode("extraNode"), nullptr);
+
+    EXPECT_CALL(mNodeInfoProvider, GetAllNodeIDs(_)).WillOnce(Invoke([](Array<StaticString<cIDLen>>& ids) {
+        return ids.PushBack("extraNode");
+    }));
+
+    EXPECT_FALSE(mNodeManager->Start().IsNone());
+}
+
+TEST_F(CMLauncherNodeManagerTest, LoadSMDataAllocationErrors)
+{
+    ASSERT_TRUE(
+        mNodeManager->UpdateNodeInfo(CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRootfs)})));
+
+    oci::ItemConfig itemConfig;
+
+    CreateItemConfig(itemConfig, {cRunnerRootfs});
+    mImageStore.AddItem(cComponent1, cImageID1, itemConfig, CreateImageConfig());
+
+    auto instances = std::make_unique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>();
+
+    instances->PushBack(CreateComponent(cComponent1, BuildManifestDigest(cComponent1).CStr()));
+
+    for (auto size : {sizeof(oci::IndexContentDescriptor), sizeof(oci::ImageIndex)}) {
+        mAllocator.Fail(size);
+
+        EXPECT_TRUE(mNodeManager->LoadSMDataForActiveInstances(*instances, mImageInfoProvider).IsNone());
+        EXPECT_TRUE(instances->Front()->GetSMInfo().mRuntimeID.IsEmpty());
+    }
+
+    EXPECT_TRUE(mNodeManager->LoadSMDataForActiveInstances(*instances, mImageInfoProvider).IsNone());
+    EXPECT_EQ(instances->Front()->GetSMInfo().mRuntimeID, cRunnerRootfs);
+}
+
+TEST_F(CMLauncherNodeManagerTest, OverrideEnvVarsErrors)
+{
+    ASSERT_TRUE(mNodeManager->UpdateNodeInfo(CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)})));
+    ASSERT_TRUE(mNodeManager->NotifyNodeStatusReceived(cNodeIDLocalSM).IsNone());
+
+    auto running = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    auto active  = std::make_unique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>();
+
+    active->PushBack(CreateComponent(cComponent1, ""));
+    active->PushBack(CreateComponent("component2", ""));
+
+    Mutex             mutex;
+    UniqueLock<Mutex> lock {mutex};
+
+    mAllocator.Fail(sizeof(EnvVarArray), 0, 2);
+    EXPECT_TRUE(mNodeManager->SendScheduledInstances(lock, *active, *running).Is(ErrorEnum::eNoMemory));
+
+    StaticArray<StaticString<cIDLen>, 1> updatedNodes;
+
+    updatedNodes.PushBack(cNodeIDLocalSM);
+
+    mAllocator.Fail(sizeof(EnvVarArray));
+    EXPECT_TRUE(mNodeManager->ResendInstances(lock, updatedNodes, *active, *running).Is(ErrorEnum::eNoMemory));
+}
+
+TEST_F(CMLauncherNodeManagerTest, UnprovisionedNodeIsNotWaitedForStatus)
+{
+    auto nodeInfo = CreateNodeInfo(cNodeIDLocalSM, 1000, 1024, {CreateRuntime(cRunnerRunc)});
+
+    ASSERT_TRUE(mNodeManager->UpdateNodeInfo(nodeInfo));
+    ASSERT_TRUE(mNodeManager->NotifyNodeStatusReceived(cNodeIDLocalSM).IsNone());
+
+    EXPECT_CALL(mRunner, UpdateInstances(String(cNodeIDLocalSM), _, _)).WillOnce(Return(ErrorEnum::eNone));
+
+    auto running = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+    auto active  = std::make_unique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>();
+
+    Mutex             mutex;
+    UniqueLock<Mutex> lock {mutex};
+
+    // Node becomes unprovisioned while node manager waits for its status.
+    std::thread thread([&]() {
+        LockGuard<Mutex> threadLock {mutex};
+
+        nodeInfo.mState = NodeStateEnum::eUnprovisioned;
+
+        EXPECT_TRUE(mNodeManager->UpdateNodeInfo(nodeInfo));
+    });
+
+    EXPECT_TRUE(mNodeManager->SendScheduledInstances(lock, *active, *running).IsNone());
+
+    (void)lock.Unlock();
+    thread.join();
+
+    EXPECT_EQ(mNodeManager->FindNode(cNodeIDLocalSM)->GetInfo().mState, NodeStateEnum::eUnprovisioned);
+}
+
+/***********************************************************************************************************************
+ * Balancer tests
+ **********************************************************************************************************************/
+
+class CMLauncherBalancerTest : public Test {
+protected:
+    void SetUp() override
+    {
+        tests::utils::InitLog();
+
+        mImageStore.Init();
+        mStorage.Init();
+        mStorageState.Init();
+        mMonitoringProvider.Init();
+        mNodeConfigProvider.Init();
+
+        ON_CALL(mRunner, UpdateInstances(_, _, _)).WillByDefault(Return(ErrorEnum::eFailed));
+
+        ASSERT_TRUE(mInstanceManager
+                        ->Init(mAllocator, CreateConfig(), mImageStore, mStorageState, mImageStore, ValidateGID,
+                            ValidateUID, mStorage)
+                        .IsNone());
+
+        mImageInfoProvider.Init(mAllocator, mImageStore, mImageStore);
+
+        ASSERT_TRUE(mOverrideEnvVarsProcessor.Init(CreateConfig(), mStorage, mSender, mListener).IsNone());
+
+        mNodeManager->Init(mAllocator, mNodeInfoProvider, mNodeConfigProvider, mRunner, mOverrideEnvVarsProcessor);
+        mBalancer->Init(
+            mBalancerAllocator, *mInstanceManager, mImageInfoProvider, *mNodeManager, mMonitoringProvider, mRunner);
+
+        oci::ItemConfig itemConfig;
+
+        CreateItemConfig(itemConfig, {cRunnerRunc}, oci::BalancingPolicyEnum::eDisabled);
+
+        for (const auto& itemID :
+            {cService1, cService2, cService3, "service4", "service5", "service6", "service7", "service8"}) {
+            mImageStore.AddItem(itemID, cImageID1, itemConfig, CreateImageConfig());
+        }
+    }
+
+    void TearDown() override
+    {
+        EXPECT_TRUE(mNodeManager->Stop().IsNone());
+        EXPECT_TRUE(mInstanceManager->Stop().IsNone());
+    }
+
+    void AddNode(const std::string& nodeID, const std::vector<RuntimeInfo>& runtimes,
+        NodeState state = NodeStateEnum::eProvisioned, bool isConnected = true)
+    {
+        ASSERT_TRUE(mNodeManager->UpdateNodeInfo(CreateNodeInfo(nodeID, 1000, 1024, runtimes, {}, state, isConnected)));
+        ASSERT_TRUE(mNodeManager->NotifyNodeStatusReceived(nodeID.c_str()).IsNone());
+
+        auto nodeMonitoring = std::make_unique<monitoring::NodeMonitoringData>();
+
+        CreateNodeMonitoring(*nodeMonitoring, nodeID, 0.0);
+        mMonitoringProvider.SetAverageMonitoring(nodeID.c_str(), *nodeMonitoring);
+
+        auto nodeConfig = std::make_unique<NodeConfig>();
+
+        CreateNodeConfig(*nodeConfig, nodeID);
+        mNodeConfigProvider.SetNodeConfig(nodeID.c_str(), cNodeTypeVM, *nodeConfig);
+    }
+
+    void AddInstance(const std::string& itemID, const std::string& nodeID, const std::string& runtimeID,
+        bool withManifest = true, bool disableRebalancing = false)
+    {
+        auto info = CreateInstanceInfo(CreateInstanceIdent(itemID, cSubject1, 0),
+            withManifest ? BuildManifestDigest(itemID) : StaticString<oci::cDigestLen>(), runtimeID.c_str(),
+            nodeID.c_str(), InstanceStateEnum::eActive);
+
+        info.mDisableRebalancing = disableRebalancing;
+
+        ASSERT_TRUE(mStorage.AddInstance(info).IsNone());
+    }
+
+    Error RunInstances(bool rebalancing)
+    {
+        auto instances = std::make_unique<StaticArray<SharedPtr<Instance>, cMaxNumInstances>>();
+
+        if (auto err = instances->Assign(mInstanceManager->GetActiveInstances()); !err.IsNone()) {
+            return err;
+        }
+
+        Mutex             mutex;
+        UniqueLock<Mutex> lock {mutex};
+
+        return mBalancer->RunInstances(lock, *instances, rebalancing);
+    }
+
+    SharedPtr<Instance> FindInstance(const std::string& itemID)
+    {
+        auto it = mInstanceManager->GetActiveInstances().FindIf([&itemID](const SharedPtr<Instance>& instance) {
+            return instance->GetInfo().mInstanceIdent.mItemID == itemID.c_str();
+        });
+
+        return it != mInstanceManager->GetActiveInstances().end() ? *it : SharedPtr<Instance>();
+    }
+
+    FailingAllocator                                 mAllocator;
+    FailingAllocator                                 mBalancerAllocator;
+    FaultyImageStoreStub                             mImageStore;
+    FaultyStorageStub                                mStorage;
+    FaultyStorageStateStub                           mStorageState;
+    MonitoringProviderStub                           mMonitoringProvider;
+    resourcemanager::ResourceManagerStub             mNodeConfigProvider;
+    NiceMock<nodeinfoprovider::NodeInfoProviderMock> mNodeInfoProvider;
+    NiceMock<InstanceRunnerMock>                     mRunner;
+    SenderStub                                       mSender;
+    OverrideEnvVarsListenerStub                      mListener;
+    OverrideEnvVarsProcessor                         mOverrideEnvVarsProcessor;
+    ImageInfoProvider                                mImageInfoProvider;
+    std::unique_ptr<InstanceManager>                 mInstanceManager = std::make_unique<InstanceManager>();
+    std::unique_ptr<NodeManager>                     mNodeManager     = std::make_unique<NodeManager>();
+    std::unique_ptr<Balancer>                        mBalancer        = std::make_unique<Balancer>();
+};
+
+TEST_F(CMLauncherBalancerTest, PolicyBalancing)
+{
+    AddNode(cNodeIDLocalSM, {CreateRuntime(cRunnerRunc)});
+    AddNode(cNodeIDRemoteSM1, {CreateRuntime(cRunnerRunc)}, NodeStateEnum::eProvisioned, false);
+    AddNode(cNodeIDRemoteSM2, {CreateRuntime(cRunnerRunc)}, NodeStateEnum::ePaused);
+
+    AddInstance(cService1, "unknownNode", cRunnerRunc);
+    AddInstance(cService2, cNodeIDRemoteSM1, cRunnerRunc);
+    AddInstance(cService3, cNodeIDRemoteSM2, cRunnerRunc);
+    AddInstance("service4", cNodeIDLocalSM, "unknownRuntime");
+    AddInstance("service5", cNodeIDLocalSM, cRunnerRunc);
+    AddInstance("service6", cNodeIDLocalSM, cRunnerRunc, false);
+    AddInstance("service7", "", cRunnerRunc);
+    AddInstance("service8", cNodeIDLocalSM, "");
+
+    ASSERT_TRUE(mInstanceManager->Start().IsNone());
+    ASSERT_EQ(mInstanceManager->GetActiveInstances().Size(), 8);
+
+    mImageStore.SetBlobError("service5:image1:item", ErrorEnum::eFailed);
+
+    // Instances are sent to nodes, but sending fails.
+    EXPECT_TRUE(RunInstances(true).Is(ErrorEnum::eFailed));
+
+    auto service5 = FindInstance("service5");
+
+    ASSERT_TRUE(service5);
+    EXPECT_EQ(service5->GetStatus().mState, aos::InstanceStateEnum::eFailed);
+
+    for (const auto& itemID : {cService1, cService2, cService3, "service4"}) {
+        auto instance = FindInstance(itemID);
+
+        ASSERT_TRUE(instance) << itemID;
+        EXPECT_EQ(instance->GetInfo().mNodeID, cNodeIDLocalSM) << itemID;
+        EXPECT_EQ(instance->GetInfo().mRuntimeID, cRunnerRunc) << itemID;
+    }
+}
+
+TEST_F(CMLauncherBalancerTest, AllocationErrors)
+{
+    AddNode(cNodeIDLocalSM, {CreateRuntime(cRunnerRunc)});
+    AddInstance(cService1, cNodeIDLocalSM, cRunnerRunc);
+
+    ASSERT_TRUE(mInstanceManager->Start().IsNone());
+
+    mBalancerAllocator.Fail(sizeof(monitoring::NodeMonitoringData));
+    EXPECT_TRUE(RunInstances(true).Is(ErrorEnum::eNoMemory));
+
+    mBalancerAllocator.Fail(sizeof(oci::ImageIndex));
+    EXPECT_TRUE(RunInstances(true).Is(ErrorEnum::eNoMemory));
+
+    mBalancerAllocator.Fail(sizeof(monitoring::NodeMonitoringData));
+    EXPECT_TRUE(mBalancer->LoadSMDataForActiveInstances().Is(ErrorEnum::eNoMemory));
+    EXPECT_TRUE(mBalancer->LoadSMDataForActiveInstances().IsNone());
+
+    // Allocation errors of node balancing: image index, node list and node runtimes.
+    for (size_t skip = 1; skip < 4; skip++) {
+        mBalancerAllocator.Fail(FailingAllocator::cAnySize, skip);
+
+        EXPECT_TRUE(RunInstances(false).Is(ErrorEnum::eFailed));
+
+        auto instance = FindInstance(cService1);
+
+        ASSERT_TRUE(instance);
+        EXPECT_EQ(instance->GetStatus().mState, aos::InstanceStateEnum::eFailed);
+        EXPECT_TRUE(instance->GetStatus().mError.Is(ErrorEnum::eNoMemory));
+    }
+
+    EXPECT_TRUE(RunInstances(false).Is(ErrorEnum::eFailed));
+
+    auto instance = FindInstance(cService1);
+
+    ASSERT_TRUE(instance);
+    EXPECT_EQ(instance->GetInfo().mNodeID, cNodeIDLocalSM);
+    EXPECT_TRUE(instance->GetStatus().mError.IsNone());
+}
+
+TEST_F(CMLauncherBalancerTest, PrepareForBalancingErrors)
+{
+    AddNode(cNodeIDLocalSM, {CreateRuntime(cRunnerRunc)});
+
+    ASSERT_TRUE(mInstanceManager->Start().IsNone());
+
+    mStorageState.mStateSizeErr = ErrorEnum::eWrongState;
+
+    EXPECT_TRUE(RunInstances(false).Is(ErrorEnum::eWrongState));
+    EXPECT_TRUE(mBalancer->LoadSMDataForActiveInstances().Is(ErrorEnum::eWrongState));
+
+    mStorageState.mStateSizeErr = ErrorEnum::eNone;
+    mMonitoringProvider.Init();
+
+    EXPECT_TRUE(RunInstances(false).Is(ErrorEnum::eNotFound));
+}
+
+TEST_F(CMLauncherBalancerTest, NodeBalancingWithoutNodes)
+{
+    AddNode(cNodeIDLocalSM, {CreateRuntime(cRunnerRunc)});
+    AddNode("emptyNode", {});
+
+    // Instance bound to unknown node.
+    AddInstance(cService1, "unknownNode", cRunnerRunc, true, true);
+    AddInstance(cService2, cNodeIDLocalSM, cRunnerRunc);
+
+    ASSERT_TRUE(mInstanceManager->Start().IsNone());
+
+    EXPECT_TRUE(RunInstances(false).Is(ErrorEnum::eFailed));
+
+    auto service1 = FindInstance(cService1);
+
+    ASSERT_TRUE(service1);
+    EXPECT_EQ(service1->GetStatus().mState, aos::InstanceStateEnum::eFailed);
+    EXPECT_TRUE(service1->GetStatus().mError.Is(ErrorEnum::eNotFound));
+
+    auto service2 = FindInstance(cService2);
+
+    ASSERT_TRUE(service2);
+    EXPECT_EQ(service2->GetInfo().mNodeID, cNodeIDLocalSM);
+}
+
+/***********************************************************************************************************************
+ * Launcher allocation and process update error tests
+ **********************************************************************************************************************/
+
+TEST_F(CMLauncherErrorTest, StartFailsOnAllocationError)
+{
+    ASSERT_TRUE(InitLauncher().IsNone());
+
+    // Node manager allocates node IDs array of the same size before subjects.
+    constexpr auto cSkip = sizeof(SubjectArray) == sizeof(StaticArray<StaticString<cIDLen>, cMaxNumNodes>) ? 1 : 0;
+
+    mAllocator.Fail(sizeof(SubjectArray), cSkip);
+
+    EXPECT_TRUE(mLauncher->Start().Is(ErrorEnum::eNoMemory));
+}
+
+TEST_F(CMLauncherErrorTest, UpdateStatusesAllocationErrors)
+{
+    const auto ident = CreateInstanceIdent(cService1, cSubject1, 0);
+
+    ASSERT_TRUE(
+        mStorage.AddInstance(CreateInstanceInfo(ident, {}, cRunnerRunc, cNodeIDLocalSM, InstanceStateEnum::eActive))
+            .IsNone());
+
+    ASSERT_TRUE(InitLauncher().IsNone());
+
+    InstanceStatusListenerStub statusListener;
+
+    ASSERT_TRUE(mLauncher->SubscribeListener(statusListener).IsNone());
+    ASSERT_TRUE(mLauncher->Start().IsNone());
+
+    const auto notifyCount = statusListener.GetNotifyCount();
+    const auto status
+        = CreateInstanceStatus(ident, cNodeIDLocalSM, cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone);
+
+    InstanceStatusReceiverItf& statusReceiver = *mLauncher;
+
+    mAllocator.Fail(sizeof(StaticArray<InstanceStatus, cMaxNumInstances>));
+
+    EXPECT_TRUE(statusReceiver.OnInstanceStatusReceived(status).IsNone());
+    EXPECT_EQ(statusListener.GetNotifyCount(), notifyCount);
+
+    mAllocator.Fail(sizeof(StaticArray<InstanceStatus, cMaxNumInstances>), 1);
+
+    EXPECT_TRUE(statusReceiver.OnInstanceStatusReceived(status).IsNone());
+    EXPECT_EQ(statusListener.GetNotifyCount(), notifyCount);
+
+    // Next changed status is notified.
+    EXPECT_TRUE(statusReceiver
+                    .OnInstanceStatusReceived(CreateInstanceStatus(
+                        ident, cNodeIDLocalSM, cRunnerRunc, aos::InstanceStateEnum::eFailed, ErrorEnum::eFailed))
+                    .IsNone());
+    EXPECT_EQ(statusListener.GetNotifyCount(), notifyCount + 1);
+    ASSERT_EQ(statusListener.GetLastStatuses().Size(), 1);
+    EXPECT_EQ(statusListener.GetLastStatuses()[0].mState, aos::InstanceStateEnum::eFailed);
+
+    auto runRequests = std::make_unique<StaticArray<RunInstanceRequest, cMaxNumInstances>>();
+    auto runStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    mAllocator.Fail(sizeof(StaticArray<SharedPtr<Instance>, cMaxNumInstances>));
+
+    EXPECT_TRUE(mLauncher->RunInstances(*runRequests, *runStatuses).Is(ErrorEnum::eNoMemory));
+
+    EXPECT_TRUE(mLauncher->UnsubscribeListener(statusListener).IsNone());
+    EXPECT_TRUE(mLauncher->Stop().IsNone());
+}
+
+TEST_F(CMLauncherErrorTest, NodeInstancesStatusesErrors)
+{
+    EXPECT_CALL(mNodeInfoProvider, GetAllNodeIDs(_)).WillRepeatedly(Invoke([](Array<StaticString<cIDLen>>& ids) {
+        for (size_t i = 0; i < cMaxNumNodes; i++) {
+            if (auto err = ids.PushBack(("node" + std::to_string(i)).c_str()); !err.IsNone()) {
+                return err;
+            }
+        }
+
+        return Error(ErrorEnum::eNone);
+    }));
+    EXPECT_CALL(mNodeInfoProvider, GetNodeInfo(_, _))
+        .WillRepeatedly(Invoke([](const String& nodeID, UnitNodeInfo& info) {
+            info = CreateNodeInfo(
+                nodeID.CStr(), 1000, 1024, {CreateRuntime(cRunnerRunc)}, {}, NodeStateEnum::eUnprovisioned, false);
+
+            return ErrorEnum::eNone;
+        }));
+
+    const auto ident = CreateInstanceIdent(cService1, cSubject1, 0);
+
+    ASSERT_TRUE(
+        mStorage.AddInstance(CreateInstanceInfo(ident, {}, cRunnerRunc, "extraNode", InstanceStateEnum::eActive))
+            .IsNone());
+
+    ASSERT_TRUE(InitLauncher().IsNone());
+    ASSERT_TRUE(mLauncher->Start().IsNone());
+
+    auto statuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    statuses->PushBack(
+        CreateInstanceStatus(ident, "extraNode", cRunnerRunc, aos::InstanceStateEnum::eActive, ErrorEnum::eNone));
+
+    InstanceStatusReceiverItf& statusReceiver = *mLauncher;
+
+    // Storage error is returned first, node can't be added as max number of nodes reached.
+    mStorage.mUpdateErr = ErrorEnum::eFailed;
+
+    EXPECT_TRUE(statusReceiver.OnNodeInstancesStatusesReceived("extraNode", *statuses).Is(ErrorEnum::eFailed));
+
+    mStorage.mUpdateErr = ErrorEnum::eNone;
+
+    auto err = statusReceiver.OnNodeInstancesStatusesReceived("extraNode", *statuses);
+    EXPECT_FALSE(err.IsNone());
+    EXPECT_FALSE(err.Is(ErrorEnum::eFailed));
+
+    EXPECT_TRUE(mLauncher->Stop().IsNone());
+}
+
+TEST_F(CMLauncherErrorTest, ProcessUpdateErrors)
+{
+    EXPECT_CALL(mNodeInfoProvider, GetAllNodeIDs(_)).WillRepeatedly(Invoke([](Array<StaticString<cIDLen>>& ids) {
+        return ids.PushBack(cNodeIDLocalSM);
+    }));
+    EXPECT_CALL(mNodeInfoProvider, GetNodeInfo(_, _))
+        .WillRepeatedly(Invoke([](const String& nodeID, UnitNodeInfo& info) {
+            info = CreateNodeInfo(nodeID.CStr(), 1000, 1024, {CreateRuntime(cRunnerRunc)});
+
+            return ErrorEnum::eNone;
+        }));
+
+    std::mutex              mutex;
+    std::condition_variable condVar;
+    size_t                  numUpdates = 0;
+
+    EXPECT_CALL(mInstanceRunner, UpdateInstances(_, _, _))
+        .WillRepeatedly(Invoke([&](const String&, const Array<aos::InstanceInfo>&, const Array<aos::InstanceInfo>&) {
+            std::lock_guard lock {mutex};
+
+            numUpdates++;
+            condVar.notify_all();
+
+            return ErrorEnum::eFailed;
+        }));
+
+    alerts::AlertsListenerItf* alertsListener {};
+
+    EXPECT_CALL(mAlertsProvider, SubscribeListener(_, _))
+        .WillOnce(Invoke([&alertsListener](const Array<AlertTag>&, alerts::AlertsListenerItf& listener) {
+            alertsListener = &listener;
+
+            return ErrorEnum::eNone;
+        }));
+
+    ASSERT_TRUE(InitLauncher().IsNone());
+    ASSERT_TRUE(mLauncher->Start().IsNone());
+    ASSERT_NE(alertsListener, nullptr);
+
+    // Node reports unknown running instance: launcher fails to stop it.
+    auto statuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    statuses->PushBack(CreateInstanceStatus(CreateInstanceIdent(cService1, cSubject1, 0), cNodeIDLocalSM, cRunnerRunc,
+        aos::InstanceStateEnum::eActive, ErrorEnum::eNone));
+
+    InstanceStatusReceiverItf& statusReceiver = *mLauncher;
+
+    EXPECT_TRUE(statusReceiver.OnNodeInstancesStatusesReceived(cNodeIDLocalSM, *statuses).IsNone());
+
+    {
+        std::unique_lock lock {mutex};
+
+        EXPECT_TRUE(condVar.wait_for(lock, std::chrono::seconds(5), [&]() { return numUpdates >= 1; }));
+    }
+
+    // Quota alerts: only raise and continue states trigger rebalancing, which fails as there is no monitoring.
+    AlertVariant     alert;
+    SystemQuotaAlert quotaAlert;
+
+    quotaAlert.mState = QuotaAlertStateEnum::eFall;
+    alert.SetValue(quotaAlert);
+
+    EXPECT_TRUE(alertsListener->OnAlertReceived(alert).IsNone());
+
+    for (const auto state : {QuotaAlertStateEnum::eRaise, QuotaAlertStateEnum::eContinue}) {
+        quotaAlert.mState = state;
+        alert.SetValue(quotaAlert);
+
+        EXPECT_TRUE(alertsListener->OnAlertReceived(alert).IsNone());
+    }
+
+    EXPECT_TRUE(mMonitoringProvider.WaitForRequestCount(1));
+
+    EXPECT_TRUE(mLauncher->Stop().IsNone());
 }
 
 } // namespace aos::cm::launcher
