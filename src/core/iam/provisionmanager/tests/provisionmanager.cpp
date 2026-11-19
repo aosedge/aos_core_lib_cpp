@@ -308,3 +308,50 @@ TEST_F(ProvisionManagerTest, UpdateRootCertsFails)
 
     EXPECT_TRUE(mProvisionManager.UpdateRootCerts(pemCerts, infos).Is(aos::ErrorEnum::eFailed));
 }
+
+TEST_F(ProvisionManagerTest, StartProvisioningCallbackAndCertHandlerErrors)
+{
+    StorageIDs storageIDs;
+
+    storageIDs.EmplaceBack("storageID1");
+
+    EXPECT_CALL(mCallback, OnStartProvisioning).WillOnce(Return(aos::ErrorEnum::eFailed));
+    EXPECT_CALL(mCertHandler, GetStorageIDs).Times(0);
+
+    EXPECT_TRUE(mProvisionManager.StartProvisioning("password").Is(aos::ErrorEnum::eFailed));
+
+    EXPECT_CALL(mCallback, OnStartProvisioning).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mCertHandler, GetStorageIDs).WillOnce(Return(aos::ErrorEnum::eFailed));
+    EXPECT_CALL(mCertHandler, Clear).Times(0);
+
+    EXPECT_TRUE(mProvisionManager.StartProvisioning("password").Is(aos::ErrorEnum::eFailed));
+
+    EXPECT_CALL(mCallback, OnStartProvisioning).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mCertHandler, GetStorageIDs)
+        .WillOnce(DoAll(SetArgReferee<0>(storageIDs), Return(aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mCertHandler, Clear).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mCertHandler, SetOwner).WillOnce(Return(aos::ErrorEnum::eNone));
+    EXPECT_CALL(mCertHandler, GetModuleConfig)
+        .WillOnce(Return(aos::RetWithError<certhandler::ModuleConfig>({}, aos::ErrorEnum::eNotFound)));
+    EXPECT_CALL(mCallback, OnEncryptDisk).Times(0);
+
+    EXPECT_TRUE(mProvisionManager.StartProvisioning("password").Is(aos::ErrorEnum::eNotFound));
+}
+
+TEST_F(ProvisionManagerTest, GetCertKeyStorageIDsErrors)
+{
+    EXPECT_CALL(mCertHandler, GetStorageIDs).WillOnce(Return(aos::ErrorEnum::eFailed));
+
+    EXPECT_TRUE(mProvisionManager.GetCertKeyStorageIDs().mError.Is(aos::ErrorEnum::eFailed));
+
+    StorageIDs storageIDs;
+
+    storageIDs.EmplaceBack("storageID1");
+
+    EXPECT_CALL(mCertHandler, GetStorageIDs)
+        .WillOnce(DoAll(SetArgReferee<0>(storageIDs), Return(aos::ErrorEnum::eNone)));
+    EXPECT_CALL(mCertHandler, GetModuleConfig)
+        .WillOnce(Return(aos::RetWithError<certhandler::ModuleConfig>({}, aos::ErrorEnum::eNotFound)));
+
+    EXPECT_TRUE(mProvisionManager.GetCertKeyStorageIDs().mError.Is(aos::ErrorEnum::eNotFound));
+}
