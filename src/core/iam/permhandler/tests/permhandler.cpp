@@ -6,6 +6,7 @@
  */
 
 #include <iostream>
+#include <memory>
 
 #include <gtest/gtest.h>
 
@@ -48,6 +49,33 @@ protected:
 /***********************************************************************************************************************
  * Tests
  **********************************************************************************************************************/
+
+TEST_F(PermHandlerTest, RegisterInstanceFailsOnUUIDError)
+{
+    class FailingUUIDProvider : public crypto::UUIDItf {
+    public:
+        RetWithError<uuid::UUID> CreateUUIDv4() override { return {{}, ErrorEnum::eFailed}; }
+
+        RetWithError<uuid::UUID> CreateUUIDv5(const uuid::UUID&, const Array<uint8_t>&) override
+        {
+            return {{}, ErrorEnum::eFailed};
+        }
+    };
+
+    FailingUUIDProvider uuidProvider;
+
+    // PermHandler is too big to be placed on the stack
+    auto permHandler = std::make_unique<PermHandler>();
+
+    ASSERT_TRUE(permHandler->Init(uuidProvider).IsNone());
+
+    InstanceIdent                              instanceIdent;
+    StaticArray<FunctionServicePermissions, 1> perms;
+
+    const auto result = permHandler->RegisterInstance(instanceIdent, perms);
+    EXPECT_TRUE(result.mError.Is(ErrorEnum::eFailed));
+    EXPECT_TRUE(result.mValue.IsEmpty());
+}
 
 TEST_F(PermHandlerTest, RegisterInstanceSucceeds)
 {
