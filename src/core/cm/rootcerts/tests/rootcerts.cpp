@@ -23,9 +23,7 @@
 using namespace testing;
 
 namespace aos::cm::rootcerts {
-
 namespace {
-
 /***********************************************************************************************************************
  * Mocks
  **********************************************************************************************************************/
@@ -284,6 +282,67 @@ TEST_F(RootCertsTest, PartialUpdateNotSentOnGetRootCertsError)
     nodeInfo->mIsConnected = true;
 
     EXPECT_CALL(mCertHandlerMock, GetRootCerts(String("node1"), _)).WillOnce(Return(ErrorEnum::eNotFound));
+
+    mNodeInfoListener->OnNodeInfoChanged(*nodeInfo);
+}
+
+TEST_F(RootCertsTest, StartStopErrors)
+{
+    EXPECT_CALL(mCloudConnectionMock, SubscribeListener(_)).WillOnce(Return(ErrorEnum::eFailed));
+
+    EXPECT_TRUE(mRootCerts.Start().Is(ErrorEnum::eFailed));
+
+    EXPECT_CALL(mCloudConnectionMock, SubscribeListener(_)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mNodeInfoProviderMock, SubscribeListener(_)).WillOnce(Return(ErrorEnum::eNoMemory));
+
+    EXPECT_TRUE(mRootCerts.Start().Is(ErrorEnum::eNoMemory));
+
+    EXPECT_CALL(mNodeInfoProviderMock, UnsubscribeListener(_)).WillOnce(Return(ErrorEnum::eNotFound));
+
+    EXPECT_TRUE(mRootCerts.Stop().Is(ErrorEnum::eNotFound));
+
+    EXPECT_CALL(mNodeInfoProviderMock, UnsubscribeListener(_)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mCloudConnectionMock, UnsubscribeListener(_)).WillOnce(Return(ErrorEnum::eTimeout));
+
+    EXPECT_TRUE(mRootCerts.Stop().Is(ErrorEnum::eTimeout));
+}
+
+TEST_F(RootCertsTest, SendFullSnapshotErrors)
+{
+    // Node IDs can't be get: nothing is sent
+
+    EXPECT_CALL(mNodeInfoProviderMock, GetAllNodeIDs(_)).WillOnce(Return(ErrorEnum::eFailed));
+
+    mConnectionListener->OnConnect();
+
+    Mock::VerifyAndClearExpectations(&mSenderMock);
+
+    EXPECT_CALL(mNodeInfoProviderMock, GetAllNodeIDs(_)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSenderMock, SendUnitRootCertificates(_)).WillOnce(Return(ErrorEnum::eTimeout));
+
+    mConnectionListener->OnConnect();
+}
+
+TEST_F(RootCertsTest, SendPartialUpdateError)
+{
+    EXPECT_CALL(mNodeInfoProviderMock, GetAllNodeIDs(_)).WillOnce(Return(ErrorEnum::eNone));
+
+    auto snapshot = CreateUnitRootCertificates(false, {});
+
+    ExpectSendUnitRootCertificates(*snapshot);
+
+    mConnectionListener->OnConnect();
+
+    Mock::VerifyAndClearExpectations(&mSenderMock);
+
+    auto nodeInfo = std::make_unique<UnitNodeInfo>();
+
+    nodeInfo->mNodeID      = "node1";
+    nodeInfo->mIsConnected = true;
+
+    ExpectGetRootCerts("node1", {'e'});
+
+    EXPECT_CALL(mSenderMock, SendUnitRootCertificates(_)).WillOnce(Return(ErrorEnum::eTimeout));
 
     mNodeInfoListener->OnNodeInfoChanged(*nodeInfo);
 }

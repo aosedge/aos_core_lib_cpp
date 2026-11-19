@@ -6,9 +6,14 @@
 
 #include <algorithm>
 #include <atomic>
+#include <condition_variable>
+#include <cstdlib>
+#include <functional>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -36,9 +41,7 @@
 using namespace testing;
 
 namespace aos::cm::updatemanager {
-
 namespace {
-
 /***********************************************************************************************************************
  * Consts
  **********************************************************************************************************************/
@@ -151,7 +154,6 @@ void CreateInstancesStatuses(UnitStatus& unitStatus, const String& itemID, const
     const String& subjectID, const String& version, size_t numInstances,
     const InstanceState& state = InstanceStateEnum::eActive, bool preinstalled = false)
 {
-
     if (!unitStatus.mInstances.HasValue()) {
         unitStatus.mInstances.EmplaceValue();
     }
@@ -2750,6 +2752,1370 @@ TEST_F(UpdateManagerTest, FinalizeGetStatusesFails)
     EXPECT_EQ(mSenderStub.WaitSendUnitStatus(), *expectedUnitStatus);
     EXPECT_TRUE(finalizeFailed);
     EXPECT_EQ(mStorageStub.GetUpdateState().mValue, UpdateStateEnum::eNone);
+}
+
+/***********************************************************************************************************************
+ * Error handling suite
+ **********************************************************************************************************************/
+
+namespace {
+const auto cPollPeriod = std::chrono::milliseconds(10);
+
+bool WaitForCondition(const std::function<bool()>& condition)
+{
+    for (auto start = std::chrono::steady_clock::now(); std::chrono::steady_clock::now() - start < cCVTimeout;) {
+        if (condition()) {
+            return true;
+        }
+
+        std::this_thread::sleep_for(cPollPeriod);
+    }
+
+    return condition();
+}
+
+class ControlledAllocator : public AllocatorItf {
+public:
+    void* Allocate(size_t size) override
+    {
+        auto index = mCount++;
+
+        if (mFailAll || index == mFailIndex) {
+            return nullptr;
+        }
+
+        return std::malloc(size);
+    }
+
+    void Free(void* data) override { std::free(data); }
+
+    void FailAt(int index)
+    {
+        mCount     = 0;
+        mFailIndex = index;
+        mFailAll   = false;
+    }
+
+    void FailAll()
+    {
+        mCount     = 0;
+        mFailIndex = -1;
+        mFailAll   = true;
+    }
+
+    void Reset()
+    {
+        mCount     = 0;
+        mFailIndex = -1;
+        mFailAll   = false;
+    }
+
+private:
+    std::atomic_int  mCount {0};
+    std::atomic_int  mFailIndex {-1};
+    std::atomic_bool mFailAll {false};
+};
+
+class ControlledStorage : public StorageItf {
+public:
+    Error StoreDesiredStatus(const DesiredStatus& desiredStatus) override
+    {
+        std::lock_guard lock {mMutex};
+
+        mDesiredStatus = desiredStatus;
+
+        return mStoreDesiredStatusErr;
+    }
+
+    Error StoreUpdateState(const UpdateState& state) override
+    {
+        std::lock_guard lock {mMutex};
+
+        mUpdateState = state;
+
+        if (state == UpdateStateEnum::eRecovering) {
+            mNumRecoveries++;
+        }
+
+        return mStoreUpdateStateErr;
+    }
+
+    Error GetDesiredStatus(DesiredStatus& desiredStatus) override
+    {
+        std::lock_guard lock {mMutex};
+
+        if (!mGetDesiredStatusErr.IsNone()) {
+            return mGetDesiredStatusErr;
+        }
+
+        desiredStatus = mDesiredStatus;
+
+        return ErrorEnum::eNone;
+    }
+
+    RetWithError<UpdateState> GetUpdateState() override
+    {
+        std::lock_guard lock {mMutex};
+
+        return RetWithError<UpdateState>(mUpdateState, mGetUpdateStateErr);
+    }
+
+    UpdateState GetState()
+    {
+        std::lock_guard lock {mMutex};
+
+        return mUpdateState;
+    }
+
+    void SetState(UpdateState state)
+    {
+        std::lock_guard lock {mMutex};
+
+        mUpdateState = state;
+    }
+
+    size_t GetNumRecoveries()
+    {
+        std::lock_guard lock {mMutex};
+
+        return mNumRecoveries;
+    }
+
+    void SetErrors(const Error& storeDesiredStatusErr, const Error& storeUpdateStateErr,
+        const Error& getDesiredStatusErr, const Error& getUpdateStateErr)
+    {
+        std::lock_guard lock {mMutex};
+
+        mStoreDesiredStatusErr = storeDesiredStatusErr;
+        mStoreUpdateStateErr   = storeUpdateStateErr;
+        mGetDesiredStatusErr   = getDesiredStatusErr;
+        mGetUpdateStateErr     = getUpdateStateErr;
+    }
+
+private:
+    std::mutex    mMutex;
+    DesiredStatus mDesiredStatus;
+    UpdateState   mUpdateState;
+    size_t        mNumRecoveries {};
+    Error         mStoreDesiredStatusErr;
+    Error         mStoreUpdateStateErr;
+    Error         mGetDesiredStatusErr {ErrorEnum::eNotFound};
+    Error         mGetUpdateStateErr;
+};
+
+class SenderMock : public SenderItf {
+public:
+    MOCK_METHOD(Error, SendUnitStatus, (const UnitStatus&), (override));
+};
+
+InstanceStatus CreateInstanceStatus(const String& itemID, const String& subjectID, uint64_t instance,
+    UpdateItemType type, const String& version, InstanceState state, const Error& error = ErrorEnum::eNone,
+    bool preinstalled = false)
+{
+    InstanceStatus status;
+
+    status.mItemID       = itemID;
+    status.mSubjectID    = subjectID;
+    status.mInstance     = instance;
+    status.mType         = type;
+    status.mVersion      = version;
+    status.mState        = state;
+    status.mError        = error;
+    status.mPreinstalled = preinstalled;
+
+    return status;
+}
+
+} // namespace
+
+class UpdateManagerErrorTest : public Test {
+protected:
+    static void SetUpTestSuite() { tests::utils::InitLog(); }
+
+    void SetUp() override
+    {
+        ON_CALL(mCloudConnectionMock, SubscribeListener(_))
+            .WillByDefault(Invoke([&](cloudconnection::ConnectionListenerItf& listener) {
+                mConnectionListener = &listener;
+
+                return ErrorEnum::eNone;
+            }));
+        ON_CALL(mNodeInfoProviderMock, SubscribeListener(_))
+            .WillByDefault(Invoke([&](nodeinfoprovider::NodeInfoListenerItf& listener) {
+                mNodeInfoListener = &listener;
+
+                return ErrorEnum::eNone;
+            }));
+        ON_CALL(mItemStatusProviderMock, SubscribeListener(_))
+            .WillByDefault(Invoke([&](common::imagemanager::ItemStatusListenerItf& listener) {
+                mItemStatusListener = &listener;
+
+                return ErrorEnum::eNone;
+            }));
+        ON_CALL(mLauncherMock, SubscribeListener(_))
+            .WillByDefault(Invoke([&](instancestatusprovider::ListenerItf& listener) {
+                mInstanceStatusListeners.push_back(&listener);
+
+                return ErrorEnum::eNone;
+            }));
+        ON_CALL(mIdentProviderMock, SubscribeListener(_))
+            .WillByDefault(Invoke([&](iamclient::SubjectsListenerItf& listener) {
+                mSubjectsListener = &listener;
+
+                return ErrorEnum::eNone;
+            }));
+    }
+
+    std::unique_ptr<UpdateManager> CreateUpdateManager()
+    {
+        auto updateManager = std::make_unique<UpdateManager>();
+
+        mInstanceStatusListeners.clear();
+
+        auto err = updateManager->Init(mAllocator, Config {cStatusSendTimeout}, mIdentProviderMock, mNodeHandlerMock,
+            mUnitConfigMock, mNodeInfoProviderMock, mImageManagerMock, mItemStatusProviderMock, mLauncherMock,
+            mCloudConnectionMock, mSenderMock, mStorage);
+        EXPECT_TRUE(err.IsNone()) << "Failed to initialize update manager: " << tests::utils::ErrorToStr(err);
+
+        return updateManager;
+    }
+
+    std::unique_ptr<UpdateManager> CreateAndStartUpdateManager()
+    {
+        auto updateManager = CreateUpdateManager();
+
+        auto err = updateManager->Start();
+        EXPECT_TRUE(err.IsNone()) << "Failed to start update manager: " << tests::utils::ErrorToStr(err);
+
+        return updateManager;
+    }
+
+    bool WaitUpdateFinished()
+    {
+        return WaitForCondition([&]() { return mStorage.GetState() == UpdateStateEnum::eNone; });
+    }
+
+    void ProcessAndWait(UpdateManager& updateManager, const DesiredStatus& desiredStatus)
+    {
+        auto err = updateManager.ProcessDesiredStatus(desiredStatus);
+        EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+        EXPECT_TRUE(WaitUpdateFinished());
+    }
+
+    // Starts the recovery by the instances statuses change and waits until the recovery is finished
+    bool RecoverAndWait(const Array<InstanceStatus>& statuses)
+    {
+        auto numRecoveries = mStorage.GetNumRecoveries();
+
+        DesiredStatusInstanceListener()->OnInstancesStatusesChanged(statuses);
+
+        return WaitForCondition([&]() {
+            return mStorage.GetNumRecoveries() > numRecoveries && mStorage.GetState() == UpdateStateEnum::eNone;
+        });
+    }
+
+    // Desired status handler subscribes to the launcher first
+    instancestatusprovider::ListenerItf* DesiredStatusInstanceListener() { return mInstanceStatusListeners.front(); }
+
+    // Unit status handler subscribes to the launcher after the desired status handler
+    instancestatusprovider::ListenerItf* UnitStatusInstanceListener() { return mInstanceStatusListeners.back(); }
+
+    static constexpr Duration cStatusSendTimeout = 100 * Time::cMilliseconds;
+
+    ControlledAllocator                                    mAllocator;
+    NiceMock<iamclient::IdentProviderMock>                 mIdentProviderMock;
+    NiceMock<iamclient::NodeHandlerMock>                   mNodeHandlerMock;
+    NiceMock<unitconfig::UnitConfigMock>                   mUnitConfigMock;
+    NiceMock<nodeinfoprovider::NodeInfoProviderMock>       mNodeInfoProviderMock;
+    NiceMock<imagemanager::ImageManagerMock>               mImageManagerMock;
+    NiceMock<common::imagemanager::ItemStatusProviderMock> mItemStatusProviderMock;
+    NiceMock<launcher::LauncherMock>                       mLauncherMock;
+    NiceMock<cloudconnection::CloudConnectionMock>         mCloudConnectionMock;
+    NiceMock<SenderMock>                                   mSenderMock;
+    ControlledStorage                                      mStorage;
+
+    cloudconnection::ConnectionListenerItf*           mConnectionListener {};
+    nodeinfoprovider::NodeInfoListenerItf*            mNodeInfoListener {};
+    common::imagemanager::ItemStatusListenerItf*      mItemStatusListener {};
+    iamclient::SubjectsListenerItf*                   mSubjectsListener {};
+    std::vector<instancestatusprovider::ListenerItf*> mInstanceStatusListeners;
+};
+
+TEST_F(UpdateManagerErrorTest, StartFailsOnSubscribeError)
+{
+    enum class FailedSubscriber { eDesiredLauncher, eNodeInfo, eItemStatus, eStatusLauncher, eIdent, eCloud };
+
+    for (auto failed : {FailedSubscriber::eDesiredLauncher, FailedSubscriber::eNodeInfo, FailedSubscriber::eItemStatus,
+             FailedSubscriber::eStatusLauncher, FailedSubscriber::eIdent, FailedSubscriber::eCloud}) {
+        auto updateManager         = CreateUpdateManager();
+        auto numLauncherSubscribes = 0;
+
+        EXPECT_CALL(mLauncherMock, SubscribeListener(_)).WillRepeatedly(InvokeWithoutArgs([&]() -> Error {
+            numLauncherSubscribes++;
+
+            if ((failed == FailedSubscriber::eDesiredLauncher && numLauncherSubscribes == 1)
+                || (failed == FailedSubscriber::eStatusLauncher && numLauncherSubscribes == 2)) {
+                return ErrorEnum::eFailed;
+            }
+
+            return ErrorEnum::eNone;
+        }));
+        EXPECT_CALL(mNodeInfoProviderMock, SubscribeListener(_))
+            .WillRepeatedly(Return(failed == FailedSubscriber::eNodeInfo ? ErrorEnum::eFailed : ErrorEnum::eNone));
+        EXPECT_CALL(mItemStatusProviderMock, SubscribeListener(_))
+            .WillRepeatedly(Return(failed == FailedSubscriber::eItemStatus ? ErrorEnum::eFailed : ErrorEnum::eNone));
+        EXPECT_CALL(mIdentProviderMock, SubscribeListener(_))
+            .WillRepeatedly(Return(failed == FailedSubscriber::eIdent ? ErrorEnum::eFailed : ErrorEnum::eNone));
+        EXPECT_CALL(mCloudConnectionMock, SubscribeListener(_))
+            .WillRepeatedly(Return(failed == FailedSubscriber::eCloud ? ErrorEnum::eFailed : ErrorEnum::eNone));
+
+        auto err = updateManager->Start();
+        EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << "Unexpected error: " << tests::utils::ErrorToStr(err);
+
+        err = updateManager->Stop();
+
+        if (failed == FailedSubscriber::eDesiredLauncher) {
+            EXPECT_TRUE(err.Is(ErrorEnum::eWrongState)) << "Unexpected error: " << tests::utils::ErrorToStr(err);
+        } else {
+            EXPECT_TRUE(err.IsNone()) << "Failed to stop update manager: " << tests::utils::ErrorToStr(err);
+        }
+
+        Mock::VerifyAndClearExpectations(&mLauncherMock);
+        Mock::VerifyAndClearExpectations(&mNodeInfoProviderMock);
+        Mock::VerifyAndClearExpectations(&mItemStatusProviderMock);
+        Mock::VerifyAndClearExpectations(&mIdentProviderMock);
+        Mock::VerifyAndClearExpectations(&mCloudConnectionMock);
+    }
+}
+
+TEST_F(UpdateManagerErrorTest, StopFailsOnUnsubscribeError)
+{
+    enum class FailedSubscriber { eNodeInfo, eItemStatus, eLauncher, eIdent, eCloud };
+
+    for (auto failed : {FailedSubscriber::eNodeInfo, FailedSubscriber::eItemStatus, FailedSubscriber::eLauncher,
+             FailedSubscriber::eIdent, FailedSubscriber::eCloud}) {
+        auto updateManager = CreateAndStartUpdateManager();
+
+        EXPECT_CALL(mNodeInfoProviderMock, UnsubscribeListener(_))
+            .WillRepeatedly(Return(failed == FailedSubscriber::eNodeInfo ? ErrorEnum::eFailed : ErrorEnum::eNone));
+        EXPECT_CALL(mItemStatusProviderMock, UnsubscribeListener(_))
+            .WillRepeatedly(Return(failed == FailedSubscriber::eItemStatus ? ErrorEnum::eFailed : ErrorEnum::eNone));
+        EXPECT_CALL(mLauncherMock, UnsubscribeListener(_))
+            .WillRepeatedly(Return(failed == FailedSubscriber::eLauncher ? ErrorEnum::eFailed : ErrorEnum::eNone));
+        EXPECT_CALL(mIdentProviderMock, UnsubscribeListener(_))
+            .WillRepeatedly(Return(failed == FailedSubscriber::eIdent ? ErrorEnum::eFailed : ErrorEnum::eNone));
+        EXPECT_CALL(mCloudConnectionMock, UnsubscribeListener(_))
+            .WillRepeatedly(Return(failed == FailedSubscriber::eCloud ? ErrorEnum::eFailed : ErrorEnum::eNone));
+
+        auto err = updateManager->Stop();
+        EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << "Unexpected error: " << tests::utils::ErrorToStr(err);
+
+        Mock::VerifyAndClearExpectations(&mLauncherMock);
+        Mock::VerifyAndClearExpectations(&mNodeInfoProviderMock);
+        Mock::VerifyAndClearExpectations(&mItemStatusProviderMock);
+        Mock::VerifyAndClearExpectations(&mIdentProviderMock);
+        Mock::VerifyAndClearExpectations(&mCloudConnectionMock);
+    }
+}
+
+TEST_F(UpdateManagerErrorTest, StartWithStorageErrors)
+{
+    // Getting update state and desired status fails: update manager starts without desired status
+
+    mStorage.SetErrors(ErrorEnum::eNone, ErrorEnum::eNone, ErrorEnum::eFailed, ErrorEnum::eFailed);
+
+    auto updateManager = CreateAndStartUpdateManager();
+
+    EXPECT_EQ(mStorage.GetState(), UpdateStateEnum::eNone);
+    EXPECT_TRUE(updateManager->Stop().IsNone());
+
+    // Resume interrupted update while getting desired status fails: update is finished with empty desired status
+
+    mStorage.SetErrors(ErrorEnum::eNone, ErrorEnum::eNone, ErrorEnum::eFailed, ErrorEnum::eNone);
+    mStorage.SetState(UpdateStateEnum::eInstalling);
+
+    EXPECT_CALL(mLauncherMock, RunInstances(_, _)).WillOnce(Return(ErrorEnum::eNone));
+
+    updateManager = CreateAndStartUpdateManager();
+
+    EXPECT_TRUE(WaitUpdateFinished());
+    EXPECT_TRUE(updateManager->Stop().IsNone());
+}
+
+TEST_F(UpdateManagerErrorTest, StoreErrorsDoNotBreakUpdate)
+{
+    mStorage.SetErrors(ErrorEnum::eFailed, ErrorEnum::eFailed, ErrorEnum::eNotFound, ErrorEnum::eNone);
+
+    auto updateManager = CreateAndStartUpdateManager();
+    auto desiredStatus = std::make_unique<DesiredStatus>();
+
+    desiredStatus->mNodes.EmplaceBack(DesiredNodeStateInfo {"node1", DesiredNodeStateEnum::ePaused});
+    desiredStatus->mUnitConfig.EmplaceValue();
+    desiredStatus->mUnitConfig->mVersion = "2.0.0";
+
+    EXPECT_CALL(mNodeHandlerMock, PauseNode(String("node1"))).WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mUnitConfigMock, UpdateUnitConfig(_)).WillOnce(Return(ErrorEnum::eNone));
+
+    ProcessAndWait(*updateManager, *desiredStatus);
+
+    // Node update error is reported in node info until full unit status is sent
+
+    UnitNodeInfo nodeInfo;
+
+    nodeInfo.mNodeID = "node1";
+
+    mNodeInfoListener->OnNodeInfoChanged(nodeInfo);
+
+    StaticArray<StaticString<cIDLen>, cMaxNumNodes> nodeIDs;
+
+    nodeIDs.EmplaceBack("node1");
+
+    std::unique_ptr<UnitStatus> sentStatus;
+
+    EXPECT_CALL(mNodeInfoProviderMock, GetAllNodeIDs(_))
+        .WillOnce(DoAll(SetArgReferee<0>(nodeIDs), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mNodeInfoProviderMock, GetNodeInfo(String("node1"), _))
+        .WillOnce(DoAll(SetArgReferee<1>(nodeInfo), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mUnitConfigMock, GetUnitConfigStatus(_))
+        .WillOnce(DoAll(SetArgReferee<0>(UnitConfigStatus {"1.0.0", UnitConfigStateEnum::eInstalled, {}}),
+            Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mSenderMock, SendUnitStatus(_)).WillOnce(Invoke([&](const UnitStatus& unitStatus) {
+        sentStatus = std::make_unique<UnitStatus>(unitStatus);
+
+        return ErrorEnum::eNone;
+    }));
+
+    mConnectionListener->OnConnect();
+
+    ASSERT_TRUE(sentStatus);
+    ASSERT_TRUE(sentStatus->mNodes.HasValue());
+    ASSERT_EQ(sentStatus->mNodes->Size(), 1);
+    EXPECT_TRUE(sentStatus->mNodes.GetValue()[0].mError.Is(ErrorEnum::eFailed));
+    ASSERT_TRUE(sentStatus->mUnitConfig.HasValue());
+    ASSERT_EQ(sentStatus->mUnitConfig->Size(), 2);
+    EXPECT_EQ(sentStatus->mUnitConfig.GetValue()[1].mVersion, "2.0.0");
+
+    EXPECT_TRUE(updateManager->Stop().IsNone());
+}
+
+TEST_F(UpdateManagerErrorTest, UpdateStepsAllocationFailures)
+{
+    auto updateManager = CreateAndStartUpdateManager();
+    auto desiredStatus = std::make_unique<DesiredStatus>();
+
+    desiredStatus->mNodes.EmplaceBack(DesiredNodeStateInfo {"node1", DesiredNodeStateEnum::eProvisioned});
+
+    std::atomic_int numResumes {0};
+    std::atomic_int numRuns {0};
+
+    ON_CALL(mNodeHandlerMock, ResumeNode(_)).WillByDefault(InvokeWithoutArgs([&]() {
+        numResumes++;
+
+        return ErrorEnum::eNone;
+    }));
+    ON_CALL(mLauncherMock, RunInstances(_, _)).WillByDefault(InvokeWithoutArgs([&]() {
+        numRuns++;
+
+        return ErrorEnum::eNone;
+    }));
+
+    // Allocations order: install items, launch request, launch statuses, wait active, finalize
+
+    struct TestCase {
+        int mFailAt;
+        int mExpectedResumes;
+        int mExpectedRuns;
+    };
+
+    for (const auto& testCase : std::vector<TestCase> {{0, 0, 0}, {1, 1, 0}, {2, 1, 0}, {3, 1, 1}, {4, 1, 1}}) {
+        numResumes = 0;
+        numRuns    = 0;
+
+        mAllocator.FailAt(testCase.mFailAt);
+
+        ProcessAndWait(*updateManager, *desiredStatus);
+
+        mAllocator.Reset();
+
+        EXPECT_EQ(numResumes, testCase.mExpectedResumes) << "failAt: " << testCase.mFailAt;
+        EXPECT_EQ(numRuns, testCase.mExpectedRuns) << "failAt: " << testCase.mFailAt;
+    }
+
+    EXPECT_TRUE(updateManager->Stop().IsNone());
+}
+
+TEST_F(UpdateManagerErrorTest, CheckUpdateRequiredAllocationFailures)
+{
+    auto updateManager = CreateAndStartUpdateManager();
+    auto desiredStatus = std::make_unique<DesiredStatus>();
+
+    std::atomic_int numSetCerts {0};
+
+    ON_CALL(mImageManagerMock, SetCerts(_, _)).WillByDefault(InvokeWithoutArgs([&]() {
+        numSetCerts++;
+
+        return ErrorEnum::eNone;
+    }));
+
+    // Allocations order: update items check, instances check. Failed update required check starts the update, no
+    // update is started when both checks succeed.
+
+    struct TestCase {
+        int  mFailAt;
+        bool mFailAll;
+        int  mExpectedSetCerts;
+    };
+
+    for (const auto& testCase : std::vector<TestCase> {{0, true, 1}, {1, false, 1}, {2, false, 0}}) {
+        numSetCerts = 0;
+
+        if (testCase.mFailAll) {
+            mAllocator.FailAll();
+        } else {
+            mAllocator.FailAt(testCase.mFailAt);
+        }
+
+        ProcessAndWait(*updateManager, *desiredStatus);
+
+        mAllocator.Reset();
+
+        EXPECT_EQ(numSetCerts, testCase.mExpectedSetCerts) << "failAt: " << testCase.mFailAt;
+    }
+
+    EXPECT_TRUE(updateManager->Stop().IsNone());
+}
+
+TEST_F(UpdateManagerErrorTest, IntegrityCheckErrors)
+{
+    auto updateManager = CreateAndStartUpdateManager();
+    auto desiredStatus = std::make_unique<DesiredStatus>();
+
+    CreateUpdateItemInfo(*desiredStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0");
+    desiredStatus->mInstances.EmplaceBack(DesiredInstanceInfo {"item1", "subject1", 0, 1, {}});
+
+    auto itemsStatuses = std::make_unique<StaticArray<UpdateItemStatus, cMaxNumUpdateItems>>();
+
+    itemsStatuses->EmplaceBack(UpdateItemStatus {
+        "item1", UpdateItemTypeEnum::eService, "1.0.0", false, ItemStateEnum::eInstalled, ErrorEnum::eNone});
+
+    auto instancesStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    instancesStatuses->EmplaceBack(CreateInstanceStatus("item1", "subject1", 0, UpdateItemTypeEnum::eService, "1.0.0",
+        InstanceStateEnum::eFailed, ErrorEnum::eIntegrity));
+
+    std::atomic_int numInstalls {0};
+    std::atomic_int numRuns {0};
+    std::atomic_int numSetItemFails {0};
+
+    ON_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
+        .WillByDefault(DoAll(SetArgReferee<0>(*itemsStatuses), Return(ErrorEnum::eNone)));
+    ON_CALL(mItemStatusProviderMock, SetItemFail(_, _, _)).WillByDefault(InvokeWithoutArgs([&]() {
+        numSetItemFails++;
+
+        return ErrorEnum::eNone;
+    }));
+    ON_CALL(mLauncherMock, GetInstancesStatuses(_))
+        .WillByDefault(DoAll(SetArgReferee<0>(*instancesStatuses), Return(ErrorEnum::eNone)));
+    ON_CALL(mImageManagerMock, InstallItem(_)).WillByDefault(InvokeWithoutArgs([&]() {
+        numInstalls++;
+
+        return ErrorEnum::eNone;
+    }));
+    ON_CALL(mLauncherMock, RunInstances(_, _)).WillByDefault(InvokeWithoutArgs([&]() {
+        numRuns++;
+
+        return ErrorEnum::eNone;
+    }));
+
+    // Desired status requires no update: it becomes the current one
+
+    ProcessAndWait(*updateManager, *desiredStatus);
+
+    EXPECT_EQ(mStorage.GetNumRecoveries(), 0);
+
+    auto checkRecovery = [&](const char* scenario, int expectedInstalls, int expectedRuns) {
+        numInstalls = 0;
+        numRuns     = 0;
+
+        EXPECT_TRUE(RecoverAndWait(*instancesStatuses)) << scenario;
+        EXPECT_EQ(numInstalls, expectedInstalls) << scenario;
+        EXPECT_EQ(numRuns, expectedRuns) << scenario;
+    };
+
+    // Get items statuses fails: recovery is aborted, the items are not finalized
+
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_)).WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).Times(0);
+
+    checkRecovery("get items statuses fails", 0, 0);
+
+    Mock::VerifyAndClearExpectations(&mItemStatusProviderMock);
+    Mock::VerifyAndClearExpectations(&mLauncherMock);
+
+    // Get instances statuses fails: recovery is aborted, the items are not finalized
+
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
+        .WillOnce(DoAll(SetArgReferee<0>(*itemsStatuses), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillOnce(Return(ErrorEnum::eFailed));
+
+    checkRecovery("get instances statuses fails", 0, 0);
+
+    Mock::VerifyAndClearExpectations(&mItemStatusProviderMock);
+    Mock::VerifyAndClearExpectations(&mLauncherMock);
+
+    // Allocation fails: allocations order is items to recover, items statuses, instances statuses
+
+    for (auto failAt : {1, 2}) {
+        mAllocator.FailAt(failAt);
+
+        checkRecovery(failAt == 1 ? "items statuses allocation fails" : "instances statuses allocation fails", 0, 0);
+
+        mAllocator.Reset();
+    }
+
+    // Item is not installed anymore: it is not recovered, the instances are launched again
+
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_)).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    checkRecovery("item is not installed", 0, 1);
+
+    Mock::VerifyAndClearExpectations(&mItemStatusProviderMock);
+
+    // All succeeds: the item is installed again and the instances are launched
+
+    checkRecovery("no errors", 1, 1);
+
+    // The item is never set to failed with the integrity error
+
+    EXPECT_EQ(numSetItemFails, 0);
+
+    EXPECT_TRUE(updateManager->Stop().IsNone());
+}
+
+TEST_F(UpdateManagerErrorTest, CheckInstancesUpdateRequired)
+{
+    auto updateManager = CreateAndStartUpdateManager();
+
+    auto itemsStatuses = std::make_unique<StaticArray<UpdateItemStatus, cMaxNumUpdateItems>>();
+
+    itemsStatuses->EmplaceBack(UpdateItemStatus {
+        "item1", UpdateItemTypeEnum::eComponent, "1.0.0", false, ItemStateEnum::eInstalled, ErrorEnum::eNone});
+
+    std::mutex mutex;
+    auto       instancesStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    ON_CALL(mItemStatusProviderMock, GetItemsStatuses(_)).WillByDefault(Invoke([&](Array<UpdateItemStatus>& statuses) {
+        std::lock_guard lock {mutex};
+
+        statuses = *itemsStatuses;
+
+        return ErrorEnum::eNone;
+    }));
+    ON_CALL(mLauncherMock, GetInstancesStatuses(_)).WillByDefault(Invoke([&](Array<InstanceStatus>& statuses) {
+        std::lock_guard lock {mutex};
+
+        statuses = *instancesStatuses;
+
+        return ErrorEnum::eNone;
+    }));
+
+    std::atomic_int numSetCerts {0};
+
+    ON_CALL(mImageManagerMock, SetCerts(_, _)).WillByDefault(InvokeWithoutArgs([&]() {
+        numSetCerts++;
+
+        return ErrorEnum::eNone;
+    }));
+
+    auto desiredStatus = std::make_unique<DesiredStatus>();
+
+    CreateUpdateItemInfo(*desiredStatus, "item1", UpdateItemTypeEnum::eComponent, "1.0.0");
+
+    struct TestCase {
+        std::vector<DesiredInstanceInfo> mDesiredInstances;
+        std::vector<InstanceStatus>      mInstances;
+        bool                             mUpdateRequired;
+    };
+
+    std::vector<TestCase> testCases {
+        {{{"item1", "subject1", 0, 0, {}}}, {}, false},
+        {{{"item1", "subject1", 0, 1, {}}}, {}, true},
+        {{},
+            {CreateInstanceStatus(
+                "item2", "subject1", 0, UpdateItemTypeEnum::eService, "1.0.0", InstanceStateEnum::eActive)},
+            true},
+        {{},
+            {CreateInstanceStatus(
+                "item2", "subject1", 0, UpdateItemTypeEnum::eComponent, "1.0.0", InstanceStateEnum::eActive)},
+            false},
+        {{{"item1", "subject1", 0, 1, {}}},
+            {CreateInstanceStatus(
+                "item1", "subject1", 0, UpdateItemTypeEnum::eComponent, "2.0.0", InstanceStateEnum::eActive)},
+            true},
+        {{{"item1", "subject1", 0, 1, {}}},
+            {CreateInstanceStatus(
+                "item1", "subject1", 0, UpdateItemTypeEnum::eComponent, "1.0.0", InstanceStateEnum::eFailed)},
+            true},
+        {{{"item1", "subject1", 0, 1, {}}},
+            {CreateInstanceStatus(
+                "item1", "subject1", 0, UpdateItemTypeEnum::eComponent, "1.0.0", InstanceStateEnum::eActive)},
+            false},
+    };
+
+    for (size_t i = 0; i < testCases.size(); i++) {
+        const auto& testCase = testCases[i];
+
+        {
+            std::lock_guard lock {mutex};
+
+            instancesStatuses->Clear();
+
+            for (const auto& instance : testCase.mInstances) {
+                instancesStatuses->PushBack(instance);
+            }
+        }
+
+        desiredStatus->mInstances.Clear();
+
+        for (const auto& instance : testCase.mDesiredInstances) {
+            desiredStatus->mInstances.PushBack(instance);
+        }
+
+        numSetCerts = 0;
+
+        ProcessAndWait(*updateManager, *desiredStatus);
+
+        EXPECT_EQ(numSetCerts, testCase.mUpdateRequired ? 1 : 0) << "test case: " << i;
+    }
+
+    EXPECT_TRUE(updateManager->Stop().IsNone());
+}
+
+TEST_F(UpdateManagerErrorTest, InstallUpdateItemsErrors)
+{
+    auto updateManager = CreateAndStartUpdateManager();
+    auto desiredStatus = std::make_unique<DesiredStatus>();
+
+    desiredStatus->mNodes.EmplaceBack(DesiredNodeStateInfo {"node1", DesiredNodeStateEnum::eProvisioned});
+    CreateUpdateItemInfo(*desiredStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0");
+
+    EXPECT_CALL(mImageManagerMock, InstallItem(_)).Times(0);
+    EXPECT_CALL(mLauncherMock, RunInstances(_, _)).Times(0);
+
+    EXPECT_CALL(mImageManagerMock, SetCerts(_, _)).WillOnce(Return(ErrorEnum::eFailed));
+
+    ProcessAndWait(*updateManager, *desiredStatus);
+
+    EXPECT_CALL(mImageManagerMock, SetCerts(_, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_)).WillOnce(Return(ErrorEnum::eFailed));
+
+    ProcessAndWait(*updateManager, *desiredStatus);
+
+    EXPECT_TRUE(updateManager->Stop().IsNone());
+}
+
+TEST_F(UpdateManagerErrorTest, LaunchInstancesErrors)
+{
+    auto updateManager = CreateAndStartUpdateManager();
+    auto desiredStatus = std::make_unique<DesiredStatus>();
+
+    // item1 has empty index digest, item2 is not in desired update items, subject2 is not in desired subjects
+
+    CreateUpdateItemInfo(*desiredStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0");
+    desiredStatus->mUpdateItems.Back().mIndexDigest.Clear();
+    desiredStatus->mInstances.EmplaceBack(DesiredInstanceInfo {"item1", "subject2", 0, 1, {}});
+    desiredStatus->mInstances.EmplaceBack(DesiredInstanceInfo {"item2", "subject1", 0, 1, {}});
+    desiredStatus->mSubjects.EmplaceBack(SubjectInfo {"subject1", SubjectTypeEnum::eUser});
+
+    auto launchedStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    launchedStatuses->EmplaceBack(CreateInstanceStatus(
+        "item1", "subject2", 0, UpdateItemTypeEnum::eService, "1.0.0", InstanceStateEnum::eFailed, ErrorEnum::eFailed));
+
+    std::unique_ptr<StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>> runRequest;
+
+    // Launched instance fails: item is set failed, set item fail error is ignored
+
+    EXPECT_CALL(mLauncherMock, RunInstances(_, _))
+        .WillOnce(Invoke([&](const Array<launcher::RunInstanceRequest>& request, Array<InstanceStatus>& statuses) {
+            runRequest  = std::make_unique<StaticArray<launcher::RunInstanceRequest, cMaxNumInstances>>();
+            *runRequest = request;
+            statuses    = *launchedStatuses;
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_))
+        .WillRepeatedly(DoAll(SetArgReferee<0>(*launchedStatuses), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mItemStatusProviderMock, SetItemFail(String("item1"), String("1.0.0"), _))
+        .WillOnce(Return(ErrorEnum::eFailed));
+
+    ProcessAndWait(*updateManager, *desiredStatus);
+
+    ASSERT_TRUE(runRequest);
+    ASSERT_EQ(runRequest->Size(), 2);
+    EXPECT_EQ((*runRequest)[0].mVersion, "1.0.0");
+    EXPECT_EQ((*runRequest)[0].mSubjectInfo.mSubjectID, "subject2");
+    EXPECT_TRUE((*runRequest)[1].mVersion.IsEmpty());
+    EXPECT_EQ((*runRequest)[1].mSubjectInfo.mSubjectID, "subject1");
+
+    Mock::VerifyAndClearExpectations(&mLauncherMock);
+    Mock::VerifyAndClearExpectations(&mItemStatusProviderMock);
+
+    // Run instances fails: update is finished without waiting instances
+
+    desiredStatus->mNodes.EmplaceBack(DesiredNodeStateInfo {"node1", DesiredNodeStateEnum::eProvisioned});
+
+    EXPECT_CALL(mLauncherMock, RunInstances(_, _)).WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).Times(0);
+    EXPECT_CALL(mItemStatusProviderMock, SetItemFail(_, _, _)).Times(0);
+
+    ProcessAndWait(*updateManager, *desiredStatus);
+
+    EXPECT_TRUE(updateManager->Stop().IsNone());
+}
+
+TEST_F(UpdateManagerErrorTest, WaitInstancesActive)
+{
+    auto updateManager = CreateAndStartUpdateManager();
+    auto desiredStatus = std::make_unique<DesiredStatus>();
+
+    desiredStatus->mNodes.EmplaceBack(DesiredNodeStateInfo {"node1", DesiredNodeStateEnum::eProvisioned});
+
+    auto activatingStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    activatingStatuses->EmplaceBack(CreateInstanceStatus(
+        "item1", "subject1", 0, UpdateItemTypeEnum::eService, "1.0.0", InstanceStateEnum::eActivating));
+
+    // Get instances statuses fails: finalize is not performed
+
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_)).WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_)).Times(1);
+
+    ProcessAndWait(*updateManager, *desiredStatus);
+
+    Mock::VerifyAndClearExpectations(&mLauncherMock);
+    Mock::VerifyAndClearExpectations(&mItemStatusProviderMock);
+
+    std::atomic_int numGetInstances {0};
+
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_))
+        .WillRepeatedly(Invoke([&](Array<InstanceStatus>& statuses) -> Error {
+            if (++numGetInstances == 1) {
+                statuses = *activatingStatuses;
+            } else {
+                statuses.Clear();
+            }
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto err = updateManager->ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+    // Instances statuses change with the integrity error wakes up waiting for active instances. It is repeated until
+    // the waiting is woken up, as the change made before the waiting starts doesn't wake it up.
+
+    auto statuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    statuses->EmplaceBack(CreateInstanceStatus("item1", "subject1", 0, UpdateItemTypeEnum::eService, "1.0.0",
+        InstanceStateEnum::eFailed, ErrorEnum::eIntegrity));
+
+    EXPECT_TRUE(WaitForCondition([&]() {
+        if (numGetInstances >= 2) {
+            return true;
+        }
+
+        DesiredStatusInstanceListener()->OnInstancesStatusesChanged(*statuses);
+
+        return false;
+    }));
+
+    // The change made during the update starts the recovery once after the update is finished
+
+    EXPECT_TRUE(WaitForCondition(
+        [&]() { return mStorage.GetNumRecoveries() == 1 && mStorage.GetState() == UpdateStateEnum::eNone; }));
+
+    EXPECT_TRUE(updateManager->Stop().IsNone());
+}
+
+TEST_F(UpdateManagerErrorTest, NewDesiredStatusDuringUpdate)
+{
+    constexpr auto cMaxConcurrentItems = static_cast<size_t>(cMaxNumConcurrentItems);
+
+    auto updateManager = CreateAndStartUpdateManager();
+    auto desiredStatus = std::make_unique<DesiredStatus>();
+
+    for (size_t i = 0; i < cMaxConcurrentItems + 1; i++) {
+        CreateUpdateItemInfo(
+            *desiredStatus, ("item" + std::to_string(i)).c_str(), UpdateItemTypeEnum::eService, "1.0.0");
+    }
+
+    std::mutex              mutex;
+    std::condition_variable cv;
+    size_t                  numStarted = 0;
+    bool                    released   = false;
+    std::set<std::string>   installedItems;
+
+    EXPECT_CALL(mImageManagerMock, InstallItem(_)).WillRepeatedly(Invoke([&](const UpdateItemInfo& item) -> Error {
+        std::unique_lock lock {mutex};
+
+        numStarted++;
+        cv.notify_all();
+
+        EXPECT_TRUE(cv.wait_for(lock, cCVTimeout, [&]() { return released; }));
+
+        installedItems.insert(item.mItemID.CStr());
+
+        return ErrorEnum::eNone;
+    }));
+    EXPECT_CALL(mImageManagerMock, Cancel()).WillOnce(Return(ErrorEnum::eFailed));
+
+    auto err = updateManager->ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+    {
+        std::unique_lock lock {mutex};
+
+        EXPECT_TRUE(cv.wait_for(lock, cCVTimeout, [&]() { return numStarted == cMaxConcurrentItems; }));
+    }
+
+    EXPECT_TRUE(updateManager->ProcessDesiredStatus(*desiredStatus).IsNone());
+
+    // Each next desired status differs by one field and cancels current update
+
+    desiredStatus->mNodes.EmplaceBack(DesiredNodeStateInfo {"node1", DesiredNodeStateEnum::eProvisioned});
+    EXPECT_TRUE(updateManager->ProcessDesiredStatus(*desiredStatus).IsNone());
+
+    desiredStatus->mUnitConfig.EmplaceValue();
+    desiredStatus->mUnitConfig->mVersion = "1.0.0";
+    EXPECT_TRUE(updateManager->ProcessDesiredStatus(*desiredStatus).IsNone());
+
+    CreateUpdateItemInfo(*desiredStatus, "itemNew", UpdateItemTypeEnum::eService, "1.0.0");
+    EXPECT_TRUE(updateManager->ProcessDesiredStatus(*desiredStatus).IsNone());
+
+    desiredStatus->mInstances.EmplaceBack(DesiredInstanceInfo {"itemNew", "subject1", 0, 1, {}});
+    EXPECT_TRUE(updateManager->ProcessDesiredStatus(*desiredStatus).IsNone());
+
+    desiredStatus->mSubjects.EmplaceBack(SubjectInfo {"subject1", SubjectTypeEnum::eUser});
+    EXPECT_TRUE(updateManager->ProcessDesiredStatus(*desiredStatus).IsNone());
+
+    {
+        std::lock_guard lock {mutex};
+
+        released = true;
+        cv.notify_all();
+    }
+
+    EXPECT_TRUE(WaitUpdateFinished());
+
+    {
+        std::lock_guard lock {mutex};
+
+        // Queued item of the canceled update is skipped, the last desired status installs all items
+
+        EXPECT_EQ(numStarted, cMaxConcurrentItems + desiredStatus->mUpdateItems.Size());
+        EXPECT_EQ(installedItems.size(), desiredStatus->mUpdateItems.Size());
+    }
+
+    EXPECT_TRUE(updateManager->Stop().IsNone());
+}
+
+TEST_F(UpdateManagerErrorTest, StopFailsOnCancelError)
+{
+    auto updateManager = CreateAndStartUpdateManager();
+    auto desiredStatus = std::make_unique<DesiredStatus>();
+
+    CreateUpdateItemInfo(*desiredStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0");
+
+    std::mutex              mutex;
+    std::condition_variable cv;
+    bool                    started  = false;
+    bool                    canceled = false;
+
+    EXPECT_CALL(mImageManagerMock, InstallItem(_)).WillOnce(InvokeWithoutArgs([&]() -> Error {
+        std::unique_lock lock {mutex};
+
+        started = true;
+        cv.notify_all();
+
+        EXPECT_TRUE(cv.wait_for(lock, cCVTimeout, [&]() { return canceled; }));
+
+        return ErrorEnum::eCanceled;
+    }));
+    EXPECT_CALL(mImageManagerMock, Cancel()).WillOnce(InvokeWithoutArgs([&]() -> Error {
+        std::lock_guard lock {mutex};
+
+        canceled = true;
+        cv.notify_all();
+
+        return ErrorEnum::eFailed;
+    }));
+
+    auto err = updateManager->ProcessDesiredStatus(*desiredStatus);
+    EXPECT_TRUE(err.IsNone()) << "Failed to process desired status: " << tests::utils::ErrorToStr(err);
+
+    {
+        std::unique_lock lock {mutex};
+
+        EXPECT_TRUE(cv.wait_for(lock, cCVTimeout, [&]() { return started; }));
+    }
+
+    err = updateManager->Stop();
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << "Unexpected error: " << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(UpdateManagerErrorTest, SendFullUnitStatusErrors)
+{
+    enum class FailedStep {
+        eUnitConfig,
+        eNodeIDs,
+        eNodeInfo,
+        eItemsStatuses,
+        eInstancesStatuses,
+        eSubjects,
+        eSend,
+        eItemsAllocation,
+        eInstancesAllocation
+    };
+
+    StaticArray<StaticString<cIDLen>, cMaxNumNodes> nodeIDs;
+
+    nodeIDs.EmplaceBack("node1");
+
+    for (auto failed : {FailedStep::eUnitConfig, FailedStep::eNodeIDs, FailedStep::eNodeInfo,
+             FailedStep::eItemsStatuses, FailedStep::eInstancesStatuses, FailedStep::eSubjects, FailedStep::eSend,
+             FailedStep::eItemsAllocation, FailedStep::eInstancesAllocation}) {
+        auto updateManager = CreateAndStartUpdateManager();
+
+        EXPECT_CALL(mUnitConfigMock, GetUnitConfigStatus(_))
+            .WillRepeatedly(Return(failed == FailedStep::eUnitConfig ? ErrorEnum::eFailed : ErrorEnum::eNone));
+        EXPECT_CALL(mNodeInfoProviderMock, GetAllNodeIDs(_))
+            .WillRepeatedly(DoAll(SetArgReferee<0>(nodeIDs),
+                Return(failed == FailedStep::eNodeIDs ? ErrorEnum::eFailed : ErrorEnum::eNone)));
+        EXPECT_CALL(mNodeInfoProviderMock, GetNodeInfo(_, _))
+            .WillRepeatedly(Return(failed == FailedStep::eNodeInfo ? ErrorEnum::eFailed : ErrorEnum::eNone));
+        EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
+            .WillRepeatedly(Return(failed == FailedStep::eItemsStatuses ? ErrorEnum::eFailed : ErrorEnum::eNone));
+        EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_))
+            .WillRepeatedly(Return(failed == FailedStep::eInstancesStatuses ? ErrorEnum::eFailed : ErrorEnum::eNone));
+        EXPECT_CALL(mIdentProviderMock, GetSubjects(_))
+            .WillRepeatedly(Return(failed == FailedStep::eSubjects ? ErrorEnum::eFailed : ErrorEnum::eNone));
+        EXPECT_CALL(mSenderMock, SendUnitStatus(_))
+            .Times(failed == FailedStep::eSend ? 1 : 0)
+            .WillRepeatedly(Return(ErrorEnum::eFailed));
+
+        if (failed == FailedStep::eItemsAllocation) {
+            mAllocator.FailAt(0);
+        } else if (failed == FailedStep::eInstancesAllocation) {
+            mAllocator.FailAt(1);
+        }
+
+        mConnectionListener->OnConnect();
+
+        mAllocator.Reset();
+
+        // Failed full unit status is not resent on reconnect
+
+        mConnectionListener->OnConnect();
+
+        EXPECT_TRUE(updateManager->Stop().IsNone());
+
+        Mock::VerifyAndClearExpectations(&mUnitConfigMock);
+        Mock::VerifyAndClearExpectations(&mNodeInfoProviderMock);
+        Mock::VerifyAndClearExpectations(&mItemStatusProviderMock);
+        Mock::VerifyAndClearExpectations(&mLauncherMock);
+        Mock::VerifyAndClearExpectations(&mIdentProviderMock);
+        Mock::VerifyAndClearExpectations(&mSenderMock);
+    }
+}
+
+TEST_F(UpdateManagerErrorTest, UnitConfigStatusAfterFailedFullStatus)
+{
+    auto updateManager = CreateAndStartUpdateManager();
+
+    EXPECT_CALL(mNodeInfoProviderMock, GetAllNodeIDs(_)).WillRepeatedly(Return(ErrorEnum::eFailed));
+
+    mConnectionListener->OnConnect();
+
+    auto desiredStatus = std::make_unique<DesiredStatus>();
+
+    desiredStatus->mUnitConfig.EmplaceValue();
+    desiredStatus->mUnitConfig->mVersion = "2.0.0";
+
+    EXPECT_CALL(mUnitConfigMock, UpdateUnitConfig(_)).WillOnce(Return(ErrorEnum::eNone));
+
+    ProcessAndWait(*updateManager, *desiredStatus);
+
+    EXPECT_TRUE(updateManager->Stop().IsNone());
+}
+
+TEST_F(UpdateManagerErrorTest, ListenersWhenCloudDisconnected)
+{
+    auto updateManager = CreateAndStartUpdateManager();
+
+    mConnectionListener->OnConnect();
+    mConnectionListener->OnDisconnect();
+
+    // No delta unit status is sent when cloud is disconnected
+
+    EXPECT_CALL(mSenderMock, SendUnitStatus(_)).Times(0);
+
+    UnitNodeInfo nodeInfo;
+
+    nodeInfo.mNodeID = "node1";
+
+    mNodeInfoListener->OnNodeInfoChanged(nodeInfo);
+    mItemStatusListener->OnItemStatusChanged(UpdateItemStatus {
+        "item1", UpdateItemTypeEnum::eService, "1.0.0", false, ItemStateEnum::eInstalled, ErrorEnum::eNone});
+    mItemStatusListener->OnItemRemovedFromCache("item1", "1.0.0");
+
+    StaticArray<StaticString<cIDLen>, 1> subjects;
+
+    subjects.EmplaceBack("subject1");
+
+    mSubjectsListener->SubjectsChanged(subjects);
+
+    auto statuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    statuses->EmplaceBack(CreateInstanceStatus(
+        "item1", "subject1", 0, UpdateItemTypeEnum::eService, "1.0.0", InstanceStateEnum::eActive));
+
+    UnitStatusInstanceListener()->OnInstancesStatusesChanged(*statuses);
+
+    EXPECT_TRUE(updateManager->Stop().IsNone());
+}
+
+TEST_F(UpdateManagerErrorTest, DeltaUnitStatusWithPreinstalledInstances)
+{
+    auto updateManager = CreateAndStartUpdateManager();
+
+    mConnectionListener->OnConnect();
+
+    std::mutex                               mutex;
+    std::condition_variable                  cv;
+    std::vector<std::unique_ptr<UnitStatus>> sentStatuses;
+
+    EXPECT_CALL(mSenderMock, SendUnitStatus(_)).WillRepeatedly(Invoke([&](const UnitStatus& unitStatus) {
+        std::lock_guard lock {mutex};
+
+        sentStatuses.push_back(std::make_unique<UnitStatus>(unitStatus));
+        cv.notify_all();
+
+        return ErrorEnum::eFailed;
+    }));
+
+    auto waitStatuses = [&](size_t count) {
+        std::unique_lock lock {mutex};
+
+        return cv.wait_for(lock, cCVTimeout, [&]() { return sentStatuses.size() >= count; });
+    };
+
+    auto statuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    statuses->EmplaceBack(CreateInstanceStatus("item1", "subject1", 0, UpdateItemTypeEnum::eService, "1.0.0",
+        InstanceStateEnum::eActive, ErrorEnum::eNone, true));
+
+    // Delta with preinstalled instance only: preinstalled item is added
+
+    UnitStatusInstanceListener()->OnInstancesStatusesChanged(*statuses);
+
+    ASSERT_TRUE(waitStatuses(1));
+
+    {
+        std::lock_guard lock {mutex};
+
+        const auto& unitStatus = *sentStatuses[0];
+
+        EXPECT_TRUE(unitStatus.mIsDeltaInfo);
+        ASSERT_TRUE(unitStatus.mUpdateItems.HasValue());
+        ASSERT_EQ(unitStatus.mUpdateItems->Size(), 1);
+        EXPECT_EQ(unitStatus.mUpdateItems.GetValue()[0],
+            (UpdateItemStatus {
+                "item1", UpdateItemTypeEnum::eService, "1.0.0", true, ItemStateEnum::eInstalled, ErrorEnum::eNone}));
+    }
+
+    // Delta with item status and preinstalled instance: item is marked as preinstalled
+
+    mItemStatusListener->OnItemStatusChanged(UpdateItemStatus {
+        "item1", UpdateItemTypeEnum::eService, "1.0.0", false, ItemStateEnum::eInstalled, ErrorEnum::eNone});
+    UnitStatusInstanceListener()->OnInstancesStatusesChanged(*statuses);
+
+    ASSERT_TRUE(waitStatuses(2));
+
+    {
+        std::lock_guard lock {mutex};
+
+        const auto& unitStatus = *sentStatuses[1];
+
+        EXPECT_TRUE(unitStatus.mIsDeltaInfo);
+        ASSERT_TRUE(unitStatus.mUpdateItems.HasValue());
+        ASSERT_EQ(unitStatus.mUpdateItems->Size(), 1);
+        EXPECT_TRUE(unitStatus.mUpdateItems.GetValue()[0].mPreinstalled);
+    }
+
+    EXPECT_TRUE(updateManager->Stop().IsNone());
+}
+
+TEST_F(UpdateManagerErrorTest, StartTwiceFails)
+{
+    auto updateManager = CreateAndStartUpdateManager();
+
+    auto err = updateManager->Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eWrongState)) << "Unexpected error: " << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(updateManager->Stop().IsNone());
+}
+
+TEST_F(UpdateManagerErrorTest, CheckUpdateRequiredGetStatusesErrors)
+{
+    auto updateManager = CreateAndStartUpdateManager();
+    auto desiredStatus = std::make_unique<DesiredStatus>();
+
+    std::atomic_int numSetCerts {0};
+
+    ON_CALL(mImageManagerMock, SetCerts(_, _)).WillByDefault(InvokeWithoutArgs([&]() {
+        numSetCerts++;
+
+        return ErrorEnum::eNone;
+    }));
+
+    // Get items statuses fails: update is required
+
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
+        .WillOnce(Return(ErrorEnum::eFailed))
+        .WillRepeatedly(Return(ErrorEnum::eNone));
+
+    ProcessAndWait(*updateManager, *desiredStatus);
+
+    EXPECT_EQ(numSetCerts, 1);
+
+    Mock::VerifyAndClearExpectations(&mItemStatusProviderMock);
+
+    // Get instances statuses fails: update is required
+
+    numSetCerts = 0;
+
+    EXPECT_CALL(mLauncherMock, GetInstancesStatuses(_))
+        .WillOnce(Return(ErrorEnum::eFailed))
+        .WillRepeatedly(Return(ErrorEnum::eNone));
+
+    ProcessAndWait(*updateManager, *desiredStatus);
+
+    EXPECT_EQ(numSetCerts, 1);
+
+    EXPECT_TRUE(updateManager->Stop().IsNone());
+}
+
+TEST_F(UpdateManagerErrorTest, RecoverItemsErrors)
+{
+    auto updateManager = CreateAndStartUpdateManager();
+    auto desiredStatus = std::make_unique<DesiredStatus>();
+
+    CreateUpdateItemInfo(*desiredStatus, "item1", UpdateItemTypeEnum::eService, "1.0.0");
+    desiredStatus->mInstances.EmplaceBack(DesiredInstanceInfo {"item1", "subject1", 0, 1, {}});
+
+    auto itemsStatuses = std::make_unique<StaticArray<UpdateItemStatus, cMaxNumUpdateItems>>();
+
+    itemsStatuses->EmplaceBack(UpdateItemStatus {
+        "item1", UpdateItemTypeEnum::eService, "1.0.0", false, ItemStateEnum::eInstalled, ErrorEnum::eNone});
+
+    auto instancesStatuses = std::make_unique<StaticArray<InstanceStatus, cMaxNumInstances>>();
+
+    instancesStatuses->EmplaceBack(CreateInstanceStatus("item1", "subject1", 0, UpdateItemTypeEnum::eService, "1.0.0",
+        InstanceStateEnum::eFailed, ErrorEnum::eIntegrity));
+
+    std::atomic_int numRuns {0};
+
+    ON_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
+        .WillByDefault(DoAll(SetArgReferee<0>(*itemsStatuses), Return(ErrorEnum::eNone)));
+    ON_CALL(mLauncherMock, GetInstancesStatuses(_))
+        .WillByDefault(DoAll(SetArgReferee<0>(*instancesStatuses), Return(ErrorEnum::eNone)));
+    ON_CALL(mLauncherMock, RunInstances(_, _)).WillByDefault(InvokeWithoutArgs([&]() {
+        numRuns++;
+
+        return ErrorEnum::eNone;
+    }));
+
+    // Desired status requires no update: it becomes the current one
+
+    EXPECT_CALL(mImageManagerMock, SetCerts(_, _)).Times(0);
+
+    ProcessAndWait(*updateManager, *desiredStatus);
+
+    Mock::VerifyAndClearExpectations(&mImageManagerMock);
+
+    // Set certs fails: recovery is aborted before looking for the items to recover
+
+    EXPECT_CALL(mImageManagerMock, SetCerts(_, _)).WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_)).Times(0);
+    EXPECT_CALL(mImageManagerMock, InstallItem(_)).Times(0);
+
+    EXPECT_TRUE(RecoverAndWait(*instancesStatuses));
+    EXPECT_EQ(numRuns, 0);
+
+    Mock::VerifyAndClearExpectations(&mImageManagerMock);
+    Mock::VerifyAndClearExpectations(&mItemStatusProviderMock);
+
+    // Items to recover allocation fails: recovery is aborted before looking for the items to recover
+
+    EXPECT_CALL(mImageManagerMock, SetCerts(_, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_)).Times(0);
+    EXPECT_CALL(mImageManagerMock, InstallItem(_)).Times(0);
+
+    mAllocator.FailAt(0);
+
+    EXPECT_TRUE(RecoverAndWait(*instancesStatuses));
+    EXPECT_EQ(numRuns, 0);
+
+    mAllocator.Reset();
+
+    Mock::VerifyAndClearExpectations(&mImageManagerMock);
+    Mock::VerifyAndClearExpectations(&mItemStatusProviderMock);
+
+    // Install item fails: error is ignored, the instances are launched and the update is finalized
+
+    EXPECT_CALL(mImageManagerMock, InstallItem(desiredStatus->mUpdateItems[0])).WillOnce(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mImageManagerMock, RemoveItem(_, _)).Times(0);
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
+        .Times(2)
+        .WillRepeatedly(DoAll(SetArgReferee<0>(*itemsStatuses), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mItemStatusProviderMock, SetItemFail(_, _, _)).Times(0);
+
+    EXPECT_TRUE(RecoverAndWait(*instancesStatuses));
+    EXPECT_EQ(numRuns, 1);
+
+    EXPECT_TRUE(updateManager->Stop().IsNone());
+}
+
+TEST_F(UpdateManagerErrorTest, FullUnitStatusSkipsRemovedItems)
+{
+    auto updateManager = CreateAndStartUpdateManager();
+    auto itemsStatuses = std::make_unique<StaticArray<UpdateItemStatus, cMaxNumUpdateItems>>();
+
+    itemsStatuses->EmplaceBack(UpdateItemStatus {
+        "item1", UpdateItemTypeEnum::eService, "1.0.0", false, ItemStateEnum::eRemoved, ErrorEnum::eNone});
+    itemsStatuses->EmplaceBack(UpdateItemStatus {
+        "item2", UpdateItemTypeEnum::eService, "1.0.0", false, ItemStateEnum::eInstalled, ErrorEnum::eNone});
+
+    std::unique_ptr<UnitStatus> sentStatus;
+
+    EXPECT_CALL(mItemStatusProviderMock, GetItemsStatuses(_))
+        .WillOnce(DoAll(SetArgReferee<0>(*itemsStatuses), Return(ErrorEnum::eNone)));
+    EXPECT_CALL(mSenderMock, SendUnitStatus(_)).WillOnce(Invoke([&](const UnitStatus& unitStatus) {
+        sentStatus = std::make_unique<UnitStatus>(unitStatus);
+
+        return ErrorEnum::eNone;
+    }));
+
+    mConnectionListener->OnConnect();
+
+    ASSERT_TRUE(sentStatus);
+    ASSERT_TRUE(sentStatus->mUpdateItems.HasValue());
+    ASSERT_EQ(sentStatus->mUpdateItems->Size(), 1);
+    EXPECT_EQ(sentStatus->mUpdateItems.GetValue()[0].mItemID, "item2");
+
+    EXPECT_TRUE(updateManager->Stop().IsNone());
 }
 
 } // namespace aos::cm::updatemanager
