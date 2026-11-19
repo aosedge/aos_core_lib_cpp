@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cstdlib>
+
 #include <gmock/gmock.h>
 
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
@@ -19,7 +21,6 @@
 #include <core/iam/tests/stubs/certhandlerstub.hpp>
 
 namespace aos::iam::certhandler {
-
 using namespace testing;
 using aos::tests::TestAllocator;
 
@@ -39,6 +40,9 @@ protected:
         mCertHandler = MakeShared<CertHandler>(&mAllocator, mAllocator);
         ASSERT_TRUE(mCertHandler);
         ASSERT_TRUE(mSOFTHSMEnv.Init(mAllocator, "", "certhanler-integr-tests").IsNone());
+
+        // token is recreated for each test, so start without a stale user PIN file
+        fs::Remove(GetPKCS11ModuleConfig().mUserPINPath);
     }
 
     // Default parameters
@@ -157,6 +161,20 @@ Error FindAllObjects(test::SoftHSMEnv& pkcs11Env, Array<pkcs11::ObjectHandle>& o
 
     return session->FindObjects(empty, objects);
 }
+
+class EnvGuard {
+public:
+    EnvGuard(const char* name, const char* value)
+        : mName(name)
+    {
+        setenv(name, value, 1);
+    }
+
+    ~EnvGuard() { unsetenv(mName); }
+
+private:
+    const char* mName;
+};
 
 RetWithError<StaticString<pkcs11::cPINLen>> ReadPIN(const String& file)
 {
@@ -1052,6 +1070,425 @@ TEST_F(CerthandlerTest, UpdateRootCertsRejectsEmptySet)
     ASSERT_TRUE(mCertHandler->SetOwner("rootcerts", cPIN).IsNone());
 
     ASSERT_TRUE(mCertHandler->UpdateRootCerts(pemCerts, infos).Is(ErrorEnum::eInvalidArgument));
+}
+
+TEST_F(CerthandlerTest, UnknownStorageID)
+{
+    constexpr auto cUnknown = "unknown";
+
+    StaticString<crypto::cCSRPEMLen> csr;
+    CertInfo                         info;
+    iamclient::CertListenerMock      certListener;
+
+    EXPECT_TRUE(mCertHandler->SetOwner(cUnknown, cPIN).Is(ErrorEnum::eNotFound));
+    EXPECT_TRUE(mCertHandler->Clear(cUnknown).Is(ErrorEnum::eNotFound));
+    EXPECT_TRUE(mCertHandler->CreateKey(cUnknown, "Aos Core", cPIN, csr).Is(ErrorEnum::eNotFound));
+    EXPECT_TRUE(mCertHandler->ApplyCertificate(cUnknown, "pem", info).Is(ErrorEnum::eNotFound));
+    EXPECT_TRUE(mCertHandler->GetCertKey(cUnknown, Array<uint8_t>(), Array<uint8_t>(), info).Is(ErrorEnum::eNotFound));
+    EXPECT_TRUE(mCertHandler->SubscribeCertKeyListener(cUnknown, certListener).Is(ErrorEnum::eNotFound));
+    EXPECT_TRUE(mCertHandler->SubscribeRootCertsListener(certListener).Is(ErrorEnum::eNotFound));
+    EXPECT_TRUE(mCertHandler->UnsubscribeListener(certListener).Is(ErrorEnum::eNotFound));
+    EXPECT_TRUE(mCertHandler->CreateSelfSignedCert(cUnknown, cPIN).Is(ErrorEnum::eNotFound));
+    EXPECT_TRUE(mCertHandler->GetModuleConfig(cUnknown).mError.Is(ErrorEnum::eNotFound));
+}
+
+TEST_F(CerthandlerTest, GetStorageIDsNoMemory)
+{
+    StaticArray<StaticString<cStorageIDLen>, 1> storageIDs;
+
+    RegisterPKCS11Module("iam");
+    RegisterPKCS11Module("sm");
+
+    EXPECT_TRUE(mCertHandler->GetStorageIDs(storageIDs).Is(ErrorEnum::eNoMemory));
+}
+
+TEST_F(CerthandlerTest, ModuleOperationsFailWhenNotOwned)
+{
+    StaticString<crypto::cCSRPEMLen> csr;
+    CertInfo                         info;
+    iamclient::CertListenerMock      certListener;
+
+    RegisterPKCS11Module("iam");
+
+    EXPECT_FALSE(mCertHandler->CreateKey("iam", "Aos Core", cPIN, csr).IsNone());
+    EXPECT_FALSE(mCertHandler->CreateSelfSignedCert("iam", cPIN).IsNone());
+
+    EXPECT_FALSE(mCertHandler->ApplyCertificate("iam", "not a pem certificate", info).IsNone());
+
+    EXPECT_TRUE(mCertHandler->SubscribeCertKeyListener("iam", certListener).Is(ErrorEnum::eNotFound));
+    EXPECT_FALSE(
+        mCertHandler->GetCertKey("iam", String("issuer").AsByteArray(), String("serial").AsByteArray(), info).IsNone());
+
+    StaticArray<uint8_t, crypto::cSerialNumSize + 1> longSerial;
+
+    ASSERT_TRUE(longSerial.Resize(crypto::cSerialNumSize + 1, 0x01).IsNone());
+    EXPECT_FALSE(mCertHandler->GetCertKey("iam", Array<uint8_t>(), longSerial, info).IsNone());
+}
+
+TEST_F(CerthandlerTest, CreateKeyFailsOnLongSubject)
+{
+    StaticString<crypto::cCSRPEMLen> csr;
+
+    RegisterPKCS11Module("iam");
+    ASSERT_TRUE(mCertHandler->SetOwner("iam", cPIN).IsNone());
+
+    const std::string longSubject(4096, 'a');
+
+    EXPECT_FALSE(mCertHandler->CreateKey("iam", longSubject.c_str(), cPIN, csr).IsNone());
+}
+
+TEST_F(CerthandlerTest, SetOwnerAndClearModuleErrors)
+{
+    PKCS11Module module;
+    CertModule   certModule;
+    auto         config = GetPKCS11ModuleConfig();
+
+    config.mUserPINPath = "/not/existing/dir/pin.txt";
+
+    ASSERT_TRUE(module.Init(mAllocator, "bad-pin", config, mSOFTHSMEnv.GetManager(), *mCryptoProvider).IsNone());
+    ASSERT_TRUE(certModule
+                    .Init(mAllocator, "bad-pin", GetCertModuleConfig(crypto::KeyTypeEnum::eRSA), *mCryptoProvider,
+                        module, mStorage)
+                    .IsNone());
+    ASSERT_TRUE(mCertHandler->RegisterModule(certModule).IsNone());
+
+    EXPECT_FALSE(mCertHandler->SetOwner("bad-pin", cPIN).IsNone());
+
+    // own token with a regular module and corrupt PIN file: clear fails on login
+    RegisterPKCS11Module("iam");
+    ASSERT_TRUE(mCertHandler->SetOwner("iam", cPIN).IsNone());
+
+    ASSERT_TRUE(fs::WriteStringToFile(GetPKCS11ModuleConfig().mUserPINPath, "wrong-pin", 0600).IsNone());
+
+    PKCS11Module wrongPINModule;
+    CertModule   wrongPINCertModule;
+
+    ASSERT_TRUE(wrongPINModule
+                    .Init(mAllocator, "wrong-pin", GetPKCS11ModuleConfig(), mSOFTHSMEnv.GetManager(), *mCryptoProvider)
+                    .IsNone());
+    auto certModuleConfig = GetCertModuleConfig(crypto::KeyTypeEnum::eRSA);
+
+    // validation would fail on login
+    certModuleConfig.mSkipValidation = true;
+
+    ASSERT_TRUE(
+        wrongPINCertModule.Init(mAllocator, "wrong-pin", certModuleConfig, *mCryptoProvider, wrongPINModule, mStorage)
+            .IsNone());
+    ASSERT_TRUE(mCertHandler->RegisterModule(wrongPINCertModule).IsNone());
+
+    EXPECT_FALSE(mCertHandler->Clear("wrong-pin").IsNone());
+
+    StaticArray<StaticString<cURLLen>, cCertsPerModule> invalidCerts, invalidKeys;
+    StaticArray<CertInfo, cCertsPerModule>              validCerts;
+
+    EXPECT_FALSE(wrongPINModule.ValidateKeysCertificates(invalidCerts, invalidKeys, validCerts).IsNone());
+}
+
+TEST_F(CerthandlerTest, CertChangeNotifiesOnlyMatchingSubscription)
+{
+    RegisterPKCS11Module("iam");
+    ASSERT_TRUE(mCertHandler->SetOwner("iam", cPIN).IsNone());
+    RegisterPKCS11Module("sm");
+
+    ASSERT_TRUE(mCertHandler->CreateSelfSignedCert("iam", cPIN).IsNone());
+
+    iamclient::CertListenerMock certListener;
+
+    EXPECT_CALL(certListener, OnCertKeyChanged(_)).Times(0);
+
+    ASSERT_TRUE(mCertHandler->SubscribeCertKeyListener("iam", certListener).IsNone());
+    ASSERT_TRUE(mCertHandler->CreateSelfSignedCert("sm", cPIN).IsNone());
+    ASSERT_TRUE(mCertHandler->UnsubscribeListener(certListener).IsNone());
+}
+
+TEST_F(CerthandlerTest, PKCS11TeeLoginTypes)
+{
+    auto config = GetPKCS11ModuleConfig();
+
+    config.mUserPINPath.Clear();
+
+    {
+        EnvGuard     env("CKTEEC_LOGIN_TYPE", "unknown");
+        PKCS11Module module;
+
+        ASSERT_TRUE(module.Init(mAllocator, "tee", config, mSOFTHSMEnv.GetManager(), *mCryptoProvider).IsNone());
+        EXPECT_TRUE(module.SetOwner(cPIN).Is(ErrorEnum::eInvalidArgument));
+    }
+
+    // SoftHSM doesn't support TEE login: token init without SO PIN fails
+    for (const auto loginType : {"public", "user", "group"}) {
+        EnvGuard     env("CKTEEC_LOGIN_TYPE", loginType);
+        PKCS11Module module;
+
+        ASSERT_TRUE(module.Init(mAllocator, "tee", config, mSOFTHSMEnv.GetManager(), *mCryptoProvider).IsNone());
+        EXPECT_FALSE(module.SetOwner(cPIN).IsNone()) << loginType;
+    }
+}
+
+TEST_F(CerthandlerTest, PKCS11TeeLoginOnOwnedToken)
+{
+    PKCS11Module owner;
+
+    ASSERT_TRUE(
+        owner.Init(mAllocator, "owner", GetPKCS11ModuleConfig(), mSOFTHSMEnv.GetManager(), *mCryptoProvider).IsNone());
+    ASSERT_TRUE(owner.SetOwner(cPIN).IsNone());
+
+    auto config = GetPKCS11ModuleConfig();
+
+    config.mUserPINPath.Clear();
+
+    EnvGuard     env("CKTEEC_LOGIN_TYPE", "public");
+    PKCS11Module module;
+
+    // user PIN is not read from file for TEE login
+    ASSERT_TRUE(module.Init(mAllocator, "tee", config, mSOFTHSMEnv.GetManager(), *mCryptoProvider).IsNone());
+}
+
+TEST_F(CerthandlerTest, PKCS11InitErrors)
+{
+    PKCS11Module owner;
+
+    ASSERT_TRUE(
+        owner.Init(mAllocator, "owner", GetPKCS11ModuleConfig(), mSOFTHSMEnv.GetManager(), *mCryptoProvider).IsNone());
+    ASSERT_TRUE(owner.SetOwner(cPIN).IsNone());
+
+    {
+        PKCS11Module module;
+        auto         config = GetPKCS11ModuleConfig();
+
+        config.mUserPINPath = "/not/existing/dir/pin.txt";
+
+        EXPECT_FALSE(module.Init(mAllocator, "no-pin", config, mSOFTHSMEnv.GetManager(), *mCryptoProvider).IsNone());
+    }
+
+    {
+        PKCS11Module module;
+        auto         config = GetPKCS11ModuleConfig();
+
+        config.mSlotID.SetValue(0xFFFF);
+
+        EXPECT_FALSE(module.Init(mAllocator, "bad-slot", config, mSOFTHSMEnv.GetManager(), *mCryptoProvider).IsNone());
+    }
+}
+
+TEST_F(CerthandlerTest, PKCS11OperationsFailWhenNotOwned)
+{
+    PKCS11Module                              module;
+    StaticString<crypto::cCertPEMLen>         caCertPem;
+    StaticArray<crypto::x509::Certificate, 1> certs;
+    CertInfo                                  info;
+    StaticString<pkcs11::cPINLen>             password;
+
+    ASSERT_TRUE(module.Init(mAllocator, "unowned", GetPKCS11ModuleConfig(), mSOFTHSMEnv.GetManager(), *mCryptoProvider)
+                    .IsNone());
+
+    ASSERT_TRUE(fs::ReadFileToString(CERTIFICATES_DIR "/ca.pem", caCertPem).IsNone());
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(caCertPem, certs).IsNone());
+
+    EXPECT_FALSE(module.CreateKey(cPIN, crypto::KeyTypeEnum::eRSA).mError.IsNone());
+    EXPECT_FALSE(module.ApplyCert(certs, info, password).IsNone());
+    EXPECT_FALSE(module.RemoveCert("pkcs11:token=aos;object=unowned;id=%01", "").IsNone());
+    EXPECT_FALSE(module.RemoveKey("pkcs11:token=aos;object=unowned;id=%01", "").IsNone());
+}
+
+TEST_F(CerthandlerTest, PKCS11CreateKeyFailsToDeleteEvictedKey)
+{
+    PKCS11Module module;
+
+    ASSERT_TRUE(
+        module.Init(mAllocator, "evict", GetPKCS11ModuleConfig(), mSOFTHSMEnv.GetManager(), *mCryptoProvider).IsNone());
+    ASSERT_TRUE(module.SetOwner(cPIN).IsNone());
+
+    auto staleKey = module.CreateKey(cPIN, crypto::KeyTypeEnum::eECDSA);
+    ASSERT_TRUE(staleKey.mError.IsNone());
+
+    // clear removes token objects but keeps pending keys
+    ASSERT_TRUE(module.Clear().IsNone());
+
+    // evicting the stale pending key fails, but key creation continues
+    for (size_t i = 0; i < cCertsPerModule; ++i) {
+        auto key = module.CreateKey(cPIN, crypto::KeyTypeEnum::eECDSA);
+        EXPECT_TRUE(key.mError.IsNone()) << i;
+    }
+}
+
+TEST_F(CerthandlerTest, PKCS11ApplyCertFailsOnNonCAIssuer)
+{
+    RegisterPKCS11Module("iam");
+    ASSERT_TRUE(mCertHandler->SetOwner("iam", cPIN).IsNone());
+
+    StaticString<crypto::cCSRPEMLen> csr;
+    ASSERT_TRUE(mCertHandler->CreateKey("iam", "Aos Core", cPIN, csr).IsNone());
+
+    StaticString<crypto::cPrivKeyPEMLen> caKey;
+    ASSERT_TRUE(fs::ReadFileToString(CERTIFICATES_DIR "/ca.key", caKey).IsNone());
+
+    StaticString<crypto::cCertPEMLen> caCert;
+    ASSERT_TRUE(fs::ReadFileToString(CERTIFICATES_DIR "/ca.pem", caCert).IsNone());
+
+    uint64_t serialNum = 0x444444;
+    auto     serial    = Array<uint8_t>(reinterpret_cast<uint8_t*>(&serialNum), sizeof(serialNum));
+    StaticString<crypto::cCertPEMLen> clientCert;
+
+    ASSERT_TRUE(mCryptoProvider->CreateClientCert(csr, caKey, caCert, serial, clientCert).IsNone());
+
+    StaticArray<crypto::x509::Certificate, 2> chain;
+
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(clientCert, chain).IsNone());
+    ASSERT_EQ(chain.Size(), 1);
+
+    ASSERT_TRUE(chain.PushBack(chain[0]).IsNone());
+
+    CertInfo                      info;
+    StaticString<pkcs11::cPINLen> password;
+
+    EXPECT_FALSE(mPKCS11Modules[0].ApplyCert(chain, info, password).IsNone());
+}
+
+TEST_F(CerthandlerTest, PKCS11ValidateInvalidCertificateObject)
+{
+    constexpr auto cStorageID = "bad-cert";
+
+    PKCS11Module module;
+
+    ASSERT_TRUE(module.Init(mAllocator, cStorageID, GetPKCS11ModuleConfig(), mSOFTHSMEnv.GetManager(), *mCryptoProvider)
+                    .IsNone());
+    ASSERT_TRUE(module.SetOwner(cPIN).IsNone());
+
+    Error                             err;
+    SharedPtr<pkcs11::SessionContext> session;
+    StaticString<pkcs11::cPINLen>     userPIN;
+
+    Tie(userPIN, err) = ReadPIN(GetPKCS11ModuleConfig().mUserPINPath);
+    ASSERT_TRUE(err.IsNone());
+
+    Tie(session, err) = mSOFTHSMEnv.OpenUserSession(userPIN, true);
+    ASSERT_TRUE(err.IsNone());
+
+    uuid::UUID id;
+
+    Tie(id, err) = uuid::StringToUUID("08080808-0404-0404-0404-121212121212");
+    ASSERT_TRUE(err.IsNone());
+
+    CK_OBJECT_CLASS     certClass = CKO_CERTIFICATE;
+    CK_CERTIFICATE_TYPE certType  = CKC_X_509;
+    CK_BBOOL            trueVal   = CK_TRUE;
+    uint8_t             subject[] = {0x30, 0x00};
+    uint8_t             value[]   = {0x01, 0x02, 0x03};
+    StaticString<16>    label {cStorageID};
+
+    StaticArray<pkcs11::ObjectAttribute, pkcs11::cObjectAttributesCount> templ;
+
+    ASSERT_TRUE(templ.EmplaceBack(CKA_CLASS, Array<uint8_t>(reinterpret_cast<uint8_t*>(&certClass), sizeof(certClass)))
+                    .IsNone());
+    ASSERT_TRUE(
+        templ.EmplaceBack(CKA_CERTIFICATE_TYPE, Array<uint8_t>(reinterpret_cast<uint8_t*>(&certType), sizeof(certType)))
+            .IsNone());
+    ASSERT_TRUE(templ.EmplaceBack(CKA_TOKEN, Array<uint8_t>(&trueVal, sizeof(trueVal))).IsNone());
+    ASSERT_TRUE(templ.EmplaceBack(CKA_SUBJECT, Array<uint8_t>(subject, sizeof(subject))).IsNone());
+    ASSERT_TRUE(templ.EmplaceBack(CKA_VALUE, Array<uint8_t>(value, sizeof(value))).IsNone());
+    ASSERT_TRUE(templ.EmplaceBack(CKA_ID, Array<uint8_t>(id.begin(), id.Size())).IsNone());
+    ASSERT_TRUE(templ.EmplaceBack(CKA_LABEL, label.AsByteArray()).IsNone());
+
+    ASSERT_TRUE(session->CreateObject(templ).mError.IsNone());
+
+    StaticArray<CertInfo, cCertsPerModule> validCerts;
+
+    EXPECT_FALSE(module.ValidateRootCertificates(validCerts).IsNone());
+
+    // key pair with the same id: certificate is used to create valid info
+    pkcs11::PrivateKey privKey;
+
+    Tie(privKey, err) = pkcs11::Utils(mAllocator, session, *mCryptoProvider)
+                            .GenerateECDSAKeyPairWithLabel(id, cStorageID, pkcs11::EllipticCurve::eP384);
+    ASSERT_TRUE(err.IsNone());
+
+    StaticArray<StaticString<cURLLen>, cCertsPerModule> invalidCerts, invalidKeys;
+
+    EXPECT_FALSE(module.ValidateKeysCertificates(invalidCerts, invalidKeys, validCerts).IsNone());
+}
+
+TEST_F(CerthandlerTest, PKCS11ValidateTooManyCertificates)
+{
+    PKCS11Module                              module;
+    StaticString<crypto::cCertPEMLen>         caCertPem;
+    StaticArray<crypto::x509::Certificate, 1> certs;
+
+    ASSERT_TRUE(
+        module.Init(mAllocator, "many-certs", GetPKCS11ModuleConfig(), mSOFTHSMEnv.GetManager(), *mCryptoProvider)
+            .IsNone());
+    ASSERT_TRUE(module.SetOwner(cPIN).IsNone());
+
+    ASSERT_TRUE(fs::ReadFileToString(CERTIFICATES_DIR "/ca.pem", caCertPem).IsNone());
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(caCertPem, certs).IsNone());
+
+    for (size_t i = 0; i < cCertsPerModule + 1; ++i) {
+        CertInfo info;
+
+        ASSERT_TRUE(module.AddCert(certs[0], "", info).IsNone());
+    }
+
+    StaticArray<CertInfo, cCertsPerModule>              validCerts;
+    StaticArray<StaticString<cURLLen>, cCertsPerModule> invalidCerts, invalidKeys;
+
+    EXPECT_TRUE(module.ValidateRootCertificates(validCerts).Is(ErrorEnum::eNoMemory));
+    EXPECT_TRUE(module.ValidateKeysCertificates(invalidCerts, invalidKeys, validCerts).Is(ErrorEnum::eNoMemory));
+}
+
+TEST_F(CerthandlerTest, PKCS11ValidateKeysCertificatesResultFull)
+{
+    RegisterPKCS11Module("iam");
+    ASSERT_TRUE(mCertHandler->SetOwner("iam", cPIN).IsNone());
+
+    ApplyCertificate(*mCertHandler, *mCryptoProvider, "iam", cPIN);
+
+    StaticArray<StaticString<cURLLen>, cCertsPerModule> invalidCerts, invalidKeys;
+    StaticArray<CertInfo, 1>                            validCerts;
+
+    ASSERT_TRUE(validCerts.EmplaceBack().IsNone());
+
+    EXPECT_TRUE(
+        mPKCS11Modules[0].ValidateKeysCertificates(invalidCerts, invalidKeys, validCerts).Is(ErrorEnum::eNoMemory));
+}
+
+TEST_F(CerthandlerTest, PKCS11ValidateKeysCertificatesFailsWithoutMemory)
+{
+    TestAllocator alloc;
+    PKCS11Module  module;
+    CertModule    certModule;
+    bool          hitOOM = false;
+
+    ASSERT_TRUE(
+        module.Init(alloc, "keys-oom", GetPKCS11ModuleConfig(), mSOFTHSMEnv.GetManager(), *mCryptoProvider).IsNone());
+    ASSERT_TRUE(certModule
+                    .Init(mAllocator, "keys-oom", GetCertModuleConfig(crypto::KeyTypeEnum::eRSA), *mCryptoProvider,
+                        module, mStorage)
+                    .IsNone());
+    ASSERT_TRUE(mCertHandler->RegisterModule(certModule).IsNone());
+    ASSERT_TRUE(mCertHandler->SetOwner("keys-oom", cPIN).IsNone());
+
+    ApplyCertificate(*mCertHandler, *mCryptoProvider, "keys-oom", cPIN);
+
+    for (size_t n = 0; n <= 8; ++n) {
+        StaticArray<StaticString<cURLLen>, cCertsPerModule> invalidCerts, invalidKeys;
+        StaticArray<CertInfo, cCertsPerModule>              validCerts;
+
+        alloc.FailAfter(n);
+
+        auto err = module.ValidateKeysCertificates(invalidCerts, invalidKeys, validCerts);
+
+        alloc.Reset();
+
+        if (err.IsNone()) {
+            break;
+        }
+
+        EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << n;
+
+        hitOOM = true;
+    }
+
+    EXPECT_TRUE(hitOOM);
 }
 
 } // namespace aos::iam::certhandler
