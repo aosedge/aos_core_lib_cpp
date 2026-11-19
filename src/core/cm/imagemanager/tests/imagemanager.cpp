@@ -1183,9 +1183,7 @@ TEST_F(CMImageManagerTest, InstallDownloadFailsAfterRestart)
                 return Error(ErrorEnum::eRuntime, "download failed");
             }));
     EXPECT_CALL(mDownloadSpaceAllocator, FreeSpace(cPartSize - cDownloadedSize))
-        .WillOnce(Invoke([this, allocateSize](size_t size) {
-            AddSpaceEvent({allocateSize, "free", size});
-        }));
+        .WillOnce(Invoke([this, allocateSize](size_t size) { AddSpaceEvent({allocateSize, "free", size}); }));
 
     auto err = Install();
     EXPECT_TRUE(err.Is(ErrorEnum::eRuntime)) << tests::utils::ErrorToStr(err);
