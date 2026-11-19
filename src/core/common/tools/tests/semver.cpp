@@ -29,6 +29,15 @@ TEST(SemverTest, ValidateSemver)
         {"01.0.0", ErrorEnum::eInvalidArgument},
         {"01.0.0.12", ErrorEnum::eInvalidArgument},
         {"1.0.0-01.2.3", ErrorEnum::eInvalidArgument},
+        {"1.0.a", ErrorEnum::eInvalidArgument},
+        {"1..0", ErrorEnum::eInvalidArgument},
+        {"1.0.0.0", ErrorEnum::eInvalidArgument},
+        {"1.0.0-al@pha", ErrorEnum::eInvalidArgument},
+        {"1.0.0-alpha..1", ErrorEnum::eInvalidArgument},
+        {"1.0.0-a.b.c.d.e.f.g.h.i", ErrorEnum::eNoMemory},
+        {"1.0.0+meta@data", ErrorEnum::eInvalidArgument},
+        {"1.0.0+meta..data", ErrorEnum::eInvalidArgument},
+        {"1.0.0+a.b.c.d.e.f.g.h.i", ErrorEnum::eNoMemory},
     };
 
     for (const auto& data : testData) {
@@ -55,6 +64,17 @@ TEST(SemverTest, CompareSemver)
         {"1.0.0-alpha", "1.0.0-alpha.1", -1},
         {"1.0.0-alpha.1", "1.0.0-alpha.beta", -1},
         {"1.0.0-alpha.beta+0123", "1.0.0-alpha.beta+fdda", 0},
+        {"1.0", "1.0.0", -1},
+        {"1.0.0", "1.0", 1},
+        {"1.0.0-beta", "1.0.0-alpha", 1},
+        {"1.0.0-alpha.1", "1.0.0-alpha", 1},
+        {"1.0.0-1", "1.0.0-alpha", -1},
+        {"1.0.0-alpha", "1.0.0-1", 1},
+        {"1.0.0-1", "1.0.0-2", -1},
+        {"1.0.0-2", "1.0.0-1", 1},
+        {"1.0.0-1.2", "1.0.0-1.2", 0},
+        {"01.0.0", "1.0.0", {0, ErrorEnum::eInvalidArgument}},
+        {"1.0.0", "01.0.0", {0, ErrorEnum::eInvalidArgument}},
     };
 
     for (const auto& data : testData) {

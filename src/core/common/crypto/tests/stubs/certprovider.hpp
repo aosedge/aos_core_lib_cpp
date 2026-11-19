@@ -82,6 +82,16 @@ public:
         mCerts[storageID] = certInfo;
     }
 
+    void AddCertURLs(const std::string& storageID, const std::string& certURL, const std::string& keyURL)
+    {
+        CertInfo certInfo;
+
+        certInfo.mCertURL = certURL.c_str();
+        certInfo.mKeyURL  = keyURL.c_str();
+
+        mCerts[storageID] = certInfo;
+    }
+
     void AddRootCert(const std::string& certName)
     {
         mHasRootCerts = true;
@@ -102,12 +112,17 @@ public:
 
     void AddRootCertCopies(const std::string& certName, size_t count)
     {
+        AddRootCertURLCopies("file://" + FullCertPath(certName), count);
+    }
+
+    void AddRootCertURLCopies(const std::string& url, size_t count)
+    {
         mHasRootCerts = true;
         mRootCerts.clear();
         mRootCerts.reserve(count);
 
         for (size_t i = 0; i < count; ++i) {
-            mRootCerts.push_back(MakeCertInfo("file://" + FullCertPath(certName)));
+            mRootCerts.push_back(MakeCertInfo(url));
         }
     }
 
