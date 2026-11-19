@@ -70,48 +70,21 @@ public:
     Error ProcessDesiredStatus(const DesiredStatus& desiredStatus);
 
 private:
-    static constexpr auto cWaitActiveTimeout    = Time::cMinutes * 10;
-    static constexpr auto cIntegrityCheckPeriod = Time::cMinutes;
+    static constexpr auto cWaitActiveTimeout = Time::cMinutes * 10;
 
     // instancestatusprovider::ListenerItf implementation
     void OnInstancesStatusesChanged(const Array<InstanceStatus>& statuses) override;
 
-    /**
-     * Sets the installed desired status items that have an instance failed with the integrity error to failed state.
-     *
-     * @param desiredStatus desired status.
-     * @return true if at least one item is set to failed state and requires recovery.
-     */
-    bool SetIntegrityFailedItems(const DesiredStatus& desiredStatus);
-
-    /**
-     * Stores desired status and logs the storage error.
-     *
-     * @param desiredStatus desired status.
-     */
-    void StoreDesiredStatus(const DesiredStatus& desiredStatus);
-
-    /**
-     * Returns whether the items integrity check is required by the changed instances statuses.
-     *
-     * @return bool.
-     */
-    bool IsIntegrityCheckRequired();
-
-    /**
-     * Resets the items integrity check required flag.
-     *
-     * @return true if the integrity check was required.
-     */
-    bool ResetIntegrityCheckRequired();
-
     void  Run();
+    void  RunUpdate(UniqueLock<Mutex>& lock);
     void  LogDesiredStatus(const DesiredStatus& desiredStatus) const;
     void  SetState(const UpdateState& state);
     Error InstallUpdateItems();
     Error RecoverItems();
     void  AddInstallTask(const UpdateItemInfo& item);
     void  SetItemsFailed(const Array<InstanceStatus>& instancesStatuses);
+    Error GetIntegrityFailedItems(Array<const UpdateItemInfo*>& items);
+    void  StoreDesiredStatus(const DesiredStatus& desiredStatus);
     void  InstallItem(const UpdateItemInfo& item);
     void  RemoveItem(const UpdateItemStatus& itemStatus);
     Error InstallDesiredStatus();
@@ -120,7 +93,6 @@ private:
     Error FinalizeUpdate();
     void  StartUpdate(const UpdateState& state = UpdateStateEnum::eDownloading);
     void  CancelUpdate();
-    bool  IsSameUpdate(const DesiredStatus& desiredStatus) const;
     bool  IsUpdateRequired(const DesiredStatus& desiredStatus) const;
     bool  IsUpdateItemsRequired(const DesiredStatus& desiredStatus) const;
     bool  IsUpdateInstancesRequired(const DesiredStatus& desiredStatus) const;
@@ -134,7 +106,6 @@ private:
     StorageItf*                                  mStorage {};
 
     Mutex                                                      mMutex;
-    Mutex                                                      mIntegrityCheckMutex;
     ConditionalVariable                                        mCondVar;
     Thread<>                                                   mThread;
     ThreadPool<cMaxNumConcurrentItems, cMaxNumUpdateItems * 2> mThreadPool;
@@ -143,11 +114,8 @@ private:
 
     bool        mIsRunning {};
     bool        mHasPendingDesiredStatus {};
-    bool        mHasCurrentDesiredStatus {};
     bool        mIntegrityCheckRequired {};
     bool        mCancelCurrentUpdate {};
-    bool        mRecoveryRequired {};
-    bool        mRecoveryDone {};
     UpdateState mUpdateState {};
 
     AllocatorItf* mAllocator {};

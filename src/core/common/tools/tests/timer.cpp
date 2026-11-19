@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <future>
+
 #include <gmock/gmock.h>
 
 #include <core/common/tools/timer.hpp>
@@ -58,6 +60,28 @@ TEST(TimerTest, RunOneShot)
     EXPECT_THAT(invokeTime, ApproxEqualTime(Time(now).Add(cTimeout)));
 
     EXPECT_TRUE(timer.Stop(Timer::StopMode::WaitForCallbacks).IsNone());
+}
+
+TEST(TimerTest, RunOneShotBelowResolution)
+{
+    Timer                     timer {};
+    MockFunction<void(void*)> cb;
+    std::promise<void>        called;
+
+    EXPECT_CALL(cb, Call(_)).WillOnce(InvokeWithoutArgs([&called]() { called.set_value(); }));
+
+    EXPECT_TRUE(timer.Start(Time::cMicroseconds, WrapCallback(cb), true).IsNone());
+
+    EXPECT_EQ(called.get_future().wait_for(std::chrono::seconds(1)), std::future_status::ready);
+
+    EXPECT_TRUE(timer.Stop(Timer::StopMode::WaitForCallbacks).IsNone());
+}
+
+TEST(TimerTest, RunMultiShotBelowResolution)
+{
+    Timer timer {};
+
+    EXPECT_TRUE(timer.Start(Time::cMicroseconds, [](void*) {}, false).Is(ErrorEnum::eInvalidArgument));
 }
 
 TEST(TimerTest, RunMultiShot)

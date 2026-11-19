@@ -188,9 +188,7 @@ Error Monitoring::Start()
         }
     }
 
-    if (auto err = mTimer.Start(
-            mConfig.mPollPeriod, [this](void*) { ProcessMonitoring(); }, false);
-        !err.IsNone()) {
+    if (auto err = mTimer.Start(mConfig.mPollPeriod, [this](void*) { ProcessMonitoring(); }, false); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 

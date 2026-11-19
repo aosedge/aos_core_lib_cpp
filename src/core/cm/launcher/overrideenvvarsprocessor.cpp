@@ -48,9 +48,7 @@ RetWithError<bool> OverrideEnvVarsProcessor::Start()
         }
     }
 
-    if (auto timerErr = mTimer.Start(
-            mCheckPeriod, [this](void*) { OnTTLTimerTick(); }, false);
-        !timerErr.IsNone()) {
+    if (auto timerErr = mTimer.Start(mCheckPeriod, [this](void*) { OnTTLTimerTick(); }, false); !timerErr.IsNone()) {
         return {changed, AOS_ERROR_WRAP(timerErr)};
     }
 

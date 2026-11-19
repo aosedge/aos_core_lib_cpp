@@ -93,7 +93,7 @@ void RootCerts::OnNodeInfoChanged(const UnitNodeInfo& info)
 
         LOG_DBG() << "Node info changed" << Log::Field("nodeID", info.mNodeID);
 
-        if (!mCloudConnected) {
+        if (!mCloudConnected || !info.mIsConnected) {
             return;
         }
     }
@@ -147,10 +147,22 @@ Error RootCerts::SendFullSnapshot()
     }
 
     auto unitRootCerts = MakeUnique<UnitRootCertificates>(mAllocator);
+    auto nodeInfo      = MakeUnique<UnitNodeInfo>(mAllocator);
 
     unitRootCerts->mIsPartial = false;
 
     for (const auto& nodeID : nodeIDs) {
+        if (auto err = mNodeInfoProvider->GetNodeInfo(nodeID, *nodeInfo); !err.IsNone()) {
+            LOG_ERR() << "Get node info failed" << Log::Field("nodeID", nodeID) << Log::Field(err);
+
+            continue;
+        }
+
+        // Root certificates of not connected node can't be obtained, they will be sent on node connect
+        if (!nodeInfo->mIsConnected) {
+            continue;
+        }
+
         if (auto err = unitRootCerts->mNodeCertificates.EmplaceBack(); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }

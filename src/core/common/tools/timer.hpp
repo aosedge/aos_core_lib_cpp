@@ -42,7 +42,8 @@ public:
     /**
      * Starts timer.
      *
-     * @param interval timer interval.
+     * @param interval timer interval: the one shot timer with the interval below the timer resolution is called
+     * immediately, the periodic timer interval should exceed the timer resolution.
      * @param callback callback.
      * @param oneShot specifies whether timer should be called exactly once.
      * @param arg callback argument.
@@ -51,7 +52,7 @@ public:
     template <typename F>
     Error Start(Duration interval, F callback, bool oneShot = true, void* arg = nullptr)
     {
-        if (interval <= cTimerResolution) {
+        if (!oneShot && interval <= cTimerResolution) {
             return AOS_ERROR_WRAP(ErrorEnum::eInvalidArgument);
         }
 
