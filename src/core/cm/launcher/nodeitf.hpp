@@ -53,18 +53,14 @@ public:
      *
      * @return const NodeConfig&
      */
-    const NodeConfig& GetConfig() const { return mConfig; }
+    virtual const NodeConfig& GetConfig() const = 0;
 
     /**
      * Indicates whether node requires rebalancing.
      *
      * @return bool.
      */
-    bool NeedBalancing() const { return mNeedBalancing; }
-
-protected:
-    NodeConfig mConfig {};
-    bool       mNeedBalancing {};
+    virtual bool NeedBalancing() const = 0;
 };
 
 /** @}*/

@@ -238,6 +238,13 @@ protected:
     Error SetActive(const String& nodeID, const String& runtimeID);
     Error SetDefaultRuntimes();
 
+    InstanceInfo&                     GetInstanceInfo() { return mInfo; }
+    aos::InstanceInfo&                GetSMInstanceInfo() { return mSMInfo; }
+    const MonitoringData&             GetMonitoringData() const { return mMonitoringData; }
+    const UniquePtr<oci::ItemConfig>& GetItemConfig() const { return mItemConfig; }
+    StorageItf&                       GetStorage() { return mStorage; }
+
+private:
     InstanceInfo      mInfo;
     aos::InstanceInfo mSMInfo;
     InstanceStatus    mStatus;

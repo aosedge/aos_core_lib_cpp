@@ -120,6 +120,20 @@ public:
         const Array<oci::ResourceInfo>& reqResources) override;
 
     /**
+     * Returns node configuration.
+     *
+     * @return const NodeConfig&
+     */
+    const NodeConfig& GetConfig() const override { return mConfig; }
+
+    /**
+     * Indicates whether node requires rebalancing.
+     *
+     * @return bool.
+     */
+    bool NeedBalancing() const override { return mNeedBalancing; }
+
+    /**
      * Sends scheduled instances to node.
      *
      * @param scheduledInstances scheduled instances.
@@ -181,6 +195,8 @@ private:
     InstanceRunnerItf*                 mInstanceRunner {};
 
     UnitNodeInfo mInfo {};
+    NodeConfig   mConfig {};
+    bool         mNeedBalancing {};
     bool         mIsNodeStatusReceived {};
 
     size_t mTotalCPUUsage {};

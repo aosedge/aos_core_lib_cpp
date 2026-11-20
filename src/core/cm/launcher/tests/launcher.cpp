@@ -3312,8 +3312,14 @@ public:
         return 1;
     }
 
+    const NodeConfig& GetConfig() const override { return mConfig; }
+
+    bool NeedBalancing() const override { return mNeedBalancing; }
+
 private:
-    Error mReserveErr;
+    NodeConfig mConfig {};
+    bool       mNeedBalancing {};
+    Error      mReserveErr;
 };
 
 oci::IndexContentDescriptor CreateImageDescriptor(const std::string& itemID, const std::string& imageID = cImageID1)

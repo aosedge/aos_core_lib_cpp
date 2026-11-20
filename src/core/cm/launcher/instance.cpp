@@ -317,9 +317,10 @@ Error ComponentInstance::Init()
 
 Error ComponentInstance::Remove()
 {
-    LOG_DBG() << "Remove instance" << Log::Field("instanceID", mInfo.mInstanceIdent);
+    LOG_DBG() << "Remove instance" << Log::Field("instanceID", GetInfo().mInstanceIdent);
 
-    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+    if (auto err = GetStorage().RemoveInstance(GetInfo().mInstanceIdent);
+        !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -328,12 +329,13 @@ Error ComponentInstance::Remove()
 
 Error ComponentInstance::Cache(bool disable)
 {
-    LOG_DBG() << "Cache instance" << Log::Field("instanceID", mInfo.mInstanceIdent) << Log::Field("disable", disable);
+    LOG_DBG() << "Cache instance" << Log::Field("instanceID", GetInfo().mInstanceIdent)
+              << Log::Field("disable", disable);
 
-    mInfo.mState  = disable ? InstanceStateEnum::eDisabled : InstanceStateEnum::eCached;
-    mInfo.mNodeID = "";
+    GetInstanceInfo().mState  = disable ? InstanceStateEnum::eDisabled : InstanceStateEnum::eCached;
+    GetInstanceInfo().mNodeID = "";
 
-    if (auto err = mStorage.UpdateInstance(mInfo); !err.IsNone()) {
+    if (auto err = GetStorage().UpdateInstance(GetInfo()); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -375,19 +377,19 @@ Error ComponentInstance::Schedule(NodeItf& node, const String& runtimeID)
 
 Error ComponentInstance::LoadSMInfo(NodeItf& node, const String& runtimeID)
 {
-    static_cast<InstanceIdent&>(mSMInfo) = mInfo.mInstanceIdent;
-    mSMInfo.mManifestDigest              = mInfo.mManifestDigest;
-    mSMInfo.mRuntimeID                   = runtimeID;
-    mSMInfo.mOwnerID                     = mInfo.mOwnerID;
-    mSMInfo.mSubjectType                 = mInfo.mSubjectType;
-    mSMInfo.mUID                         = mInfo.mUID;
-    mSMInfo.mGID                         = mInfo.mGID;
-    mSMInfo.mPriority                    = mInfo.mPriority;
+    static_cast<InstanceIdent&>(GetSMInstanceInfo()) = GetInfo().mInstanceIdent;
+    GetSMInstanceInfo().mManifestDigest              = GetInfo().mManifestDigest;
+    GetSMInstanceInfo().mRuntimeID                   = runtimeID;
+    GetSMInstanceInfo().mOwnerID                     = GetInfo().mOwnerID;
+    GetSMInstanceInfo().mSubjectType                 = GetInfo().mSubjectType;
+    GetSMInstanceInfo().mUID                         = GetInfo().mUID;
+    GetSMInstanceInfo().mGID                         = GetInfo().mGID;
+    GetSMInstanceInfo().mPriority                    = GetInfo().mPriority;
 
-    mSMInfo.mStoragePath = "";
-    mSMInfo.mStatePath   = "";
+    GetSMInstanceInfo().mStoragePath = "";
+    GetSMInstanceInfo().mStatePath   = "";
     // mSMInfo.mEnvVars is set in OverrideEnvVars().
-    mSMInfo.mMonitoringParams.Reset();
+    GetSMInstanceInfo().mMonitoringParams.Reset();
 
     if (auto err = SetActive(node.GetConfig().mNodeID, runtimeID); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -414,12 +416,12 @@ Error ServiceInstance::Init()
     Error uidErr;
     Error gidErr;
 
-    Tie(mInfo.mUID, uidErr) = mUIDPool.Acquire(GetUIDKey(mInfo.mInstanceIdent), mInfo.mUID);
+    Tie(GetInstanceInfo().mUID, uidErr) = mUIDPool.Acquire(GetUIDKey(GetInfo().mInstanceIdent), GetInfo().mUID);
     if (!uidErr.IsNone()) {
         return AOS_ERROR_WRAP(uidErr);
     }
 
-    Tie(mInfo.mGID, gidErr) = mGIDPool.Acquire(mInfo.mInstanceIdent.mItemID, mInfo.mGID);
+    Tie(GetInstanceInfo().mGID, gidErr) = mGIDPool.Acquire(GetInfo().mInstanceIdent.mItemID, GetInfo().mGID);
     if (!gidErr.IsNone()) {
         return AOS_ERROR_WRAP(gidErr);
     }
@@ -429,24 +431,24 @@ Error ServiceInstance::Init()
 
 Error ServiceInstance::Remove()
 {
-    LOG_DBG() << "Remove instance" << Log::Field("instanceID", mInfo.mInstanceIdent);
+    LOG_DBG() << "Remove instance" << Log::Field("instanceID", GetInfo().mInstanceIdent);
 
     Error firstErr;
-    if (auto err = mStorageState.Remove(mInfo.mInstanceIdent); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+    if (auto err = mStorageState.Remove(GetInfo().mInstanceIdent); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         firstErr = AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mStorage.RemoveInstance(mInfo.mInstanceIdent);
+    if (auto err = GetStorage().RemoveInstance(GetInfo().mInstanceIdent);
         !err.IsNone() && !err.Is(ErrorEnum::eNotFound) && firstErr.IsNone()) {
         firstErr = AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mUIDPool.Release(GetUIDKey(mInfo.mInstanceIdent));
+    if (auto err = mUIDPool.Release(GetUIDKey(GetInfo().mInstanceIdent));
         !err.IsNone() && !err.Is(ErrorEnum::eNotFound) && firstErr.IsNone()) {
         firstErr = AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mGIDPool.Release(mInfo.mInstanceIdent.mItemID);
+    if (auto err = mGIDPool.Release(GetInfo().mInstanceIdent.mItemID);
         !err.IsNone() && !err.Is(ErrorEnum::eNotFound) && firstErr.IsNone()) {
         firstErr = AOS_ERROR_WRAP(err);
     }
@@ -456,16 +458,17 @@ Error ServiceInstance::Remove()
 
 Error ServiceInstance::Cache(bool disable)
 {
-    LOG_DBG() << "Cache instance" << Log::Field("instanceID", mInfo.mInstanceIdent) << Log::Field("disable", disable);
+    LOG_DBG() << "Cache instance" << Log::Field("instanceID", GetInfo().mInstanceIdent)
+              << Log::Field("disable", disable);
 
-    mInfo.mState  = disable ? InstanceStateEnum::eDisabled : InstanceStateEnum::eCached;
-    mInfo.mNodeID = "";
+    GetInstanceInfo().mState  = disable ? InstanceStateEnum::eDisabled : InstanceStateEnum::eCached;
+    GetInstanceInfo().mNodeID = "";
 
-    if (auto err = mStorage.UpdateInstance(mInfo); !err.IsNone()) {
+    if (auto err = GetStorage().UpdateInstance(GetInfo()); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = mStorageState.Cleanup(mInfo.mInstanceIdent); !err.IsNone()) {
+    if (auto err = mStorageState.Cleanup(GetInfo().mInstanceIdent); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
@@ -474,7 +477,7 @@ Error ServiceInstance::Cache(bool disable)
 
 bool ServiceInstance::IsAvailableCpuOk(size_t availableCPU, const NodeItf& node)
 {
-    assert(mItemConfig);
+    assert(GetItemConfig());
 
     auto requestedCPU = GetRequestedCPU(node);
 
@@ -488,7 +491,7 @@ bool ServiceInstance::IsAvailableCpuOk(size_t availableCPU, const NodeItf& node)
 
 bool ServiceInstance::IsAvailableRamOk(size_t availableRAM, const NodeItf& node)
 {
-    assert(mItemConfig);
+    assert(GetItemConfig());
 
     auto requestedRAM = GetRequestedRAM(node);
 
@@ -502,9 +505,9 @@ bool ServiceInstance::IsAvailableRamOk(size_t availableRAM, const NodeItf& node)
 
 bool ServiceInstance::AreNodeResourcesOk(const NodeItf& node)
 {
-    assert(mItemConfig);
+    assert(GetItemConfig());
 
-    for (const auto& resource : mItemConfig->mResources) {
+    for (const auto& resource : GetItemConfig()->mResources) {
         if (node.GetAvailableResourceCount(resource.mName) == 0) {
             return false;
         }
@@ -515,14 +518,14 @@ bool ServiceInstance::AreNodeResourcesOk(const NodeItf& node)
 
 oci::BalancingPolicyEnum ServiceInstance::GetBalancingPolicy()
 {
-    assert(mItemConfig);
+    assert(GetItemConfig());
 
-    return mItemConfig->mBalancingPolicy;
+    return GetItemConfig()->mBalancingPolicy;
 }
 
 Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID)
 {
-    assert(mItemConfig);
+    assert(GetItemConfig());
 
     if (auto err = ReserveRuntimeResources(node, runtimeID); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
@@ -537,26 +540,28 @@ Error ServiceInstance::Schedule(NodeItf& node, const String& runtimeID)
 
 Error ServiceInstance::LoadSMInfo(NodeItf& node, const String& runtimeID)
 {
-    assert(mItemConfig);
+    assert(GetItemConfig());
 
-    static_cast<InstanceIdent&>(mSMInfo) = mInfo.mInstanceIdent;
-    mSMInfo.mManifestDigest              = mInfo.mManifestDigest;
-    mSMInfo.mRuntimeID                   = runtimeID;
-    mSMInfo.mOwnerID                     = mInfo.mOwnerID;
-    mSMInfo.mSubjectType                 = mInfo.mSubjectType;
-    mSMInfo.mUID                         = mInfo.mUID;
-    mSMInfo.mGID                         = mInfo.mGID;
-    mSMInfo.mPriority                    = mInfo.mPriority;
+    static_cast<InstanceIdent&>(GetSMInstanceInfo()) = GetInfo().mInstanceIdent;
+    GetSMInstanceInfo().mManifestDigest              = GetInfo().mManifestDigest;
+    GetSMInstanceInfo().mRuntimeID                   = runtimeID;
+    GetSMInstanceInfo().mOwnerID                     = GetInfo().mOwnerID;
+    GetSMInstanceInfo().mSubjectType                 = GetInfo().mSubjectType;
+    GetSMInstanceInfo().mUID                         = GetInfo().mUID;
+    GetSMInstanceInfo().mGID                         = GetInfo().mGID;
+    GetSMInstanceInfo().mPriority                    = GetInfo().mPriority;
 
-    if (auto err = SetupStateStorage(node.GetConfig(), mSMInfo.mStoragePath, mSMInfo.mStatePath); !err.IsNone()) {
+    if (auto err
+        = SetupStateStorage(node.GetConfig(), GetSMInstanceInfo().mStoragePath, GetSMInstanceInfo().mStatePath);
+        !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
     // mSMInfo.mEnvVars is set in OverrideEnvVars().
 
-    mSMInfo.mMonitoringParams.EmplaceValue();
-    if (mItemConfig->mAlertRules.HasValue()) {
-        mSMInfo.mMonitoringParams.GetValue().mAlertRules = mItemConfig->mAlertRules.GetValue();
+    GetSMInstanceInfo().mMonitoringParams.EmplaceValue();
+    if (GetItemConfig()->mAlertRules.HasValue()) {
+        GetSMInstanceInfo().mMonitoringParams.GetValue().mAlertRules = GetItemConfig()->mAlertRules.GetValue();
     }
 
     if (auto err = SetActive(node.GetConfig().mNodeID, runtimeID); !err.IsNone()) {
@@ -568,25 +573,25 @@ Error ServiceInstance::LoadSMInfo(NodeItf& node, const String& runtimeID)
 
 size_t ServiceInstance::GetRequestedCPU(const NodeItf& node)
 {
-    assert(mItemConfig);
+    assert(GetItemConfig());
 
-    if (mItemConfig->mSkipResourceLimits) {
+    if (GetItemConfig()->mSkipResourceLimits) {
         return 0;
     }
 
     const auto& nodeConfig = node.GetConfig();
 
     size_t requestedCPU = 0;
-    auto   quota        = mItemConfig->mQuotas.mCPUDMIPSLimit;
+    auto   quota        = GetItemConfig()->mQuotas.mCPUDMIPSLimit;
 
-    if (mItemConfig->mRequestedResources.HasValue() && mItemConfig->mRequestedResources->mCPU.HasValue()) {
-        requestedCPU = ClampResource(*mItemConfig->mRequestedResources->mCPU, quota);
+    if (GetItemConfig()->mRequestedResources.HasValue() && GetItemConfig()->mRequestedResources->mCPU.HasValue()) {
+        requestedCPU = ClampResource(*GetItemConfig()->mRequestedResources->mCPU, quota);
     } else {
         requestedCPU = GetReqCPUFromNodeConfig(quota, nodeConfig.mResourceRatios);
     }
 
-    if (node.NeedBalancing() && mMonitoringData.mCPU > static_cast<double>(requestedCPU)) {
-        return static_cast<size_t>(mMonitoringData.mCPU);
+    if (node.NeedBalancing() && GetMonitoringData().mCPU > static_cast<double>(requestedCPU)) {
+        return static_cast<size_t>(GetMonitoringData().mCPU);
     }
 
     return requestedCPU;
@@ -594,25 +599,25 @@ size_t ServiceInstance::GetRequestedCPU(const NodeItf& node)
 
 size_t ServiceInstance::GetRequestedRAM(const NodeItf& node)
 {
-    assert(mItemConfig);
+    assert(GetItemConfig());
 
-    if (mItemConfig->mSkipResourceLimits) {
+    if (GetItemConfig()->mSkipResourceLimits) {
         return 0;
     }
 
     const auto& nodeConfig = node.GetConfig();
 
     size_t requestedRAM = 0;
-    auto   quota        = mItemConfig->mQuotas.mRAMLimit;
+    auto   quota        = GetItemConfig()->mQuotas.mRAMLimit;
 
-    if (mItemConfig->mRequestedResources.HasValue() && mItemConfig->mRequestedResources->mRAM.HasValue()) {
-        requestedRAM = ClampResource(*mItemConfig->mRequestedResources->mRAM, quota);
+    if (GetItemConfig()->mRequestedResources.HasValue() && GetItemConfig()->mRequestedResources->mRAM.HasValue()) {
+        requestedRAM = ClampResource(*GetItemConfig()->mRequestedResources->mRAM, quota);
     } else {
         requestedRAM = GetReqRAMFromNodeConfig(quota, nodeConfig.mResourceRatios);
     }
 
-    if (node.NeedBalancing() && mMonitoringData.mRAM > requestedRAM) {
-        return mMonitoringData.mRAM;
+    if (node.NeedBalancing() && GetMonitoringData().mRAM > requestedRAM) {
+        return GetMonitoringData().mRAM;
     }
 
     return requestedRAM;
@@ -621,10 +626,10 @@ size_t ServiceInstance::GetRequestedRAM(const NodeItf& node)
 size_t ServiceInstance::GetReqStateSize(const NodeConfig& nodeConfig)
 {
     size_t requestedState = 0;
-    auto   quota          = mItemConfig->mQuotas.mStateLimit;
+    auto   quota          = GetItemConfig()->mQuotas.mStateLimit;
 
-    if (mItemConfig->mRequestedResources.HasValue() && mItemConfig->mRequestedResources->mState.HasValue()) {
-        requestedState = ClampResource(*mItemConfig->mRequestedResources->mState, quota);
+    if (GetItemConfig()->mRequestedResources.HasValue() && GetItemConfig()->mRequestedResources->mState.HasValue()) {
+        requestedState = ClampResource(*GetItemConfig()->mRequestedResources->mState, quota);
     } else {
         requestedState = GetReqStateFromNodeConfig(quota, nodeConfig.mResourceRatios);
     }
@@ -635,10 +640,10 @@ size_t ServiceInstance::GetReqStateSize(const NodeConfig& nodeConfig)
 size_t ServiceInstance::GetReqStorageSize(const NodeConfig& nodeConfig)
 {
     size_t requestedStorage = 0;
-    auto   quota            = mItemConfig->mQuotas.mStorageLimit;
+    auto   quota            = GetItemConfig()->mQuotas.mStorageLimit;
 
-    if (mItemConfig->mRequestedResources.HasValue() && mItemConfig->mRequestedResources->mStorage.HasValue()) {
-        requestedStorage = ClampResource(*mItemConfig->mRequestedResources->mStorage, quota);
+    if (GetItemConfig()->mRequestedResources.HasValue() && GetItemConfig()->mRequestedResources->mStorage.HasValue()) {
+        requestedStorage = ClampResource(*GetItemConfig()->mRequestedResources->mStorage, quota);
     } else {
         requestedStorage = GetReqStorageFromNodeConfig(quota, nodeConfig.mResourceRatios);
     }
@@ -742,24 +747,24 @@ Error ServiceInstance::SetupStateStorage(const NodeConfig& nodeConfig, String& s
 
     storagestate::SetupParams params;
 
-    params.mUID = mInfo.mUID;
-    params.mGID = mInfo.mGID;
+    params.mUID = GetInfo().mUID;
+    params.mGID = GetInfo().mGID;
 
-    if (mItemConfig->mQuotas.mStorageLimit.HasValue()) {
-        params.mStorageQuota = *mItemConfig->mQuotas.mStorageLimit;
+    if (GetItemConfig()->mQuotas.mStorageLimit.HasValue()) {
+        params.mStorageQuota = *GetItemConfig()->mQuotas.mStorageLimit;
     }
 
-    if (mItemConfig->mQuotas.mStateLimit.HasValue()) {
-        params.mStateQuota = *mItemConfig->mQuotas.mStateLimit;
+    if (GetItemConfig()->mQuotas.mStateLimit.HasValue()) {
+        params.mStateQuota = *GetItemConfig()->mQuotas.mStateLimit;
     }
 
-    if (mItemConfig->mSkipResourceLimits) {
+    if (GetItemConfig()->mSkipResourceLimits) {
         reqState   = 0;
         reqStorage = 0;
     }
 
-    if (auto err
-        = mStorageState.SetupStateStorage(mInfo.mInstanceIdent, params, reqStorage, reqState, storagePath, statePath);
+    if (auto err = mStorageState.SetupStateStorage(
+            GetInfo().mInstanceIdent, params, reqStorage, reqState, storagePath, statePath);
         !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
@@ -769,14 +774,14 @@ Error ServiceInstance::SetupStateStorage(const NodeConfig& nodeConfig, String& s
 
 Error ServiceInstance::ReserveRuntimeResources(NodeItf& node, const String& runtimeID)
 {
-    auto                     requestedCPU       = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedCPU(node);
-    auto                     requestedRAM       = mItemConfig->mSkipResourceLimits ? 0 : GetRequestedRAM(node);
-    Array<oci::ResourceInfo> requestedResources = mItemConfig->mSkipResourceLimits
+    auto                     requestedCPU       = GetItemConfig()->mSkipResourceLimits ? 0 : GetRequestedCPU(node);
+    auto                     requestedRAM       = GetItemConfig()->mSkipResourceLimits ? 0 : GetRequestedRAM(node);
+    Array<oci::ResourceInfo> requestedResources = GetItemConfig()->mSkipResourceLimits
         ? Array<oci::ResourceInfo>()
-        : mItemConfig->mResources; // NOSONAR cpp:S5912 - Array serves as a view over StaticArray
+        : GetItemConfig()->mResources; // NOSONAR cpp:S5912 - Array serves as a view over StaticArray
 
     if (auto reserveErr
-        = node.ReserveResources(mInfo.mInstanceIdent, runtimeID, requestedCPU, requestedRAM, requestedResources);
+        = node.ReserveResources(GetInfo().mInstanceIdent, runtimeID, requestedCPU, requestedRAM, requestedResources);
         !reserveErr.IsNone()) {
         return AOS_ERROR_WRAP(reserveErr);
     }

@@ -237,6 +237,9 @@ protected:
         mSize--;
     }
 
+private:
+    friend class List<T>;
+
     Node   mTerminalNode;
     size_t mSize = 0;
 };
