@@ -1194,6 +1194,64 @@ Error SetVerificationOptions(const x509::VerifyOptions& opts, X509_STORE_CTX* st
     return ErrorEnum::eNone;
 }
 
+Error ValidateContainerTag(const asn1::ASN1ParseOptions& opt, int32_t tag, int32_t xclass, int32_t expectedUniversalTag)
+{
+    if (opt.mTag.HasValue()) {
+        if (opt.mTag.GetValue() != tag) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "tag doesn't match"));
+        }
+
+        return ErrorEnum::eNone;
+    }
+
+    if (!(xclass == V_ASN1_UNIVERSAL && tag == expectedUniversalTag)) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "bad tag for container"));
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ReadContainerElements(const uint8_t* elemPtr, size_t bytesLeft, asn1::ASN1ReaderItf& asn1reader)
+{
+    while (bytesLeft > 0) {
+        int64_t        elemLength = 0;
+        int32_t        elemTag    = 0;
+        int32_t        elemClass  = 0;
+        const uint8_t* nextPtr    = elemPtr;
+
+        int32_t elemRet = ASN1_get_object(&nextPtr, &elemLength, &elemTag, &elemClass, bytesLeft);
+        if ((elemRet & cASN1GetObjectError) != 0) {
+            return ErrorEnum::eFailed;
+        }
+
+        if (elemLength < 0 || elemLength > static_cast<int64_t>(bytesLeft)) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "invalid element length"));
+        }
+
+        bool elemConstructed = (elemRet & V_ASN1_CONSTRUCTED) != 0;
+
+        // Element content pointer after header
+        const uint8_t* elemContent    = nextPtr;
+        auto           elemContentLen = static_cast<size_t>(elemLength);
+
+        auto content = Array<uint8_t>(elemContent, elemContentLen);
+        if (auto err = asn1reader.OnASN1Element(asn1::ASN1Value {elemClass, elemTag, elemConstructed, content});
+            !err.IsNone()) {
+            return err;
+        }
+
+        size_t totalElemSize = static_cast<size_t>(elemContent - elemPtr) + elemContentLen;
+        if (totalElemSize > bytesLeft) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "element size overflow"));
+        }
+
+        elemPtr += totalElemSize;
+        bytesLeft -= totalElemSize;
+    }
+
+    return ErrorEnum::eNone;
+}
+
 asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt,
     asn1::ASN1ReaderItf& asn1reader,
     int32_t              expectedUniversalTag) // V_ASN1_SEQUENCE or V_ASN1_SET
@@ -1217,23 +1275,12 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
     }
 
     // Validate tag if specified or default to expected.
-    Error tagErr;
-    if (opt.mTag.HasValue()) {
-        if (opt.mTag.GetValue() != tag) {
-            tagErr = AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "tag doesn't match"));
-        }
-    } else {
-        if (!(xclass == V_ASN1_UNIVERSAL && tag == expectedUniversalTag)) {
-            tagErr = AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "bad tag for container"));
-        }
-    }
-
-    if (!tagErr.IsNone()) {
+    if (auto tagErr = ValidateContainerTag(opt, tag, xclass, expectedUniversalTag); !tagErr.IsNone()) {
         if (opt.mOptional) {
             return {AOS_ERROR_WRAP(ErrorEnum::eNotFound), data};
-        } else {
-            return {tagErr, {}};
         }
+
+        return {tagErr, {}};
     }
 
     if (auto isConstructed = (ret & V_ASN1_CONSTRUCTED) != 0; !isConstructed) {
@@ -1246,42 +1293,8 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
     }
 
     // Iterate over the elements inside the container
-    const uint8_t* elemPtr   = p;
-    auto           bytesLeft = static_cast<size_t>(length);
-    while (bytesLeft > 0) {
-        int64_t        elemLength = 0;
-        int32_t        elemTag    = 0;
-        int32_t        elemClass  = 0;
-        const uint8_t* nextPtr    = elemPtr;
-
-        int32_t elemRet = ASN1_get_object(&nextPtr, &elemLength, &elemTag, &elemClass, bytesLeft);
-        if ((elemRet & cASN1GetObjectError) != 0) {
-            return {ErrorEnum::eFailed, {}};
-        }
-
-        if (elemLength < 0 || elemLength > static_cast<int64_t>(bytesLeft)) {
-            return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "invalid element length")), {}};
-        }
-
-        bool elemConstructed = (elemRet & V_ASN1_CONSTRUCTED) != 0;
-
-        // Element content pointer after header
-        const uint8_t* elemContent    = nextPtr;
-        auto           elemContentLen = static_cast<size_t>(elemLength);
-
-        auto content = Array<uint8_t>(elemContent, elemContentLen);
-        if (auto err = asn1reader.OnASN1Element(asn1::ASN1Value {elemClass, elemTag, elemConstructed, content});
-            !err.IsNone()) {
-            return {err, {}};
-        }
-
-        size_t totalElemSize = static_cast<size_t>(elemContent - elemPtr) + elemContentLen;
-        if (totalElemSize > bytesLeft) {
-            return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "element size overflow")), {}};
-        }
-
-        elemPtr += totalElemSize;
-        bytesLeft -= totalElemSize;
+    if (auto err = ReadContainerElements(p, static_cast<size_t>(length), asn1reader); !err.IsNone()) {
+        return {err, {}};
     }
 
     auto remaining = Array<uint8_t>(data.Get() + length + offset, data.Size() - length - offset);
