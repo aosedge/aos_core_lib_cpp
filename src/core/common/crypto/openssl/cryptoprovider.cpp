@@ -1670,10 +1670,11 @@ Error OpenSSLCryptoProvider::ASN1DecodeDN(const Array<uint8_t>& dn, String& resu
     }
 
     auto buf = DeferRelease(X509_NAME_oneline(name.Get(), nullptr, 0), openssl::AOS_OPENSSL_free);
+    if (!buf) {
+        return OPENSSL_ERROR();
+    }
 
-    result.Clear();
-
-    if (auto err = result.Insert(result.begin(), buf.Get(), buf.Get() + strlen(buf.Get())); !err.IsNone()) {
+    if (auto err = result.Assign(buf.Get()); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
