@@ -411,10 +411,12 @@ void ImageManager::AcceptDownloadedSpace(
     spaceallocator::SpaceItf& space, const String& downloadPath, size_t existingSize)
 {
     auto [size, sizeErr] = GetFileSize(downloadPath);
-    if (!sizeErr.IsNone()) {
+    if (sizeErr.IsNone()) {
+        if (auto err = space.Resize(size > existingSize ? size - existingSize : 0); !err.IsNone()) {
+            LOG_ERR() << "Failed to resize space" << Log::Field("path", downloadPath) << Log::Field(err);
+        }
+    } else {
         LOG_ERR() << "Failed to get download file size" << Log::Field("path", downloadPath) << Log::Field(sizeErr);
-    } else if (auto err = space.Resize(size > existingSize ? size - existingSize : 0); !err.IsNone()) {
-        LOG_ERR() << "Failed to resize space" << Log::Field("path", downloadPath) << Log::Field(err);
     }
 
     if (auto err = space.Accept(); !err.IsNone()) {

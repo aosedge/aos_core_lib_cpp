@@ -499,10 +499,12 @@ RetWithError<size_t> ImageManager::RemoveLayerFiles(const String& layerPath)
 void ImageManager::AcceptRemainingSpace(const String& layerPath, spaceallocator::SpaceItf& space)
 {
     auto [size, err] = fs::CalculateSize(*mAllocator, layerPath);
-    if (!err.IsNone()) {
+    if (err.IsNone()) {
+        if (err = space.Resize(size); !err.IsNone()) {
+            LOG_ERR() << "Failed to resize space" << Log::Field("path", layerPath) << Log::Field(AOS_ERROR_WRAP(err));
+        }
+    } else {
         LOG_ERR() << "Failed to calculate layer size" << Log::Field("path", layerPath) << Log::Field(err);
-    } else if (err = space.Resize(size); !err.IsNone()) {
-        LOG_ERR() << "Failed to resize space" << Log::Field("path", layerPath) << Log::Field(AOS_ERROR_WRAP(err));
     }
 
     if (err = space.Accept(); !err.IsNone()) {

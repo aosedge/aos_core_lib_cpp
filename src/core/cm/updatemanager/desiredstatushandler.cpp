@@ -136,8 +136,11 @@ Error DesiredStatusHandler::Start()
 
         mHasPendingDesiredStatus = true;
         StartUpdate(updateState);
-    } else if (err = mStorage->GetDesiredStatus(mCurrentDesiredStatus);
-               !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+
+        return ErrorEnum::eNone;
+    }
+
+    if (err = mStorage->GetDesiredStatus(mCurrentDesiredStatus); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         LOG_ERR() << "Failed to get desired status" << Log::Field(err);
     }
 
@@ -647,10 +650,15 @@ void DesiredStatusHandler::InstallItem(const UpdateItemInfo& item)
     LOG_DBG() << "Install update item" << Log::Field("id", item.mItemID) << Log::Field("type", item.mType)
               << Log::Field("version", item.mVersion);
 
-    if (auto err = mImageManager->InstallItem(item); err.Is(ErrorEnum::eCanceled)) {
+    auto err = mImageManager->InstallItem(item);
+    if (err.Is(ErrorEnum::eCanceled)) {
         LOG_INF() << "Install update item canceled" << Log::Field("id", item.mItemID)
                   << Log::Field("version", item.mVersion);
-    } else if (!err.IsNone()) {
+
+        return;
+    }
+
+    if (!err.IsNone()) {
         LOG_ERR() << "Failed to install update item" << Log::Field("id", item.mItemID) << Log::Field("type", item.mType)
                   << Log::Field("version", item.mVersion) << Log::Field(err);
     }
