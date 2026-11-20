@@ -64,6 +64,10 @@ Error NetworkManager::Init(AllocatorItf& allocator, StorageItf& storage, BridgeN
         if (auto err = mNetworkProviders.Set(networkInfo.mNetworkID, networkInfo); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
+
+        if (auto err = mUnitNetworks.PushBack(networkInfo.mNetworkID); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
     }
 
     return ErrorEnum::eNone;
@@ -137,7 +141,17 @@ Error NetworkManager::Start()
         return err;
     }
 
+    err = RestoreUnitNetworks();
+    if (!err.IsNone()) {
+        return err;
+    }
+
     err = ReconcileInstances();
+    if (!err.IsNone()) {
+        return err;
+    }
+
+    err = RemoveIdleDNSServers();
     if (!err.IsNone()) {
         return err;
     }
@@ -213,6 +227,8 @@ Error NetworkManager::CreateInstanceNetwork(
         if (auto err = mInstanceNetworkInfos.Emplace(instanceID); !err.IsNone()) {
             return AOS_ERROR_WRAP(err);
         }
+
+        mInstanceNetworkInfos.Find(instanceID)->mSecond.mNetworkID = networkID;
     }
 
     Error err;
@@ -314,6 +330,10 @@ Error NetworkManager::StartInstanceNetwork(const String& instanceID, const Strin
             return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "networkID mismatch"));
         }
 
+        if (itInfo->mSecond.mInstanceID.IsEmpty()) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eWrongState, "instance network is being created"));
+        }
+
         *cachedInfo = itInfo->mSecond;
     }
 
@@ -336,6 +356,19 @@ Error NetworkManager::StartInstanceNetwork(const String& instanceID, const Strin
     if (!err.IsNone()) {
         return err;
     }
+
+    bool dnsServerCreated = false;
+
+    Tie(dnsServerCreated, err) = EnsureDNSServer(networkID);
+    if (!err.IsNone()) {
+        return err;
+    }
+
+    auto cleanupDNSServer = DeferRelease(&instanceID, [this, networkID, dnsServerCreated, &err](const String* id) {
+        if (!err.IsNone() && dnsServerCreated) {
+            RemoveUnusedDNSServer(*id, networkID);
+        }
+    });
 
     err = AddInstanceToNetwork(instanceID, networkID, cachedInfo->mNetworkConfig, cachedInfo->mAllocatedParams);
 
@@ -505,6 +538,18 @@ Error NetworkManager::StopInstanceNetwork(const String& instanceID, const String
             return err;
         }
 
+        if (mUnitNetworks.Contains(networkID)) {
+            LOG_DBG() << "Last running instance on unit network, removing DNS server"
+                      << Log::Field("networkID", networkID);
+
+            if (auto errRemove = RemoveDNSServer(networkID); !errRemove.IsNone()) {
+                LOG_WRN() << "Failed to remove DNS server" << Log::Field("networkID", networkID)
+                          << Log::Field(errRemove);
+            }
+
+            return err;
+        }
+
         auto it = mNetworkProviders.Find(networkID);
         if (it != mNetworkProviders.end()) {
             LOG_DBG() << "Last running instance on network, clearing physical network"
@@ -543,6 +588,10 @@ Error NetworkManager::ReleaseInstanceNetwork(const String& instanceID, const Str
                 return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "networkID mismatch"));
             }
 
+            if (itInfo->mSecond.mInstanceID.IsEmpty()) {
+                return AOS_ERROR_WRAP(Error(ErrorEnum::eWrongState, "instance network is being created"));
+            }
+
             instanceIdent = itInfo->mSecond.mNetworkConfig.mInstanceIdent;
             found         = true;
             (void)mInstanceNetworkInfos.Remove(instanceID);
@@ -562,35 +611,7 @@ Error NetworkManager::ReleaseInstanceNetwork(const String& instanceID, const Str
         }
     }
 
-    {
-        LockGuard lock {mMutex};
-
-        for (const auto& info : mInstanceNetworkInfos) {
-            if (info.mSecond.mNetworkID == networkID) {
-                return ErrorEnum::eNone;
-            }
-        }
-
-        if (auto runtimeNetwork = mRuntimeCache.Find(networkID);
-            runtimeNetwork != mRuntimeCache.end() && !runtimeNetwork->mSecond.IsEmpty()) {
-            return ErrorEnum::eNone;
-        }
-
-        if (mNetworkProviders.Find(networkID) == mNetworkProviders.end()) {
-            return ErrorEnum::eNone;
-        }
-
-        (void)mNetworkProviders.Remove(networkID);
-    }
-
-    if (auto err = mStorage->RemoveNetworkInfo(networkID); !err.IsNone()) {
-        LOG_WRN() << "Failed to remove network info from storage" << Log::Field("networkID", networkID)
-                  << Log::Field(err);
-    }
-
-    if (auto err = mNetworkProvider->ReleaseNodeNetwork(networkID, mNodeID); !err.IsNone()) {
-        LOG_WRN() << "Failed to release node network on CM" << Log::Field("networkID", networkID) << Log::Field(err);
-    }
+    RemoveNodeNetworkIfUnused(networkID);
 
     return ErrorEnum::eNone;
 }
@@ -869,6 +890,8 @@ Error NetworkManager::PrepareUpdateItemNetworkParams(
 
 Error NetworkManager::EnsureNodeNetwork(const String& networkID)
 {
+    LockGuard nodeNetworkLock {mNodeNetworkMutex};
+
     {
         LockGuard lock {mMutex};
 
@@ -1190,6 +1213,65 @@ Error NetworkManager::EnsureNodeNetworkPhysical(const String& networkID)
     return ErrorEnum::eNone;
 }
 
+void NetworkManager::RemoveNodeNetworkIfUnused(const String& networkID)
+{
+    LockGuard nodeNetworkLock {mNodeNetworkMutex};
+
+    {
+        LockGuard lock {mMutex};
+
+        auto it = mNetworkProviders.Find(networkID);
+        if (it == mNetworkProviders.end()) {
+            return;
+        }
+
+        if (IsNodeNetworkInUse(networkID)) {
+            LOG_DBG() << "Node network is still in use" << Log::Field("networkID", networkID);
+
+            return;
+        }
+
+        if (mUnitNetworks.Contains(networkID)) {
+            LOG_DBG() << "Keep unit network" << Log::Field("networkID", networkID);
+
+            return;
+        }
+
+        if (mPhysicalNetworks.Contains(networkID)) {
+            if (auto err = ClearNetwork(it->mSecond); !err.IsNone()) {
+                LOG_WRN() << "Failed to clear network" << Log::Field("networkID", networkID) << Log::Field(err);
+            }
+
+            (void)mPhysicalNetworks.Remove(networkID);
+        }
+
+        (void)mNetworkProviders.Remove(networkID);
+    }
+
+    LOG_DBG() << "Release node network" << Log::Field("networkID", networkID);
+
+    if (auto err = mStorage->RemoveNetworkInfo(networkID); !err.IsNone()) {
+        LOG_WRN() << "Failed to remove network info from storage" << Log::Field("networkID", networkID)
+                  << Log::Field(err);
+    }
+
+    if (auto err = mNetworkProvider->ReleaseNodeNetwork(networkID, mNodeID); !err.IsNone()) {
+        LOG_WRN() << "Failed to release node network on CM" << Log::Field("networkID", networkID) << Log::Field(err);
+    }
+}
+
+bool NetworkManager::IsNodeNetworkInUse(const String& networkID) const
+{
+    if (mInstanceNetworkInfos.ContainsIf(
+            [&networkID](const auto& item) { return item.mSecond.mNetworkID == networkID; })) {
+        return true;
+    }
+
+    auto network = mRuntimeCache.Find(networkID);
+
+    return network != mRuntimeCache.end() && !network->mSecond.IsEmpty();
+}
+
 Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID)
 {
     StaticString<cInterfaceLen> hostIfName;
@@ -1493,7 +1575,7 @@ Error NetworkManager::ReconcileInstances()
         if (alive) {
             err = InitInstance(entry.mInstanceID, entry.mNetworkID);
             if (err.IsNone()) {
-                if (auto dnsErr = AdoptDNSServer(entry.mNetworkID); !dnsErr.IsNone()) {
+                if (auto dnsErr = EnsureDNSServer(entry.mNetworkID).mError; !dnsErr.IsNone()) {
                     LOG_WRN() << "Failed to adopt DNS server for running instance"
                               << Log::Field("networkID", entry.mNetworkID) << Log::Field(dnsErr);
                 }
@@ -1505,7 +1587,7 @@ Error NetworkManager::ReconcileInstances()
             }
         }
 
-        err = AdoptDNSServer(entry.mNetworkID);
+        err = EnsureDNSServer(entry.mNetworkID).mError;
         if (!err.IsNone()) {
             LOG_WRN() << "Failed to adopt DNS server for leftover cleanup" << Log::Field("networkID", entry.mNetworkID)
                       << Log::Field(err);
@@ -1616,8 +1698,12 @@ Error NetworkManager::RemoveDNSOrphans()
     {
         LockGuard lock {mMutex};
 
-        for (const auto& [id, _] : mNetworkProviders) {
-            if (auto err = known->PushBack(id); !err.IsNone()) {
+        for (const auto& [_, info] : mInstanceNetworkInfos) {
+            if (known->Contains(info.mNetworkID)) {
+                continue;
+            }
+
+            if (auto err = known->PushBack(info.mNetworkID); !err.IsNone()) {
                 return AOS_ERROR_WRAP(err);
             }
         }
@@ -1630,7 +1716,60 @@ Error NetworkManager::RemoveDNSOrphans()
     return ErrorEnum::eNone;
 }
 
-Error NetworkManager::AdoptDNSServer(const String& networkID)
+Error NetworkManager::RestoreUnitNetworks()
+{
+    auto networkIDs = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumOwners>>(mAllocator);
+    if (!networkIDs) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    {
+        LockGuard lock {mMutex};
+
+        *networkIDs = mUnitNetworks;
+    }
+
+    for (const auto& networkID : *networkIDs) {
+        LOG_DBG() << "Restore unit network" << Log::Field("networkID", networkID);
+
+        if (auto err = EnsureNodeNetworkPhysical(networkID); !err.IsNone()) {
+            LOG_ERR() << "Failed to restore unit network" << Log::Field("networkID", networkID) << Log::Field(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::RemoveIdleDNSServers()
+{
+    auto idleNetworks = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumOwners>>(mAllocator);
+    if (!idleNetworks) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    LockGuard lock {mMutex};
+
+    for (const auto& [networkID, _] : mDNSServers) {
+        if (auto network = mRuntimeCache.Find(networkID);
+            network != mRuntimeCache.end() && !network->mSecond.IsEmpty()) {
+            continue;
+        }
+
+        if (auto err = idleNetworks->PushBack(networkID); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+    }
+
+    for (const auto& networkID : *idleNetworks) {
+        if (auto err = RemoveDNSServer(networkID); !err.IsNone()) {
+            LOG_WRN() << "Failed to remove idle DNS server" << Log::Field("networkID", networkID) << Log::Field(err);
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+RetWithError<bool> NetworkManager::EnsureDNSServer(const String& networkID)
 {
     NetworkInfo networkInfo;
 
@@ -1638,21 +1777,23 @@ Error NetworkManager::AdoptDNSServer(const String& networkID)
         LockGuard lock {mMutex};
 
         if (mDNSServers.Find(networkID) != mDNSServers.end()) {
-            return ErrorEnum::eNone;
+            return {false, ErrorEnum::eNone};
         }
 
         auto it = mNetworkProviders.Find(networkID);
         if (it == mNetworkProviders.end()) {
-            return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "network provider not found"));
+            return {false, AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "network provider not found"))};
         }
 
         networkInfo = it->mSecond;
     }
 
+    LOG_DBG() << "Create DNS server" << Log::Field("networkID", networkID);
+
     DNSServerParams params;
 
     if (auto err = PrepareDNSServerParams(networkInfo, params); !err.IsNone()) {
-        return err;
+        return {false, err};
     }
 
     DNSServerItf* handle = nullptr;
@@ -1660,13 +1801,46 @@ Error NetworkManager::AdoptDNSServer(const String& networkID)
 
     Tie(handle, err) = mDNSName->CreateServer(networkID, params);
     if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        return {false, AOS_ERROR_WRAP(err)};
     }
 
     LockGuard lock {mMutex};
 
     if (auto setErr = mDNSServers.Set(networkID, handle); !setErr.IsNone()) {
-        return AOS_ERROR_WRAP(setErr);
+        return {false, AOS_ERROR_WRAP(setErr)};
+    }
+
+    return {true, ErrorEnum::eNone};
+}
+
+void NetworkManager::RemoveUnusedDNSServer(const String& instanceID, const String& networkID)
+{
+    LockGuard lock {mMutex};
+
+    // Another instance may have started on the network meanwhile and already uses the server.
+    if (auto network = mRuntimeCache.Find(networkID); network != mRuntimeCache.end()) {
+        if (network->mSecond.ContainsIf([&instanceID](const auto& item) { return item.mFirst != instanceID; })) {
+            return;
+        }
+    }
+
+    if (auto err = RemoveDNSServer(networkID); !err.IsNone()) {
+        LOG_ERR() << "Failed to remove DNS server" << Log::Field("networkID", networkID) << Log::Field(err);
+    }
+}
+
+Error NetworkManager::RemoveDNSServer(const String& networkID)
+{
+    if (mDNSServers.Find(networkID) == mDNSServers.end()) {
+        return ErrorEnum::eNone;
+    }
+
+    LOG_DBG() << "Remove DNS server" << Log::Field("networkID", networkID);
+
+    (void)mDNSServers.Remove(networkID);
+
+    if (auto err = mDNSName->RemoveServer(networkID); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
     }
 
     return ErrorEnum::eNone;
@@ -1729,12 +1903,8 @@ Error NetworkManager::ClearNetwork(const NetworkInfo& networkInfo)
 
     Error err;
 
-    if (mDNSServers.Find(networkInfo.mNetworkID) != mDNSServers.end()) {
-        if (auto errRemove = mDNSName->RemoveServer(networkInfo.mNetworkID); !errRemove.IsNone() && err.IsNone()) {
-            err = AOS_ERROR_WRAP(errRemove);
-        }
-
-        (void)mDNSServers.Remove(networkInfo.mNetworkID);
+    if (auto errRemove = RemoveDNSServer(networkInfo.mNetworkID); !errRemove.IsNone() && err.IsNone()) {
+        err = errRemove;
     }
 
     if (auto errMasq = mFirewall->RemoveMasquerade(networkInfo.mSubnet, mUplinkIfName);
@@ -2053,43 +2223,6 @@ Error NetworkManager::CreateNetwork(const NetworkInfo& network)
         return AOS_ERROR_WRAP(err);
     }
 
-    auto cleanupMasquerade = DeferRelease(&network, [this, &err](const NetworkInfo* network) {
-        if (!err.IsNone()) {
-            if (auto errMasq = mFirewall->RemoveMasquerade(network->mSubnet, mUplinkIfName); !errMasq.IsNone()) {
-                LOG_ERR() << "Failed to remove masquerade on CreateNetwork rollback"
-                          << Log::Field("networkID", network->mNetworkID) << Log::Field(errMasq);
-            }
-        }
-    });
-
-    DNSServerParams dnsParams;
-
-    err = PrepareDNSServerParams(network, dnsParams);
-    if (!err.IsNone()) {
-        return err;
-    }
-
-    DNSServerItf* dnsServer = nullptr;
-
-    Tie(dnsServer, err) = mDNSName->CreateServer(network.mNetworkID, dnsParams);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    auto cleanupDNSServer = DeferRelease(&network, [this, &err](const NetworkInfo* network) {
-        if (!err.IsNone()) {
-            if (auto errRemove = mDNSName->RemoveServer(network->mNetworkID); !errRemove.IsNone()) {
-                LOG_ERR() << "Failed to remove DNS server on CreateNetwork rollback"
-                          << Log::Field("networkID", network->mNetworkID) << Log::Field(errRemove);
-            }
-        }
-    });
-
-    err = mDNSServers.Set(network.mNetworkID, dnsServer);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
     LOG_DBG() << "Network created" << Log::Field("networkID", network.mNetworkID);
 
     return ErrorEnum::eNone;
@@ -2317,6 +2450,62 @@ void NetworkManager::SetFirewallApplied(const String& instanceID, bool applied)
 
     if (auto err = mUnappliedFirewalls.PushBack(instanceID); !err.IsNone()) {
         LOG_ERR() << "Failed to track unapplied firewall" << Log::Field("instanceID", instanceID) << Log::Field(err);
+    }
+}
+
+void NetworkManager::OnUnitNetworksUpdate(const String& nodeID, const Array<StaticString<cIDLen>>& networkIDs)
+{
+    if (nodeID != mNodeID) {
+        LOG_WRN() << "Ignoring unit networks update for different node" << Log::Field("expectedNodeID", mNodeID)
+                  << Log::Field("receivedNodeID", nodeID);
+
+        return;
+    }
+
+    LOG_DBG() << "Received unit networks update" << Log::Field("count", networkIDs.Size());
+
+    auto droppedNetworks = MakeUnique<StaticArray<StaticString<cIDLen>, cMaxNumOwners>>(mAllocator);
+    if (!droppedNetworks) {
+        LOG_ERR() << "Failed to allocate dropped networks" << Log::Field(ErrorEnum::eNoMemory);
+
+        return;
+    }
+
+    {
+        LockGuard lock {mMutex};
+
+        if (auto err = mUnitNetworks.Assign(networkIDs); !err.IsNone()) {
+            LOG_ERR() << "Failed to set unit networks" << Log::Field(AOS_ERROR_WRAP(err));
+
+            return;
+        }
+
+        for (const auto& [networkID, _] : mNetworkProviders) {
+            if (mUnitNetworks.Contains(networkID)) {
+                continue;
+            }
+
+            if (auto err = droppedNetworks->PushBack(networkID); !err.IsNone()) {
+                LOG_ERR() << "Failed to add dropped network" << Log::Field("networkID", networkID)
+                          << Log::Field(AOS_ERROR_WRAP(err));
+            }
+        }
+    }
+
+    for (const auto& networkID : *droppedNetworks) {
+        RemoveNodeNetworkIfUnused(networkID);
+    }
+
+    for (const auto& networkID : networkIDs) {
+        if (auto err = EnsureNodeNetwork(networkID); !err.IsNone()) {
+            LOG_ERR() << "Failed to ensure unit network" << Log::Field("networkID", networkID) << Log::Field(err);
+
+            continue;
+        }
+
+        if (auto err = EnsureNodeNetworkPhysical(networkID); !err.IsNone()) {
+            LOG_ERR() << "Failed to create unit network" << Log::Field("networkID", networkID) << Log::Field(err);
+        }
     }
 }
 

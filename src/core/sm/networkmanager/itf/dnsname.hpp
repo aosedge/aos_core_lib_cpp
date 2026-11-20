@@ -87,10 +87,11 @@ public:
     /**
      * Removes orphan DNS servers left over from a previous SM lifetime.
      * Tears down any dnsmasq state whose networkID is not in
-     * @p knownNetworkIDs — networks that were released while SM was down.
+     * @p knownNetworkIDs — networks that were released while SM was down
+     * or have no instances.
      * Called once from NetworkManager::Start, before any CreateServer.
      *
-     * @param knownNetworkIDs networkIDs still present in storage.
+     * @param knownNetworkIDs networkIDs that have stored instances.
      * @return Error.
      */
     virtual Error RemoveOrphans(const Array<StaticString<cIDLen>>& knownNetworkIDs) = 0;

@@ -32,6 +32,8 @@ public:
     MOCK_METHOD(Error, FlushBatch, (Array<StaticString<cIDLen>> & failedInstanceIDs), (override));
     MOCK_METHOD(void, OnPendingFirewallUpdate,
         (const String& nodeID, const aos::networkmanager::PendingFirewallUpdate& update), (override));
+    MOCK_METHOD(
+        void, OnUnitNetworksUpdate, (const String& nodeID, const Array<StaticString<cIDLen>>& networkIDs), (override));
     MOCK_METHOD(void, OnConnect, (), (override));
 };
 

@@ -45,7 +45,8 @@ public:
     ~NetworkManager();
 
     /**
-     * Initializes network manager.
+     * Initializes network manager: loads the stored node and instance networks and takes the stored node networks as
+     * unit networks until CM sends the unit networks update.
      *
      * @param allocator allocator to use for temporary objects.
      * @param storage storage interface.
@@ -64,7 +65,8 @@ public:
         aos::networkmanager::NetworkProviderItf& networkProvider, const String& nodeID);
 
     /**
-     * Starts network manager.
+     * Starts network manager: removes firewall and DNS orphans, restores the links of the unit networks and
+     * reconciles the stored instances. DNS servers are kept only for networks with running instances.
      *
      * @return Error.
      */
@@ -193,6 +195,15 @@ public:
         const String& nodeID, const aos::networkmanager::PendingFirewallUpdate& update) override;
 
     /**
+     * Called with the full set of unit network IDs: creates the missing node networks and releases the node
+     * networks that left the set and have no instances.
+     *
+     * @param nodeID node ID the update is addressed to.
+     * @param networkIDs IDs of all networks of the unit.
+     */
+    void OnUnitNetworksUpdate(const String& nodeID, const Array<StaticString<cIDLen>>& networkIDs) override;
+
+    /**
      * Called when SM successfully connects/reconnects to CM.
      */
     void OnConnect() override;
@@ -227,6 +238,8 @@ private:
     Error RemoveFirewallOrphans();
     Error EnsureNodeNetwork(const String& networkID);
     Error EnsureNodeNetworkPhysical(const String& networkID);
+    void  RemoveNodeNetworkIfUnused(const String& networkID);
+    bool  IsNodeNetworkInUse(const String& networkID) const;
     Error UpdateInstanceFirewall(const String& instanceID, const String& networkID,
         const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams);
     Error AddInstanceToNetwork(const String& instanceID, const String& networkID,
@@ -235,7 +248,8 @@ private:
     void  ReapplyBatchEntries(Array<StaticString<cIDLen>>& failedInstanceIDs);
     void  ClearBatchState();
     Error RemoveDNSOrphans();
-    Error AdoptDNSServer(const String& networkID);
+    Error RestoreUnitNetworks();
+    Error RemoveIdleDNSServers();
     Error PrepareBridgeParams(
         const String& networkID, const aos::InstanceNetworkAllocation& networkParams, BridgeParams& params) const;
     Error PrepareInstanceFirewallParams(const InstanceNetworkConfig& networkConfig,
@@ -256,6 +270,9 @@ private:
     Error PushHostWithDomain(
         const String& host, const String& networkID, Array<StaticString<cHostNameLen>>& hosts) const;
     RetWithError<bool> IsLinkExist(const String& ifName) const;
+    RetWithError<bool> EnsureDNSServer(const String& networkID);
+    void               RemoveUnusedDNSServer(const String& instanceID, const String& networkID);
+    Error              RemoveDNSServer(const String& networkID);
     Error              CreateNetwork(const NetworkInfo& network);
     Error              DeleteInstanceNetworkConfig(const String& instanceID, const String& networkID);
     Error              GenerateIfName(String& ifName, const String& ifPrefix);
@@ -309,6 +326,7 @@ private:
     StaticMap<StaticString<cIDLen>, DNSServerItf*, cMaxNumOwners>          mDNSServers;
     StaticMap<StaticString<cIDLen>, InstanceNetworkInfo, cMaxNumInstances> mInstanceNetworkInfos;
     StaticArray<StaticString<cIDLen>, cMaxNumOwners>                       mPhysicalNetworks;
+    StaticArray<StaticString<cIDLen>, cMaxNumOwners>                       mUnitNetworks;
     bool                                                                   mBatchMode {false};
     StaticArray<BatchEntry, cMaxNumInstances>                              mBatchEntries;
 
@@ -316,6 +334,7 @@ private:
     StaticArray<StaticString<cIDLen>, cMaxNumInstances>                             mUnappliedFirewalls;
 
     mutable Mutex mMutex;
+    Mutex         mNodeNetworkMutex;
     AllocatorItf* mAllocator {};
 };
 

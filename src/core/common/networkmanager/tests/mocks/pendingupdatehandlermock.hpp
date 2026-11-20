@@ -15,6 +15,8 @@ class PendingUpdateHandlerMock : public aos::networkmanager::PendingUpdateHandle
 public:
     MOCK_METHOD(void, OnPendingFirewallUpdate,
         (const aos::String& nodeID, const aos::networkmanager::PendingFirewallUpdate& update), (override));
+    MOCK_METHOD(void, OnUnitNetworksUpdate,
+        (const aos::String& nodeID, const aos::Array<aos::StaticString<aos::cIDLen>>& networkIDs), (override));
 };
 
 #endif
