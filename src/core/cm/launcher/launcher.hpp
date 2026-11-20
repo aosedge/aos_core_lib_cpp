@@ -148,6 +148,10 @@ private:
     Error BalanceInstances(UniqueLock<Mutex>& lock, bool rebalance);
 
     void ProcessUpdate();
+    void WaitProcessUpdates();
+    bool ProcessRebalanceRequests();
+    bool ProcessOverrideEnvVarsChange();
+    void ResendUpdatedNodesInstances(UniqueLock<Mutex>& lock, bool doRebalance, bool forceRestart);
     void WaitAllNodesConnected(UniqueLock<Mutex>& lock);
 
     void ProcessNotScheduledInstances();

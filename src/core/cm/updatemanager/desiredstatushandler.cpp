@@ -74,6 +74,57 @@ bool IsSameDesiredStatus(const DesiredStatus& lhs, const DesiredStatus& rhs)
         && lhs.mCertificateChains == rhs.mCertificateChains;
 }
 
+bool AreDesiredInstancesPresent(
+    const Array<DesiredInstanceInfo>& desiredInstances, const Array<InstanceStatus>& instancesStatuses)
+{
+    for (const auto& desiredInstance : desiredInstances) {
+        for (size_t i = 0; i < desiredInstance.mNumInstances; ++i) {
+            if (auto it = instancesStatuses.FindIf([&desiredInstance, i](const InstanceStatus& instanceStatus) {
+                    return instanceStatus.mItemID == desiredInstance.mItemID
+                        && instanceStatus.mSubjectID == desiredInstance.mSubjectID && instanceStatus.mInstance == i;
+                });
+                it == instancesStatuses.end()) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool IsServiceInstanceDesired(const InstanceStatus& instanceStatus, const Array<DesiredInstanceInfo>& desiredInstances)
+{
+    auto it = desiredInstances.FindIf([&instanceStatus](const DesiredInstanceInfo& desiredInstance) {
+        return desiredInstance.mItemID == instanceStatus.mItemID
+            && desiredInstance.mSubjectID == instanceStatus.mSubjectID
+            && instanceStatus.mInstance < desiredInstance.mNumInstances;
+    });
+
+    return it != desiredInstances.end();
+}
+
+// Returns false if the desired instance has no desired update item of the instance version or is not active.
+// Instances which are not desired are considered up to date.
+bool IsComponentInstanceUpToDate(const InstanceStatus& instanceStatus, const DesiredStatus& desiredStatus)
+{
+    if (auto it = desiredStatus.mInstances.FindIf([&instanceStatus](const DesiredInstanceInfo& desiredInstance) {
+            return desiredInstance.mItemID == instanceStatus.mItemID
+                && desiredInstance.mSubjectID == instanceStatus.mSubjectID;
+        });
+        it == desiredStatus.mInstances.end()) {
+        return true;
+    }
+
+    if (auto itemIt = desiredStatus.mUpdateItems.FindIf([&instanceStatus](const UpdateItemInfo& item) {
+            return item.mItemID == instanceStatus.mItemID && item.mVersion == instanceStatus.mVersion;
+        });
+        itemIt == desiredStatus.mUpdateItems.end()) {
+        return false;
+    }
+
+    return instanceStatus.mState == InstanceStateEnum::eActive;
+}
+
 } // namespace
 
 /***********************************************************************************************************************
@@ -962,52 +1013,21 @@ bool DesiredStatusHandler::IsUpdateInstancesRequired(const DesiredStatus& desire
         return true;
     }
 
-    for (const auto& desiredInstance : desiredStatus.mInstances) {
-        if (desiredInstance.mNumInstances == 0) {
-            continue;
-        }
-
-        for (size_t i = 0; i < desiredInstance.mNumInstances; ++i) {
-            if (auto it = instancesStatuses->FindIf([&desiredInstance, i](const InstanceStatus& instanceStatus) {
-                    return instanceStatus.mItemID == desiredInstance.mItemID
-                        && instanceStatus.mSubjectID == desiredInstance.mSubjectID && instanceStatus.mInstance == i;
-                });
-                it == instancesStatuses->end()) {
-                return true;
-            }
-        }
+    if (!AreDesiredInstancesPresent(desiredStatus.mInstances, *instancesStatuses)) {
+        return true;
     }
 
     for (const auto& instanceStatus : *instancesStatuses) {
         if (instanceStatus.mType == UpdateItemTypeEnum::eService) {
-            if (auto it
-                = desiredStatus.mInstances.FindIf([&instanceStatus](const DesiredInstanceInfo& desiredInstance) {
-                      return desiredInstance.mItemID == instanceStatus.mItemID
-                          && desiredInstance.mSubjectID == instanceStatus.mSubjectID
-                          && instanceStatus.mInstance < desiredInstance.mNumInstances;
-                  });
-                it == desiredStatus.mInstances.end()) {
+            if (!IsServiceInstanceDesired(instanceStatus, desiredStatus.mInstances)) {
                 return true;
             }
-        } else {
-            if (auto it
-                = desiredStatus.mInstances.FindIf([&instanceStatus](const DesiredInstanceInfo& desiredInstance) {
-                      return desiredInstance.mItemID == instanceStatus.mItemID
-                          && desiredInstance.mSubjectID == instanceStatus.mSubjectID;
-                  });
-                it != desiredStatus.mInstances.end()) {
 
-                if (auto itemIt = desiredStatus.mUpdateItems.FindIf([&instanceStatus](const UpdateItemInfo& item) {
-                        return item.mItemID == instanceStatus.mItemID && item.mVersion == instanceStatus.mVersion;
-                    });
-                    itemIt == desiredStatus.mUpdateItems.end()) {
-                    return true;
-                }
+            continue;
+        }
 
-                if (instanceStatus.mState != InstanceStateEnum::eActive) {
-                    return true;
-                }
-            }
+        if (!IsComponentInstanceUpToDate(instanceStatus, desiredStatus)) {
+            return true;
         }
     }
 

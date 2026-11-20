@@ -184,6 +184,7 @@ private:
     size_t GetSystemCPUUsage(const monitoring::NodeMonitoringData& monitoringData) const;
     // Returns CPU usage without Aos service instances.
     size_t GetSystemRAMUsage(const monitoring::NodeMonitoringData& monitoringData) const;
+    bool   IsUsageAboveMaxThreshold() const;
 
     size_t* GetPtrToAvailableCPU(const String& runtimeID);
     size_t* GetPtrToAvailableRAM(const String& runtimeID);

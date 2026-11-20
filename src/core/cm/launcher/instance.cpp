@@ -235,10 +235,12 @@ RetWithError<bool> Instance::OverrideEnvVars(const OverrideEnvVarsRequest& envVa
 
             if (existingVar != newEnvVars->end()) {
                 existingVar->mValue = overrideVar.mValue;
-            } else {
-                if (auto err = newEnvVars->PushBack(static_cast<const EnvVar&>(overrideVar)); !err.IsNone()) {
-                    return {false, AOS_ERROR_WRAP(err)};
-                }
+
+                continue;
+            }
+
+            if (auto err = newEnvVars->PushBack(static_cast<const EnvVar&>(overrideVar)); !err.IsNone()) {
+                return {false, AOS_ERROR_WRAP(err)};
             }
         }
     }
