@@ -392,10 +392,6 @@ void DesiredStatusHandler::RunUpdate(UniqueLock<Mutex>& lock)
             break;
         }
 
-        if (!mIsRunning) {
-            break;
-        }
-
         if (stateAction != nullptr) {
             (void)lock.Unlock();
 

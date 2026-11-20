@@ -44,25 +44,19 @@ Error CalculateFileHash(const String& path, const Hash& algorithm, HasherItf& ha
 
     LockGuard lock {sReadBufferMutex};
 
-    while (true) {
+    do {
         err = file.ReadBlock(sReadBuffer);
         if (!err.IsNone() && !err.Is(ErrorEnum::eEOF)) {
             return AOS_ERROR_WRAP(err);
         }
 
-        if (sReadBuffer.IsEmpty()) {
-            break;
-        }
-
-        err = hasher->Update(sReadBuffer);
-        if (!err.IsNone()) {
-            if (!err.Is(ErrorEnum::eEOF)) {
+        if (!sReadBuffer.IsEmpty()) {
+            err = hasher->Update(sReadBuffer);
+            if (!err.IsNone() && !err.Is(ErrorEnum::eEOF)) {
                 return AOS_ERROR_WRAP(err);
             }
-
-            break;
         }
-    }
+    } while (!sReadBuffer.IsEmpty() && !err.Is(ErrorEnum::eEOF));
 
     err = hasher->Finalize(hash);
     if (!err.IsNone()) {
