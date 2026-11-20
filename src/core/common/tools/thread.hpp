@@ -393,7 +393,9 @@ public:
      */
     Error Wait(UniqueLock<>& lock)
     {
-        return mError = pthread_cond_wait(&mCondVar, static_cast<pthread_mutex_t*>(lock.GetLock()));
+        mError = pthread_cond_wait(&mCondVar, static_cast<pthread_mutex_t*>(lock.GetLock()));
+
+        return mError;
     }
 
     /**
@@ -410,10 +412,14 @@ public:
         auto ret = pthread_cond_timedwait(&mCondVar, static_cast<pthread_mutex_t*>(lock.GetLock()), &unixTime);
 
         if (ret == ETIMEDOUT) {
-            return mError = ErrorEnum::eTimeout;
+            mError = ErrorEnum::eTimeout;
+
+            return mError;
         }
 
-        return mError = ret;
+        mError = ret;
+
+        return mError;
     }
 
     /**
@@ -438,7 +444,9 @@ public:
         while (!waitCondition()) {
             auto err = Wait(lock);
             if (!err.IsNone()) {
-                return mError = err;
+                mError = err;
+
+                return err;
             }
         }
 
@@ -460,7 +468,9 @@ public:
         while (!waitCondition()) {
             auto err = Wait(lock, absTime);
             if (!err.IsNone()) {
-                return mError = err;
+                mError = err;
+
+                return err;
             }
         }
 
@@ -487,14 +497,24 @@ public:
      *
      * @return Error.
      */
-    Error NotifyOne() { return mError = pthread_cond_signal(&mCondVar); }
+    Error NotifyOne()
+    {
+        mError = pthread_cond_signal(&mCondVar);
+
+        return mError;
+    }
 
     /**
      * Notifies all waiting thread.
      *
      * @return Error.
      */
-    Error NotifyAll() { return mError = pthread_cond_broadcast(&mCondVar); }
+    Error NotifyAll()
+    {
+        mError = pthread_cond_broadcast(&mCondVar);
+
+        return mError;
+    }
 
     /**
      * Returns current conditional variable error.
