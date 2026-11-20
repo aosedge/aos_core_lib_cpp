@@ -41,9 +41,7 @@
 using namespace testing;
 
 namespace aos::cm::imagemanager {
-
 namespace {
-
 /***********************************************************************************************************************
  * Consts
  **********************************************************************************************************************/
@@ -1681,6 +1679,164 @@ TEST_F(CMImageManagerTest, GetBlobInfoFileServerFails)
     EXPECT_EQ(blobInfo.mDigest, "sha256:unchanged");
     EXPECT_EQ(blobInfo.mSize, 42U);
     EXPECT_TRUE(blobInfo.mURLs.IsEmpty());
+}
+
+TEST_F(CMImageManagerTest, InstallDownloadSpaceAcceptFails)
+{
+    ExpectDownloads({&mIndex, &mManifest, &mConfig});
+    ExpectRegisterDownloads(GetBlobs());
+
+    EXPECT_CALL(mDownloadSpaceAllocator, AllocateSpace(mLayer.mContent.size()))
+        .WillOnce(Invoke([this](size_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
+            auto space = MakeUnique<NiceMock<spaceallocator::SpaceMock>>(&mAllocator);
+
+            ON_CALL(*space, Accept()).WillByDefault(Return(ErrorEnum::eFailed));
+
+            return {UniquePtr<spaceallocator::SpaceItf>(Move(space)), ErrorEnum::eNone};
+        }));
+    EXPECT_CALL(mDownloader, Download(_, String(mLayer.mDigest.c_str()), _, String(mLayer.mDownloadPath.c_str())))
+        .Times(1);
+
+    auto err = Install();
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_FALSE(FileExists(mLayer.mPath));
+
+    ExpectItemState(ItemStateEnum::eFailed, ErrorEnum::eFailed);
+}
+
+TEST_F(CMImageManagerTest, InstallDownloadFailsSpaceErrorsIgnored)
+{
+    ExpectDownloads({&mIndex, &mManifest, &mConfig});
+    ExpectRegisterDownloads(GetBlobs());
+
+    EXPECT_CALL(mDownloadSpaceAllocator, AllocateSpace(mLayer.mContent.size()))
+        .WillOnce(Invoke([this](size_t) -> RetWithError<UniquePtr<spaceallocator::SpaceItf>> {
+            auto space = MakeUnique<NiceMock<spaceallocator::SpaceMock>>(&mAllocator);
+
+            EXPECT_CALL(*space, Resize(1)).WillOnce(Return(ErrorEnum::eFailed));
+            EXPECT_CALL(*space, Accept()).WillOnce(Return(ErrorEnum::eFailed));
+
+            return {UniquePtr<spaceallocator::SpaceItf>(Move(space)), ErrorEnum::eNone};
+        }));
+    EXPECT_CALL(mDownloader, Download(_, String(mLayer.mDigest.c_str()), _, String(mLayer.mDownloadPath.c_str())))
+        .WillOnce(
+            Invoke([this](CancelContext&, const String&, const Array<StaticString<cURLLen>>&, const String& path) {
+                WriteFile(path.CStr(), mLayer.mContent.substr(0, 1));
+
+                return Error(ErrorEnum::eRuntime, "download failed");
+            }));
+
+    auto err = Install();
+    EXPECT_TRUE(err.Is(ErrorEnum::eRuntime)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(ReadFile(mLayer.mDownloadPath), mLayer.mContent.substr(0, 1));
+
+    ExpectItemState(ItemStateEnum::eFailed, ErrorEnum::eRuntime);
+}
+
+TEST_F(CMImageManagerTest, InstallGetFileInfoFails)
+{
+    ASSERT_TRUE(GetBlobInfo(mLayer).mSHA256.Resize(crypto::cSHA256Size, 0xaa).IsNone());
+
+    ExpectDownloads(GetBlobs());
+    ExpectRegisterDownloads(GetBlobs());
+
+    EXPECT_CALL(mFileInfoProvider, GetFileInfo(_, _, _)).Times(AnyNumber());
+    EXPECT_CALL(mFileInfoProvider, GetFileInfo(String(mLayer.mDownloadPath.c_str()), _, _))
+        .WillOnce(Return(ErrorEnum::eNotSupported));
+
+    auto err = Install();
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotSupported)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(FileExists(mLayer.mDownloadPath));
+    EXPECT_FALSE(FileExists(mLayer.mPath));
+
+    ExpectItemState(ItemStateEnum::eFailed, ErrorEnum::eNotSupported);
+}
+
+TEST_F(CMImageManagerTest, InstallIgnoresOutdatedItemErrors)
+{
+    const auto leftover       = std::string(cTestDownloadPath) + "/sha256/" + cLeftoverHash1;
+    const auto leftoverDigest = std::string("sha256:") + cLeftoverHash1;
+
+    WriteFile(leftover, "leftover");
+
+    ExpectDownloads(GetBlobs());
+
+    EXPECT_CALL(mDownloadSpaceAllocator, RestoreOutdatedItem(_, String(""))).WillRepeatedly(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mDownloadSpaceAllocator, AddOutdatedItem(_, String(""), _))
+        .Times(AtLeast(1))
+        .WillRepeatedly(Return(ErrorEnum::eFailed));
+    EXPECT_CALL(mDownloadSpaceAllocator, AddOutdatedItem(String(leftoverDigest.c_str()), String(""), _))
+        .Times(AtLeast(1))
+        .WillRepeatedly(Return(ErrorEnum::eNoMemory));
+
+    auto err = Install();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(FileExists(leftover));
+    EXPECT_EQ(ReadFile(mLayer.mPath), mLayer.mContent);
+
+    ExpectItemState(ItemStateEnum::eInstalled);
+}
+
+TEST_F(CMImageManagerTest, CancelAfterDownloadCompleted)
+{
+    std::promise<void> started;
+
+    ExpectDownloads({&mIndex, &mManifest, &mConfig});
+    ExpectRegisterDownloads(GetBlobs());
+
+    EXPECT_CALL(mDownloadSpaceAllocator, AllocateSpace(mLayer.mContent.size())).Times(1);
+    EXPECT_CALL(mDownloader, Download(_, String(mLayer.mDigest.c_str()), _, String(mLayer.mDownloadPath.c_str())))
+        .WillOnce(Invoke([this, &started](CancelContext& ctx, const String& digest, const Array<StaticString<cURLLen>>&,
+                             const String& path) {
+            started.set_value();
+
+            // Download completes successfully although the context is canceled meanwhile.
+            ctx.Wait(cDownloadTimeout);
+
+            return DownloadContent(digest, path);
+        }));
+
+    auto install = std::async(std::launch::async, [this]() { return Install(); });
+
+    ASSERT_EQ(started.get_future().wait_for(cWaitTimeout), std::future_status::ready);
+
+    auto err = mImageManager.Cancel();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_EQ(install.wait_for(cWaitTimeout), std::future_status::ready);
+
+    err = install.get();
+    EXPECT_TRUE(err.Is(ErrorEnum::eCanceled)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(ReadFile(mLayer.mDownloadPath), mLayer.mContent);
+    EXPECT_FALSE(FileExists(mLayer.mPath));
+
+    ExpectItemState(ItemStateEnum::eFailed, ErrorEnum::eCanceled);
+}
+
+TEST_F(CMImageManagerTest, DownloadItemRemoverPathTooLong)
+{
+    Config config;
+
+    config.mImagePath    = cTestImagePath;
+    config.mItemCacheTTL = cItemCacheTTL;
+    config.mDownloadPath = std::string(cFilePathLen - 10, 'a').c_str();
+
+    auto imageManager = std::make_unique<ImageManager>();
+
+    auto err = imageManager->Init(config, mBlobInfoProvider, mStorage, mSpaceAllocator, mDownloadSpaceAllocator,
+        mDownloader, mCryptoHelper, mFileServer, mFileInfoProvider, mOCISpec, mFSPlatform, mAllocator);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mDownloadSpaceAllocator, RestoreOutdatedItem(_, _)).Times(0);
+
+    auto [size, removeErr] = imageManager->GetDownloadItemRemover().RemoveItem(mLayer.mDigest.c_str(), "");
+    EXPECT_TRUE(removeErr.Is(ErrorEnum::eInvalidArgument)) << tests::utils::ErrorToStr(removeErr);
+    EXPECT_EQ(size, 0);
 }
 
 } // namespace aos::cm::imagemanager

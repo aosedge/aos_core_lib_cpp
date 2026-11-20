@@ -175,3 +175,47 @@ TEST_F(TimeTest, ToUTCString)
 
     EXPECT_STREQ(utcString.CStr(), "2024-01-31T12:00:00.000000Z");
 }
+
+TEST_F(TimeTest, FromUTCStringInvalid)
+{
+    const char* invalid[] = {
+        "",
+        "2024",
+        "2024/01/31T12:00:00Z",
+        "2024-01",
+        "2024-01-",
+        "2024-01-3",
+        "2024-01-31",
+        "2024-01-31 12:00:00Z",
+        "2024-01-31T12",
+        "2024-01-31T12:00",
+        "2024-01-31T12-00:00Z",
+        "2024-01-31T12:0",
+        "2024-01-31T12:00:",
+        "2024-01-31T12:00:0",
+    };
+
+    for (const auto* str : invalid) {
+        EXPECT_FALSE(Time::UTC(str).mError.IsNone()) << str;
+    }
+}
+
+TEST_F(TimeTest, FromUTCStringFractionalSeconds)
+{
+    auto [time, err] = Time::UTC("2024-01-31T12:00:00.123456789Z");
+    ASSERT_EQ(err, ErrorEnum::eNone);
+
+    EXPECT_EQ(time.UnixTime().tv_nsec, 123456000);
+}
+
+TEST_F(TimeTest, DurationToISO8601StringParts)
+{
+    EXPECT_STREQ(Duration(-Time::cDay.Nanoseconds()).ToISO8601String().CStr(), "-P1D");
+    EXPECT_STREQ(Duration(Time::cYear.Nanoseconds() + Time::cMonth.Nanoseconds() + Time::cWeek.Nanoseconds()
+                     + Time::cDay.Nanoseconds() + Time::cHours.Nanoseconds() + Time::cMinutes.Nanoseconds()
+                     + Time::cSeconds.Nanoseconds())
+                     .ToISO8601String()
+                     .CStr(),
+        "P1Y1M1W1DT1H1M1S");
+    EXPECT_STREQ(Duration(Time::cSeconds.Nanoseconds() + 500000000).ToISO8601String().CStr(), "PT1.500000000S");
+}

@@ -4,9 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <fstream>
+#include <functional>
 #include <future>
 #include <map>
 #include <memory>
@@ -34,9 +36,7 @@
 using namespace testing;
 
 namespace aos::sm::imagemanager {
-
 namespace {
-
 /***********************************************************************************************************************
  * Consts
  **********************************************************************************************************************/
@@ -124,6 +124,46 @@ oci::ContentDescriptor Descriptor(const String& mediaType, const String& digest)
 {
     return oci::ContentDescriptor {mediaType, digest, cBlobSize};
 }
+
+class FailableAllocator : public HeapAllocator {
+public:
+    void* Allocate(size_t size) override
+    {
+        if (mFailAll) {
+            return nullptr;
+        }
+
+        return HeapAllocator::Allocate(size);
+    }
+
+    void SetFailAll(bool fail) { mFailAll = fail; }
+
+private:
+    std::atomic<bool> mFailAll {false};
+};
+
+class TestStorageStub : public StorageStub {
+public:
+    RetWithError<bool> IsLayerUsed(const String& diffID) override
+    {
+        if (mOnIsLayerUsed) {
+            mOnIsLayerUsed();
+        }
+
+        if (mFailIsLayerUsed) {
+            return {false, Error(ErrorEnum::eFailed, "layer used check failed")};
+        }
+
+        return StorageStub::IsLayerUsed(diffID);
+    }
+
+    void SetFailIsLayerUsed(bool fail) { mFailIsLayerUsed = fail; }
+    void SetOnIsLayerUsed(std::function<void()> callback) { mOnIsLayerUsed = std::move(callback); }
+
+private:
+    std::atomic<bool>     mFailIsLayerUsed {false};
+    std::function<void()> mOnIsLayerUsed;
+};
 
 } // namespace
 
@@ -239,17 +279,17 @@ protected:
 
                     mAcceptedAllocations.push_back(size);
 
-                    return ErrorEnum::eNone;
+                    return size == mFailAcceptSize ? mAcceptError : Error(ErrorEnum::eNone);
                 }));
                 ON_CALL(*space, Release()).WillByDefault(Invoke([this]() {
                     mReleasedSpaces++;
 
-                    return ErrorEnum::eNone;
+                    return mReleaseError;
                 }));
                 ON_CALL(*space, Resize(_)).WillByDefault(Invoke([this](size_t resized) {
                     mLastResize = resized;
 
-                    return ErrorEnum::eNone;
+                    return resized > cBlobSize ? mResizeError : Error(ErrorEnum::eNone);
                 }));
 
                 return {Move(space), ErrorEnum::eNone};
@@ -321,7 +361,7 @@ protected:
 
     // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
     // members are destroyed in reverse declaration order.
-    HeapAllocator mAllocator;
+    FailableAllocator mAllocator;
 
     ImageManager                                         mImageManager;
     NiceMock<common::imagemanager::BlobInfoProviderMock> mBlobInfoProvider;
@@ -331,7 +371,7 @@ protected:
     NiceMock<oci::OCISpecMock>                           mOCISpec;
     NiceMock<ImageHandlerMock>                           mImageHandler;
     NiceMock<FSPlatformMock>                             mFSPlatform;
-    StorageStub                                          mStorage;
+    TestStorageStub                                      mStorage;
 
     std::mutex                                                 mMutex;
     std::set<std::string>                                      mDownloaded;
@@ -341,6 +381,11 @@ protected:
     std::vector<size_t>                                        mAcceptedAllocations;
     std::atomic<size_t>                                        mReleasedSpaces {};
     std::atomic<size_t>                                        mLastResize {};
+
+    size_t mFailAcceptSize {};
+    Error  mAcceptError;
+    Error  mReleaseError;
+    Error  mResizeError;
 };
 
 /***********************************************************************************************************************
@@ -792,6 +837,458 @@ TEST_F(SMImageManagerTest, GetBlobPath)
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
     EXPECT_EQ(BlobPath(cLayerDigest), path.CStr());
+}
+
+TEST_F(SMImageManagerTest, InitFailsIfImagePathIsFile)
+{
+    const auto filePath = std::string(cTestDir) + "/file";
+
+    WriteFile(filePath, "content");
+
+    ImageManager imageManager;
+
+    auto err = imageManager.Init(CreateConfig((filePath + "/images").c_str()), mBlobInfoProvider, mStorage,
+        mSpaceAllocator, mDownloader, mImageHandler, mFileInfoProvider, mOCISpec, mFSPlatform, mAllocator);
+    EXPECT_FALSE(err.IsNone());
+}
+
+TEST_F(SMImageManagerTest, GetLayerPathSmallBuffer)
+{
+    StaticString<5> path;
+
+    auto err = mImageManager.GetLayerPath(cDiffID, path);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(SMImageManagerTest, GetLayerPathDirCheckFails)
+{
+    // The algorithm folder is a file, so the layer folder can't be checked.
+    WriteFile(std::string(cTestImagePath) + "/layers/sha256", "content");
+
+    StaticString<cFilePathLen> path;
+
+    auto err = mImageManager.GetLayerPath(cDiffID, path);
+    EXPECT_FALSE(err.IsNone());
+    EXPECT_FALSE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(SMImageManagerTest, InstallMalformedDiffIDFails)
+{
+    mImageConfig->mRootfs.mDiffIDs.Clear();
+    mImageConfig->mRootfs.mDiffIDs.EmplaceBack("malformed");
+
+    EXPECT_CALL(mImageHandler, UnpackLayer).Times(0);
+
+    auto err = mImageManager.InstallItem(ServiceInfo("service"));
+    EXPECT_TRUE(err.Is(ErrorEnum::eInvalidArgument)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(GetItemState("service"), ItemState(ItemStateEnum::eFailed));
+}
+
+TEST_F(SMImageManagerTest, InstallLayerFolderIsFileFails)
+{
+    WriteFile(std::string(cTestImagePath) + "/layers/sha256", "content");
+
+    EXPECT_CALL(mImageHandler, UnpackLayer).Times(0);
+
+    auto err = mImageManager.InstallItem(ServiceInfo("service"));
+    EXPECT_FALSE(err.IsNone());
+
+    EXPECT_EQ(GetItemState("service"), ItemState(ItemStateEnum::eFailed));
+}
+
+TEST_F(SMImageManagerTest, ItemRemoverComponentLayerWithoutDiffID)
+{
+    AddComponent(cManifest2Digest, cLayerDigest);
+
+    auto err = mImageManager.InstallItem(
+        UpdateItemInfo {"component", UpdateItemTypeEnum::eComponent, "1.0.0", cManifest2Digest});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mImageManager.RemoveItem("component", "1.0.0");
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    size_t size = 0;
+
+    Tie(size, err) = mImageManager.GetItemRemover().RemoveItem("component", "1.0.0");
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_FALSE(Exists(BlobPath(cLayerDigest)));
+    EXPECT_GE(size, cBlobSize);
+}
+
+TEST_F(SMImageManagerTest, InstallAgainBrokenLayerDigestFile)
+{
+    auto err = mImageManager.InstallItem(ServiceInfo("service"));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    WriteFile(LayerPath(cDiffID) + "/digest", std::string(10 * oci::cDigestLen, 'a'));
+
+    EXPECT_CALL(mImageHandler, UnpackLayer);
+
+    err = mImageManager.InstallItem(ServiceInfo("service"));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(ReadFile(LayerPath(cDiffID) + "/digest"), cUnpackedData);
+}
+
+TEST_F(SMImageManagerTest, InstallAgainLayerDigestCalculationFails)
+{
+    auto err = mImageManager.InstallItem(ServiceInfo("service"));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mImageHandler, GetUnpackedLayerDigest)
+        .WillOnce(Return(RetWithError<StaticString<oci::cDigestLen>>({}, ErrorEnum::eFailed)))
+        .WillRepeatedly(DoDefault());
+
+    // The layer is valid at the second check, so it is not unpacked again, only its blob is downloaded and removed.
+    EXPECT_CALL(mImageHandler, UnpackLayer).Times(0);
+
+    err = mImageManager.InstallItem(ServiceInfo("service"));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_FALSE(Exists(BlobPath(cLayerDigest)));
+}
+
+TEST_F(SMImageManagerTest, UnpackedLayerSizeFails)
+{
+    EXPECT_CALL(mImageHandler, GetUnpackedLayerSize).WillOnce(Return(RetWithError<size_t>(0, ErrorEnum::eFailed)));
+    EXPECT_CALL(mImageHandler, UnpackLayer).Times(0);
+
+    auto err = mImageManager.InstallItem(ServiceInfo("service"));
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_FALSE(Exists(LayerPath(cDiffID)));
+}
+
+TEST_F(SMImageManagerTest, AcceptUnpackedLayerSpaceFails)
+{
+    mFailAcceptSize = cUnpackedSize;
+    mAcceptError    = ErrorEnum::eFailed;
+
+    auto err = mImageManager.InstallItem(ServiceInfo("service"));
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(GetItemState("service"), ItemState(ItemStateEnum::eFailed));
+}
+
+TEST_F(SMImageManagerTest, ReleaseSpaceFailureIsIgnored)
+{
+    mReleaseError = ErrorEnum::eFailed;
+
+    EXPECT_CALL(mImageHandler, UnpackLayer).WillOnce(Return(ErrorEnum::eTimeout));
+
+    auto err = mImageManager.InstallItem(ServiceInfo("service"));
+    EXPECT_TRUE(err.Is(ErrorEnum::eTimeout)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_FALSE(Exists(LayerPath(cDiffID)));
+    EXPECT_EQ(mReleasedSpaces, 1);
+}
+
+TEST_F(SMImageManagerTest, LayerMetadataCreationFails)
+{
+    EXPECT_CALL(mImageHandler, GetUnpackedLayerDigest)
+        .WillOnce(Return(RetWithError<StaticString<oci::cDigestLen>>({}, ErrorEnum::eFailed)));
+
+    auto err = mImageManager.InstallItem(ServiceInfo("service"));
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_FALSE(Exists(LayerPath(cDiffID)));
+}
+
+TEST_F(SMImageManagerTest, ResizeUnpackedLayerSpaceFails)
+{
+    mResizeError = ErrorEnum::eNoMemory;
+
+    auto err = mImageManager.InstallItem(ServiceInfo("service"));
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_FALSE(Exists(LayerPath(cDiffID)));
+}
+
+TEST_F(SMImageManagerTest, ItemRemoverLayerUsageCheckFails)
+{
+    auto err = mImageManager.InstallItem(ServiceInfo("service"));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mImageManager.RemoveItem("service", "1.0.0");
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    mStorage.SetFailIsLayerUsed(true);
+
+    size_t size = 0;
+
+    Tie(size, err) = mImageManager.GetItemRemover().RemoveItem("service", "1.0.0");
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(Exists(UnpackedPath(cDiffID)));
+}
+
+TEST_F(SMImageManagerTest, CleanupOrphanLayerUsageCheckFails)
+{
+    const auto orphanFile = UnpackedPath(cOrphanDiffID) + "/data";
+    const auto strayFile  = std::string(cTestImagePath) + "/layers/stray";
+
+    WriteFile(orphanFile, "orphan");
+    WriteFile(strayFile, "stray");
+
+    mStorage.SetFailIsLayerUsed(true);
+
+    std::promise<void> freed;
+
+    // Only the stray file is removed, as the usage of the orphan layer can't be checked.
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(strlen("stray"))).WillOnce(InvokeWithoutArgs([&]() { freed.set_value(); }));
+
+    auto err = mImageManager.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(freed.get_future().wait_for(std::chrono::seconds(5)), std::future_status::ready);
+
+    err = mImageManager.Stop();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(Exists(orphanFile));
+    EXPECT_FALSE(Exists(strayFile));
+}
+
+TEST_F(SMImageManagerTest, InstallAgainMissingLayerMetadata)
+{
+    auto err = mImageManager.InstallItem(ServiceInfo("service"));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mImageHandler, UnpackLayer).Times(2).WillRepeatedly(DoDefault());
+
+    for (const auto* name : {"size", "digest"}) {
+        const auto path = LayerPath(cDiffID) + "/" + name;
+
+        ASSERT_TRUE(fs::RemoveAll(path.c_str()).IsNone());
+
+        err = mImageManager.InstallItem(ServiceInfo("service"));
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        EXPECT_TRUE(Exists(path)) << path;
+    }
+}
+
+TEST_F(SMImageManagerTest, InstallAgainMissingUnpackedLayer)
+{
+    auto err = mImageManager.InstallItem(ServiceInfo("service"));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_TRUE(fs::RemoveAll(UnpackedPath(cDiffID).c_str()).IsNone());
+
+    EXPECT_CALL(mImageHandler, UnpackLayer);
+
+    err = mImageManager.InstallItem(ServiceInfo("service"));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(Exists(UnpackedPath(cDiffID)));
+}
+
+TEST_F(SMImageManagerTest, UnpackFailsAndLayerCantBeRemoved)
+{
+    const auto dir = std::string(cTestImagePath) + "/layers/sha256";
+
+    EXPECT_CALL(mImageHandler, UnpackLayer).WillOnce(Invoke([&](const String&, const String&, const String&) -> Error {
+        EXPECT_TRUE(fs::RemoveAll(dir.c_str()).IsNone());
+        WriteFile(dir, "content");
+
+        return ErrorEnum::eFailed;
+    }));
+
+    auto err = mImageManager.InstallItem(ServiceInfo("service"));
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    // The space stays accepted as the layer stays.
+    EXPECT_EQ(mReleasedSpaces, 0);
+    EXPECT_NE(
+        std::find(mAcceptedAllocations.begin(), mAcceptedAllocations.end(), cUnpackedSize), mAcceptedAllocations.end());
+}
+
+TEST_F(SMImageManagerTest, LayerSizeCalculationFails)
+{
+    EXPECT_CALL(mImageHandler, GetUnpackedLayerDigest)
+        .WillOnce(Invoke([this](const String& path) -> RetWithError<StaticString<oci::cDigestLen>> {
+            mAllocator.SetFailAll(true);
+
+            StaticString<oci::cDigestLen> digest;
+
+            digest = ReadFile(std::string(path.CStr()) + "/data").c_str();
+
+            return digest;
+        }));
+
+    auto err = mImageManager.InstallItem(ServiceInfo("service"));
+
+    mAllocator.SetFailAll(false);
+
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+    EXPECT_FALSE(Exists(LayerPath(cDiffID)));
+}
+
+TEST_F(SMImageManagerTest, LayerMetadataWriteFails)
+{
+    for (const auto* name : {"size", "digest"}) {
+        // The metadata file is a folder, so it can't be written.
+        EXPECT_CALL(mImageHandler, GetUnpackedLayerDigest)
+            .WillOnce(Invoke([name](const String& path) -> RetWithError<StaticString<oci::cDigestLen>> {
+                const auto layerPath = std::string(path.CStr()).substr(0, std::string(path.CStr()).rfind('/'));
+
+                EXPECT_TRUE(fs::MakeDirAll((layerPath + "/" + name).c_str()).IsNone());
+
+                StaticString<oci::cDigestLen> digest;
+
+                digest = ReadFile(std::string(path.CStr()) + "/data").c_str();
+
+                return digest;
+            }))
+            .RetiresOnSaturation();
+
+        auto err = mImageManager.InstallItem(ServiceInfo("service"));
+        EXPECT_FALSE(err.IsNone()) << name;
+
+        EXPECT_FALSE(Exists(LayerPath(cDiffID))) << name;
+    }
+}
+
+TEST_F(SMImageManagerTest, LayerBlobCantBeRemoved)
+{
+    const auto dir = std::string(cTestImagePath) + "/blobs/sha256";
+
+    EXPECT_CALL(mImageHandler, UnpackLayer)
+        .WillOnce(Invoke([&](const String&, const String& dst, const String&) -> Error {
+            WriteFile(std::string(dst.CStr()) + "/data", cUnpackedData);
+
+            EXPECT_TRUE(fs::RemoveAll(dir.c_str()).IsNone());
+            WriteFile(dir, "content");
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mSpaceAllocator, FreeSpace).Times(0);
+
+    auto err = mImageManager.InstallItem(ServiceInfo("service"));
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(Exists(UnpackedPath(cDiffID)));
+}
+
+TEST_F(SMImageManagerTest, LayerBlobAlreadyRemoved)
+{
+    EXPECT_CALL(mImageHandler, UnpackLayer)
+        .WillOnce(Invoke([&](const String& src, const String& dst, const String&) -> Error {
+            WriteFile(std::string(dst.CStr()) + "/data", cUnpackedData);
+
+            EXPECT_TRUE(fs::RemoveAll(src).IsNone());
+
+            return ErrorEnum::eNone;
+        }));
+    EXPECT_CALL(mSpaceAllocator, FreeSpace).Times(0);
+
+    auto err = mImageManager.InstallItem(ServiceInfo("service"));
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(SMImageManagerTest, ItemRemoverMalformedLayerDiffID)
+{
+    common::imagemanager::DeployableItemInfo item;
+
+    item.mItemID     = "service";
+    item.mType       = UpdateItemTypeEnum::eService;
+    item.mVersion    = "1.0.0";
+    item.mRootDigest = cManifestDigest;
+    item.mState      = ItemStateEnum::eRemoved;
+    item.mTimestamp  = Time::Now();
+
+    ASSERT_TRUE(mStorage.AddDeployableItem(item).IsNone());
+
+    common::imagemanager::ItemBlobInfo blob;
+
+    blob.mDigest    = cLayerDigest;
+    blob.mMediaType = cLayerType;
+    blob.mDiffID    = "malformed";
+    blob.mIsLayer   = true;
+
+    ASSERT_TRUE(mStorage.AddItemBlob("service", "1.0.0", blob).IsNone());
+
+    auto [size, err] = mImageManager.GetItemRemover().RemoveItem("service", "1.0.0");
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(size, 0);
+}
+
+TEST_F(SMImageManagerTest, ItemRemoverLayerRemoveFails)
+{
+    auto err = mImageManager.InstallItem(ServiceInfo("service"));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mImageManager.RemoveItem("service", "1.0.0");
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    const auto dir = std::string(cTestImagePath) + "/layers/sha256";
+
+    mStorage.SetOnIsLayerUsed([&]() {
+        EXPECT_TRUE(fs::RemoveAll(dir.c_str()).IsNone());
+        WriteFile(dir, "content");
+    });
+
+    size_t size = 0;
+
+    Tie(size, err) = mImageManager.GetItemRemover().RemoveItem("service", "1.0.0");
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_EQ(size, 2 * cBlobSize);
+}
+
+TEST_F(SMImageManagerTest, ItemRemoverLayerSizeCalculationFails)
+{
+    auto err = mImageManager.InstallItem(ServiceInfo("service"));
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mImageManager.RemoveItem("service", "1.0.0");
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    mStorage.SetOnIsLayerUsed([&]() { mAllocator.SetFailAll(true); });
+
+    size_t size = 0;
+
+    Tie(size, err) = mImageManager.GetItemRemover().RemoveItem("service", "1.0.0");
+
+    mAllocator.SetFailAll(false);
+
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(size, 2 * cBlobSize);
+    EXPECT_TRUE(Exists(UnpackedPath(cDiffID)));
+}
+
+TEST_F(SMImageManagerTest, CleanupSkipsLockedLayer)
+{
+    const auto strayFile = std::string(cTestImagePath) + "/layers/stray";
+
+    WriteFile(strayFile, "stray");
+
+    std::promise<void> freed;
+
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(strlen("stray"))).WillOnce(InvokeWithoutArgs([&]() { freed.set_value(); }));
+    EXPECT_CALL(mSpaceAllocator, FreeSpace(strlen(cBlobContent)));
+
+    // The cleanup is started when the layer is being unpacked, so the layer is locked.
+    EXPECT_CALL(mImageHandler, UnpackLayer)
+        .WillOnce(Invoke([&](const String&, const String& dst, const String&) -> Error {
+            WriteFile(std::string(dst.CStr()) + "/data", cUnpackedData);
+
+            EXPECT_TRUE(mImageManager.Start().IsNone());
+            EXPECT_EQ(freed.get_future().wait_for(std::chrono::seconds(5)), std::future_status::ready);
+
+            return ErrorEnum::eNone;
+        }));
+
+    auto err = mImageManager.InstallItem(ServiceInfo("service"));
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mImageManager.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_FALSE(Exists(strayFile));
+    EXPECT_TRUE(Exists(UnpackedPath(cDiffID)));
 }
 
 } // namespace aos::sm::imagemanager

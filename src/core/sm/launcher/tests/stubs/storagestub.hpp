@@ -29,9 +29,34 @@ public:
         return ErrorEnum::eNone;
     }
 
+    void SetGetAllError(const Error& err)
+    {
+        std::lock_guard lock {mMutex};
+
+        mGetAllError = err;
+    }
+
+    void SetUpdateError(const Error& err)
+    {
+        std::lock_guard lock {mMutex};
+
+        mUpdateError = err;
+    }
+
+    void SetRemoveError(const Error& err)
+    {
+        std::lock_guard lock {mMutex};
+
+        mRemoveError = err;
+    }
+
     Error GetAllInstancesInfos(Array<InstanceInfo>& infos) override
     {
         std::lock_guard lock {mMutex};
+
+        if (!mGetAllError.IsNone()) {
+            return mGetAllError;
+        }
 
         return infos.Assign(mData);
     }
@@ -39,6 +64,10 @@ public:
     Error UpdateInstanceInfo(const InstanceInfo& info) override
     {
         std::lock_guard lock {mMutex};
+
+        if (!mUpdateError.IsNone()) {
+            return mUpdateError;
+        }
 
         auto it = mData.FindIf([&info](const InstanceInfo& existingInfo) {
             return static_cast<const InstanceIdent&>(existingInfo) == static_cast<const InstanceIdent&>(info);
@@ -57,6 +86,10 @@ public:
     {
         std::lock_guard lock {mMutex};
 
+        if (!mRemoveError.IsNone()) {
+            return mRemoveError;
+        }
+
         return mData.RemoveIf(
                    [&ident](const InstanceInfo& info) { return static_cast<const InstanceIdent&>(info) == ident; })
             ? ErrorEnum::eNone
@@ -66,6 +99,9 @@ public:
 private:
     std::mutex        mMutex;
     InstanceInfoArray mData;
+    Error             mGetAllError;
+    Error             mUpdateError;
+    Error             mRemoveError;
 };
 
 } // namespace aos::sm::launcher

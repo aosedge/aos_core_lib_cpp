@@ -14,7 +14,6 @@
 #include <core/common/tests/utils/log.hpp>
 
 namespace aos::monitoring {
-
 using namespace testing;
 
 /***********************************************************************************************************************
@@ -28,7 +27,6 @@ static constexpr auto cWaitTimeout = std::chrono::seconds {5};
  **********************************************************************************************************************/
 
 namespace {
-
 SystemQuotaAlert CreateSystemQuotaAlert(const String& nodeID, const String& parameter, uint64_t value,
     std::optional<QuotaAlertState> state = std::nullopt, const Time& timestamp = Time())
 {
@@ -109,7 +107,6 @@ TEST_F(AlertProcessorTest, CheckRulePointAlertDetection)
     };
 
     for (const auto& testCase : testCases) {
-
         currentTime = currentTime.Add(testCase.mTimeDelta);
 
         const auto expectedAlert = CreateSystemQuotaAlert(
@@ -129,6 +126,72 @@ TEST_F(AlertProcessorTest, CheckRulePointAlertDetection)
 
         EXPECT_TRUE(alertProcessor.CheckAlertDetection(testCase.mCurrentValue, currentTime).IsNone());
     }
+}
+
+TEST_F(AlertProcessorTest, MaxThresholdTimerResetWhenValueDrops)
+{
+    const AlertRulePoints    rulePoints = {Time::cSeconds, 90, 95};
+    const ResourceIdentifier id         = {"node-id", ResourceLevelEnum::eSystem, ResourceTypeEnum::eCPU, {}};
+
+    AlertProcessor alertProcessor;
+
+    ASSERT_TRUE(alertProcessor.Init(id, rulePoints, mAlertSender).IsNone());
+
+    EXPECT_CALL(mAlertSender, SendAlert).Times(0);
+
+    const auto now = Time::Now();
+
+    EXPECT_TRUE(alertProcessor.CheckAlertDetection(96, now).IsNone());
+    EXPECT_TRUE(alertProcessor.CheckAlertDetection(10, now.Add(rulePoints.mMinTimeout / 2)).IsNone());
+
+    // The max threshold timer was restarted, so the timeout counts from this moment.
+    EXPECT_TRUE(alertProcessor.CheckAlertDetection(96, now.Add(2 * rulePoints.mMinTimeout)).IsNone());
+}
+
+TEST_F(AlertProcessorTest, SendAlertFailures)
+{
+    const AlertRulePoints    rulePoints = {Time::cSeconds, 90, 95};
+    const ResourceIdentifier id         = {"node-id", ResourceLevelEnum::eSystem, ResourceTypeEnum::eRAM, {}};
+
+    AlertProcessor alertProcessor;
+
+    ASSERT_TRUE(alertProcessor.Init(id, rulePoints, mAlertSender).IsNone());
+
+    EXPECT_CALL(mAlertSender, SendAlert).Times(3).WillRepeatedly(Return(ErrorEnum::eFailed));
+
+    auto currentTime = Time::Now();
+
+    EXPECT_TRUE(alertProcessor.CheckAlertDetection(96, currentTime).IsNone());
+
+    currentTime = currentTime.Add(2 * rulePoints.mMinTimeout);
+    EXPECT_TRUE(alertProcessor.CheckAlertDetection(96, currentTime).Is(ErrorEnum::eFailed));
+
+    currentTime = currentTime.Add(2 * rulePoints.mMinTimeout);
+    EXPECT_TRUE(alertProcessor.CheckAlertDetection(90, currentTime).Is(ErrorEnum::eFailed));
+
+    EXPECT_TRUE(alertProcessor.CheckAlertDetection(10, currentTime).IsNone());
+
+    currentTime = currentTime.Add(2 * rulePoints.mMinTimeout);
+    EXPECT_TRUE(alertProcessor.CheckAlertDetection(10, currentTime).Is(ErrorEnum::eFailed));
+}
+
+TEST_F(AlertProcessorTest, InvalidResourceLevel)
+{
+    const AlertRulePoints    rulePoints = {Time::cSeconds, 90, 95};
+    const ResourceIdentifier id
+        = {"node-id", ResourceLevel(static_cast<ResourceLevelEnum>(100)), ResourceTypeEnum::eUpload, {}};
+
+    AlertProcessor alertProcessor;
+
+    ASSERT_TRUE(alertProcessor.Init(id, rulePoints, mAlertSender).IsNone());
+
+    EXPECT_CALL(mAlertSender, SendAlert).Times(0);
+
+    const auto now = Time::Now();
+
+    EXPECT_TRUE(alertProcessor.CheckAlertDetection(96, now).IsNone());
+    EXPECT_TRUE(
+        alertProcessor.CheckAlertDetection(96, now.Add(2 * rulePoints.mMinTimeout)).Is(ErrorEnum::eInvalidArgument));
 }
 
 } // namespace aos::monitoring

@@ -4,6 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <atomic>
+#include <functional>
+#include <future>
 #include <mutex>
 #include <queue>
 
@@ -19,7 +22,6 @@
 #include <core/common/tests/utils/utils.hpp>
 
 namespace aos {
-
 /***********************************************************************************************************************
  * Operators
  **********************************************************************************************************************/
@@ -45,11 +47,9 @@ std::ostream& operator<<(std::ostream& os, const SystemQuotaAlert& alert)
 } // namespace aos
 
 namespace aos::monitoring {
-
 using namespace testing;
 
 namespace {
-
 /***********************************************************************************************************************
  * Static
  **********************************************************************************************************************/
@@ -1161,6 +1161,663 @@ TEST_F(MonitoringTest, InstanceMonitoringNotSupported)
 
     err = mMonitoring.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+/***********************************************************************************************************************
+ * Error handling
+ **********************************************************************************************************************/
+
+namespace {
+class FailableAllocator : public HeapAllocator {
+public:
+    void* Allocate(size_t size) override { return mFail ? nullptr : HeapAllocator::Allocate(size); }
+
+    void SetFail(bool fail) { mFail = fail; }
+
+private:
+    bool mFail {};
+};
+
+class FailingNodeConfigProviderStub : public NodeConfigProviderStub {
+public:
+    Error SubscribeListener(nodeconfig::NodeConfigListenerItf& listener) override
+    {
+        return mSubscribeErr.IsNone() ? NodeConfigProviderStub::SubscribeListener(listener) : mSubscribeErr;
+    }
+
+    Error UnsubscribeListener(nodeconfig::NodeConfigListenerItf& listener) override
+    {
+        auto err = NodeConfigProviderStub::UnsubscribeListener(listener);
+
+        return mUnsubscribeErr.IsNone() ? err : mUnsubscribeErr;
+    }
+
+    Error GetNodeConfig(NodeConfig& nodeConfig) override
+    {
+        if (mOnGet) {
+            mOnGet();
+        }
+
+        return mGetErr.IsNone() ? NodeConfigProviderStub::GetNodeConfig(nodeConfig) : mGetErr;
+    }
+
+    Error mGetErr;
+    Error mSubscribeErr;
+    Error mUnsubscribeErr;
+
+    std::function<void()> mOnGet;
+};
+
+class FailingSenderStub : public SenderStub {
+public:
+    Error SendMonitoringData(const NodeMonitoringData& monitoringData) override
+    {
+        SenderStub::SendMonitoringData(monitoringData);
+
+        return mErr;
+    }
+
+    Error mErr;
+};
+
+class FailingAlertSenderStub : public AlertSenderStub {
+public:
+    Error SendAlert(const AlertVariant& alert) override
+    {
+        AlertSenderStub::SendAlert(alert);
+
+        return mErr;
+    }
+
+    Error mErr;
+};
+
+class FailingNodeMonitoringProviderStub : public NodeMonitoringProviderItfStub {
+public:
+    Error GetNodeMonitoringData(MonitoringData& monitoringData) override
+    {
+        return mErr.IsNone() ? NodeMonitoringProviderItfStub::GetNodeMonitoringData(monitoringData) : mErr;
+    }
+
+    Error mErr;
+};
+
+class NoMemoryNotifyingAllocator : public HeapAllocator {
+public:
+    void* Allocate(size_t size) override
+    {
+        if (!mFail) {
+            return HeapAllocator::Allocate(size);
+        }
+
+        if (!mNotified.exchange(true)) {
+            mFailed.set_value();
+        }
+
+        return nullptr;
+    }
+
+    void SetFail(bool fail) { mFail = fail; }
+
+    std::future<void> GetFailedFuture() { return mFailed.get_future(); }
+
+private:
+    std::atomic<bool>  mFail {};
+    std::atomic<bool>  mNotified {};
+    std::promise<void> mFailed;
+};
+
+class FailingCurrentNodeInfoProviderStub : public CurrentNodeInfoProviderItfStub {
+public:
+    Error GetCurrentNodeInfo(NodeInfo& nodeInfo) const override
+    {
+        return mGetErr.IsNone() ? CurrentNodeInfoProviderItfStub::GetCurrentNodeInfo(nodeInfo) : mGetErr;
+    }
+
+    Error mGetErr;
+};
+
+class FailingInstanceInfoProviderStub : public InstanceInfoProviderItfStub {
+public:
+    Error GetInstancesStatuses(Array<InstanceStatus>& statuses) override
+    {
+        return mGetStatusesErr.IsNone() ? InstanceInfoProviderItfStub::GetInstancesStatuses(statuses) : mGetStatusesErr;
+    }
+
+    Error SubscribeListener(instancestatusprovider::ListenerItf& listener) override
+    {
+        mCapturedListener = &listener;
+
+        return mSubscribeErr.IsNone() ? InstanceInfoProviderItfStub::SubscribeListener(listener) : mSubscribeErr;
+    }
+
+    Error UnsubscribeListener(instancestatusprovider::ListenerItf& listener) override
+    {
+        auto err = InstanceInfoProviderItfStub::UnsubscribeListener(listener);
+
+        return mUnsubscribeErr.IsNone() ? err : mUnsubscribeErr;
+    }
+
+    Error GetInstanceMonitoringParams(
+        const InstanceIdent& instanceIdent, InstanceMonitoringParams& params) const override
+    {
+        return mParamsErr.IsNone() ? InstanceInfoProviderItfStub::GetInstanceMonitoringParams(instanceIdent, params)
+                                   : mParamsErr;
+    }
+
+    Error GetInstanceMonitoringData(const InstanceIdent& instanceIdent, InstanceMonitoringData& monitoringData) override
+    {
+        return mDataErr.IsNone() ? InstanceInfoProviderItfStub::GetInstanceMonitoringData(instanceIdent, monitoringData)
+                                 : mDataErr;
+    }
+
+    void NotifyStatus(const InstanceIdent& ident, InstanceStateEnum state)
+    {
+        InstanceStatus status;
+
+        static_cast<InstanceIdent&>(status) = ident;
+        status.mState                       = state;
+
+        mCapturedListener->OnInstancesStatusesChanged(Array<InstanceStatus>(&status, 1));
+    }
+
+    Error mGetStatusesErr;
+    Error mSubscribeErr;
+    Error mUnsubscribeErr;
+    Error mParamsErr;
+    Error mDataErr;
+
+    instancestatusprovider::ListenerItf* mCapturedListener {};
+};
+
+} // namespace
+
+class MonitoringErrorsTest : public MonitoringTest {
+protected:
+    void SetUp() override
+    {
+        MonitoringTest::SetUp();
+
+        mFailingNodeConfigProvider.SetNodeConfig(mNodeConfig);
+        mFailingNodeInfoProvider.SetCurrentNodeInfo(mNodeInfo);
+    }
+
+    Error Init(Monitoring& monitoring, AllocatorItf& allocator, InstanceInfoProviderItf* instanceInfoProvider)
+    {
+        return monitoring.Init(allocator, mConfig, mFailingNodeConfigProvider, mFailingNodeInfoProvider, mSender,
+            mAlertSender, mNodeMonitoringProvider, instanceInfoProvider);
+    }
+
+    FailableAllocator                  mFailableAllocator;
+    FailingNodeConfigProviderStub      mFailingNodeConfigProvider;
+    FailingCurrentNodeInfoProviderStub mFailingNodeInfoProvider;
+    FailingInstanceInfoProviderStub    mFailingInstanceInfoProvider;
+};
+
+TEST_F(MonitoringErrorsTest, StartStopWrongState)
+{
+    Monitoring monitoring;
+
+    ASSERT_TRUE(Init(monitoring, mFailableAllocator, &mFailingInstanceInfoProvider).IsNone());
+
+    EXPECT_TRUE(monitoring.Stop().Is(ErrorEnum::eWrongState));
+
+    ASSERT_TRUE(monitoring.Start().IsNone());
+    EXPECT_TRUE(monitoring.Start().Is(ErrorEnum::eWrongState));
+
+    EXPECT_TRUE(monitoring.Stop().IsNone());
+    EXPECT_TRUE(monitoring.Stop().Is(ErrorEnum::eWrongState));
+}
+
+TEST_F(MonitoringErrorsTest, NodeConfigChanged)
+{
+    Monitoring monitoring;
+
+    ASSERT_TRUE(Init(monitoring, mFailableAllocator, &mFailingInstanceInfoProvider).IsNone());
+    ASSERT_TRUE(monitoring.Start().IsNone());
+
+    EXPECT_TRUE(mFailingNodeConfigProvider.SetNodeConfig(mNodeConfig).IsNone());
+
+    mNodeConfig.mAlertRules.Reset();
+    EXPECT_TRUE(mFailingNodeConfigProvider.SetNodeConfig(mNodeConfig).IsNone());
+
+    EXPECT_TRUE(monitoring.Stop().IsNone());
+}
+
+TEST_F(MonitoringErrorsTest, StartWithoutInstanceInfoProvider)
+{
+    Monitoring monitoring;
+
+    ASSERT_TRUE(Init(monitoring, mFailableAllocator, nullptr).IsNone());
+
+    ASSERT_TRUE(monitoring.Start().IsNone());
+    EXPECT_TRUE(monitoring.Stop().IsNone());
+}
+
+TEST_F(MonitoringErrorsTest, StartFailures)
+{
+    const auto check = [this](const std::function<void()>& injectError, const char* description) {
+        Monitoring monitoring;
+
+        mFailingNodeInfoProvider.mGetErr             = ErrorEnum::eNone;
+        mFailingInstanceInfoProvider.mGetStatusesErr = ErrorEnum::eNone;
+        mFailingInstanceInfoProvider.mSubscribeErr   = ErrorEnum::eNone;
+        mFailingNodeConfigProvider.mSubscribeErr     = ErrorEnum::eNone;
+        mFailingNodeConfigProvider.mGetErr           = ErrorEnum::eNone;
+
+        injectError();
+
+        ASSERT_TRUE(Init(monitoring, mFailableAllocator, &mFailingInstanceInfoProvider).IsNone());
+
+        EXPECT_TRUE(monitoring.Start().Is(ErrorEnum::eFailed)) << description;
+        EXPECT_TRUE(monitoring.Stop().Is(ErrorEnum::eWrongState)) << description;
+    };
+
+    check([this] { mFailingNodeInfoProvider.mGetErr = ErrorEnum::eFailed; }, "get node info");
+    check([this] { mFailingInstanceInfoProvider.mGetStatusesErr = ErrorEnum::eFailed; }, "get instances statuses");
+    check([this] { mFailingInstanceInfoProvider.mSubscribeErr = ErrorEnum::eFailed; }, "subscribe instances");
+    check([this] { mFailingNodeConfigProvider.mSubscribeErr = ErrorEnum::eFailed; }, "subscribe node config");
+    check([this] { mFailingNodeConfigProvider.mGetErr = ErrorEnum::eFailed; }, "get node config");
+}
+
+TEST_F(MonitoringErrorsTest, StartNoMemory)
+{
+    {
+        Monitoring monitoring;
+
+        ASSERT_TRUE(Init(monitoring, mFailableAllocator, &mFailingInstanceInfoProvider).IsNone());
+
+        mFailableAllocator.SetFail(true);
+
+        EXPECT_TRUE(monitoring.Start().Is(ErrorEnum::eNoMemory));
+    }
+
+    {
+        Monitoring monitoring;
+
+        ASSERT_TRUE(Init(monitoring, mFailableAllocator, nullptr).IsNone());
+
+        EXPECT_TRUE(monitoring.Start().Is(ErrorEnum::eNoMemory));
+    }
+}
+
+TEST_F(MonitoringErrorsTest, StopUnsubscribeFailures)
+{
+    {
+        Monitoring monitoring;
+
+        ASSERT_TRUE(Init(monitoring, mFailableAllocator, &mFailingInstanceInfoProvider).IsNone());
+        ASSERT_TRUE(monitoring.Start().IsNone());
+
+        mFailingNodeConfigProvider.mUnsubscribeErr = ErrorEnum::eFailed;
+
+        EXPECT_TRUE(monitoring.Stop().Is(ErrorEnum::eFailed));
+    }
+
+    mFailingNodeConfigProvider.mUnsubscribeErr = ErrorEnum::eNone;
+
+    {
+        Monitoring monitoring;
+
+        ASSERT_TRUE(Init(monitoring, mFailableAllocator, &mFailingInstanceInfoProvider).IsNone());
+        ASSERT_TRUE(monitoring.Start().IsNone());
+
+        mFailingInstanceInfoProvider.mUnsubscribeErr = ErrorEnum::eFailed;
+
+        EXPECT_TRUE(monitoring.Stop().Is(ErrorEnum::eFailed));
+    }
+}
+
+TEST_F(MonitoringErrorsTest, WatchInstanceErrors)
+{
+    const auto cIdent = InstanceIdent {"item", "1.0.0", "subject", 1, UpdateItemTypeEnum::eService};
+
+    Monitoring monitoring;
+
+    ASSERT_TRUE(Init(monitoring, mFailableAllocator, &mFailingInstanceInfoProvider).IsNone());
+    ASSERT_TRUE(monitoring.Start().IsNone());
+
+    mFailingInstanceInfoProvider.mParamsErr = ErrorEnum::eFailed;
+    mFailingInstanceInfoProvider.NotifyStatus(cIdent, InstanceStateEnum::eActive);
+    mFailingInstanceInfoProvider.mParamsErr = ErrorEnum::eNone;
+
+    NodeMonitoringData averageData;
+
+    ASSERT_TRUE(monitoring.GetAverageMonitoringData(averageData).IsNone());
+    EXPECT_TRUE(averageData.mInstances.IsEmpty());
+
+    // Instance with an alert rule for an unknown partition and without other rules is watched.
+    AlertRules rules;
+    rules.mPartitions.EmplaceBack(PartitionAlertRule {Time::cMilliseconds, 10, 20, "unknown"});
+
+    mFailingInstanceInfoProvider.SetInstanceMonitoringParams(cIdent, rules);
+    mFailingInstanceInfoProvider.NotifyStatus(cIdent, InstanceStateEnum::eActive);
+    mFailingInstanceInfoProvider.NotifyStatus(cIdent, InstanceStateEnum::eActivating);
+
+    ASSERT_TRUE(monitoring.GetAverageMonitoringData(averageData).IsNone());
+    EXPECT_EQ(averageData.mInstances.Size(), 1);
+
+    mFailingInstanceInfoProvider.NotifyStatus(cIdent, InstanceStateEnum::eFailed);
+
+    ASSERT_TRUE(monitoring.GetAverageMonitoringData(averageData).IsNone());
+    EXPECT_TRUE(averageData.mInstances.IsEmpty());
+
+    // No memory to start average instance monitoring: instance is not watched.
+    mFailableAllocator.SetFail(true);
+    mFailingInstanceInfoProvider.NotifyStatus(cIdent, InstanceStateEnum::eActive);
+    mFailableAllocator.SetFail(false);
+
+    ASSERT_TRUE(monitoring.GetAverageMonitoringData(averageData).IsNone());
+    EXPECT_TRUE(averageData.mInstances.IsEmpty());
+
+    size_t watched = 0;
+
+    for (size_t i = 0; i < cMaxNumInstances + 1; i++) {
+        const auto ident = InstanceIdent {"item", "1.0.0", "subject", i, UpdateItemTypeEnum::eService};
+
+        mFailingInstanceInfoProvider.SetInstanceMonitoringParams(ident, {});
+        mFailingInstanceInfoProvider.NotifyStatus(ident, InstanceStateEnum::eActive);
+    }
+
+    ASSERT_TRUE(monitoring.GetAverageMonitoringData(averageData).IsNone());
+
+    watched = averageData.mInstances.Size();
+    EXPECT_EQ(watched, cMaxNumInstances);
+
+    EXPECT_TRUE(monitoring.Stop().IsNone());
+}
+
+TEST_F(MonitoringErrorsTest, ProcessMonitoringErrors)
+{
+    const auto cIdent = InstanceIdent {"item", "1.0.0", "subject", 1, UpdateItemTypeEnum::eService};
+
+    FailingSenderStub      sender;
+    FailingAlertSenderStub alertSender;
+
+    sender.mErr      = ErrorEnum::eFailed;
+    alertSender.mErr = ErrorEnum::eFailed;
+
+    // The CPU alert can't be sent and the partition usage is not provided.
+    mNodeConfig.mAlertRules.EmplaceValue();
+    mNodeConfig.mAlertRules->mCPU.SetValue(AlertRulePercents {Duration {}, 10, 20});
+    mNodeConfig.mAlertRules->mPartitions.EmplaceBack(cSysStatesRule);
+    mFailingNodeConfigProvider.SetNodeConfig(mNodeConfig);
+
+    mNodeMonitoringProvider.SetMonitoringData(SystemTestData().CPU(cMaxDMIPS * 0.3));
+
+    mFailingInstanceInfoProvider.mDataErr = ErrorEnum::eFailed;
+    mFailingInstanceInfoProvider.SetInstanceMonitoringParams(cIdent, {});
+    ASSERT_TRUE(mFailingInstanceInfoProvider.SetInstanceStatus(cIdent, InstanceStateEnum::eActive).IsNone());
+
+    Monitoring monitoring;
+
+    auto err = monitoring.Init(mAllocator, mConfig, mFailingNodeConfigProvider, mFailingNodeInfoProvider, sender,
+        alertSender, mNodeMonitoringProvider, &mFailingInstanceInfoProvider);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_TRUE(monitoring.Start().IsNone());
+
+    auto sentData = std::make_unique<NodeMonitoringData>();
+
+    err = sender.GetMonitoringData(*sentData);
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(monitoring.Stop().IsNone());
+
+    EXPECT_EQ(sentData->mMonitoringData.mCPU, cMaxDMIPS * 0.3);
+    EXPECT_TRUE(sentData->mInstances.IsEmpty());
+
+    SystemQuotaAlert alert;
+
+    err = alertSender.GetAlert(alert);
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(alert.mParameter, "cpu");
+    EXPECT_EQ(alert.mState, QuotaAlertStateEnum::eRaise);
+}
+
+TEST_F(MonitoringErrorsTest, NodeMonitoringDataNotAvailable)
+{
+    FailingNodeMonitoringProviderStub nodeMonitoringProvider;
+
+    nodeMonitoringProvider.mErr = ErrorEnum::eFailed;
+
+    Monitoring monitoring;
+
+    auto err = monitoring.Init(mAllocator, mConfig, mFailingNodeConfigProvider, mFailingNodeInfoProvider, mSender,
+        mAlertSender, nodeMonitoringProvider, nullptr);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_TRUE(monitoring.Start().IsNone());
+
+    // The monitoring data is sent even if the node data is not available.
+    auto sentData = std::make_unique<NodeMonitoringData>();
+
+    err = mSender.GetMonitoringData(*sentData);
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_TRUE(monitoring.Stop().IsNone());
+
+    EXPECT_EQ(sentData->mMonitoringData.mCPU, 0);
+}
+
+TEST_F(MonitoringErrorsTest, ProcessMonitoringNoMemory)
+{
+    NoMemoryNotifyingAllocator allocator;
+
+    Monitoring monitoring;
+
+    ASSERT_TRUE(Init(monitoring, allocator, nullptr).IsNone());
+
+    // The monitoring is started with the memory available, then the memory is exhausted for the monitoring data.
+    mFailingNodeConfigProvider.mOnGet = [&allocator] { allocator.SetFail(true); };
+
+    auto failed = allocator.GetFailedFuture();
+
+    ASSERT_TRUE(monitoring.Start().IsNone());
+    ASSERT_EQ(failed.wait_for(cWaitTimeout), std::future_status::ready);
+
+    // Stop waits until the timer callback is finished.
+    EXPECT_TRUE(monitoring.Stop().IsNone());
+
+    allocator.SetFail(false);
+}
+
+TEST_F(MonitoringErrorsTest, PartitionsOverflow)
+{
+    const auto cIdent = InstanceIdent {"item", "1.0.0", "subject", 1, UpdateItemTypeEnum::eService};
+
+    mNodeConfig.mAlertRules.Reset();
+    mNodeConfigProvider.SetNodeConfig(mNodeConfig);
+
+    auto createNodeData = [](const char* lastName) {
+        SystemTestData data;
+
+        for (size_t i = 0; i < cMaxNumPartitions - 1; i++) {
+            data.Partition(("p" + std::to_string(i)).c_str(), 1);
+        }
+
+        data.Partition(lastName, 1);
+
+        return data;
+    };
+
+    // The node partitions list is full, so the instance partition can't be added to the normalized data.
+    mNodeMonitoringProvider.SetMonitoringData(createNodeData("last"));
+    mInstanceInfoProvider.SetInstancesMonitoringData(cIdent, InstanceTestData().Partition("extra", 2));
+
+    // The average node data can't get the changed partition name.
+    mNodeMonitoringProvider.SetMonitoringData(createNodeData("changed"));
+    mInstanceInfoProvider.SetInstancesMonitoringData(cIdent, InstanceTestData().Partition("extra", 2));
+
+    ASSERT_TRUE(mInstanceInfoProvider.SetInstanceStatus(cIdent, InstanceStateEnum::eActive).IsNone());
+    mInstanceInfoProvider.SetInstanceMonitoringParams(cIdent, {});
+
+    auto err = mMonitoring.Init(mAllocator, mConfig, mNodeConfigProvider, mCurrentNodeInfoProvider, mSender,
+        mAlertSender, mNodeMonitoringProvider, &mInstanceInfoProvider);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    ASSERT_TRUE(mMonitoring.Start().IsNone());
+
+    for (const auto* lastName : {"last", "changed"}) {
+        auto sentData = std::make_unique<NodeMonitoringData>();
+
+        err = mSender.GetMonitoringData(*sentData);
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+        EXPECT_EQ(sentData->mMonitoringData.mPartitions.Size(), cMaxNumPartitions) << lastName;
+        EXPECT_EQ(sentData->mMonitoringData.mPartitions.Back().mName, lastName);
+    }
+
+    EXPECT_TRUE(mMonitoring.Stop().IsNone());
+
+    NodeMonitoringData average;
+
+    err = mMonitoring.GetAverageMonitoringData(average);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    EXPECT_EQ(average.mMonitoringData.mPartitions.Back().mName, "last");
+}
+
+/***********************************************************************************************************************
+ * Average
+ **********************************************************************************************************************/
+
+class AverageTest : public Test {
+protected:
+    void SetUp() override { tests::utils::InitLog(); }
+
+    HeapAllocator mAllocator;
+};
+
+TEST_F(AverageTest, ZeroWindowUsesLatestValues)
+{
+    Average average;
+
+    ASSERT_TRUE(average.Init(mAllocator, 0).IsNone());
+
+    NodeMonitoringData data;
+    data.mMonitoringData.mCPU = 100;
+    data.mMonitoringData.mRAM = 200;
+
+    ASSERT_TRUE(average.Update(data).IsNone());
+
+    data.mMonitoringData.mCPU = 300;
+    data.mMonitoringData.mRAM = 400;
+
+    ASSERT_TRUE(average.Update(data).IsNone());
+
+    NodeMonitoringData result;
+
+    ASSERT_TRUE(average.GetData(result).IsNone());
+    EXPECT_EQ(result.mMonitoringData.mCPU, 300);
+    EXPECT_EQ(result.mMonitoringData.mRAM, 400);
+}
+
+TEST_F(AverageTest, InstanceMonitoringErrors)
+{
+    const auto cIdent = InstanceIdent {"item", "1.0.0", "subject", 1, UpdateItemTypeEnum::eService};
+
+    Average average;
+
+    ASSERT_TRUE(average.Init(mAllocator, 3).IsNone());
+
+    EXPECT_TRUE(average.StopInstanceMonitoring(cIdent).Is(ErrorEnum::eNotFound));
+
+    NodeMonitoringData data;
+    data.mInstances.EmplaceBack(cIdent);
+
+    EXPECT_TRUE(average.Update(data).Is(ErrorEnum::eNotFound));
+
+    ASSERT_TRUE(average.StartInstanceMonitoring(cIdent).IsNone());
+    EXPECT_TRUE(average.StartInstanceMonitoring(cIdent).Is(ErrorEnum::eAlreadyExist));
+
+    data.mInstances.Back().mRuntimeID = "runtime";
+
+    EXPECT_TRUE(average.Update(data).IsNone());
+
+    NodeMonitoringData result;
+
+    ASSERT_TRUE(average.GetData(result).IsNone());
+    ASSERT_EQ(result.mInstances.Size(), 1);
+    EXPECT_STREQ(result.mInstances[0].mRuntimeID.CStr(), "runtime");
+
+    EXPECT_TRUE(average.StopInstanceMonitoring(cIdent).IsNone());
+}
+
+TEST_F(AverageTest, InstanceMonitoringLimits)
+{
+    Average average;
+
+    ASSERT_TRUE(average.Init(mAllocator, 3).IsNone());
+
+    for (size_t i = 0; i < cMaxNumInstances; i++) {
+        ASSERT_TRUE(
+            average.StartInstanceMonitoring(InstanceIdent {"item", "1.0.0", "subject", i, UpdateItemTypeEnum::eService})
+                .IsNone());
+    }
+
+    EXPECT_TRUE(average
+                    .StartInstanceMonitoring(
+                        InstanceIdent {"item", "1.0.0", "subject", cMaxNumInstances, UpdateItemTypeEnum::eService})
+                    .Is(ErrorEnum::eNoMemory));
+
+    FailableAllocator failableAllocator;
+    Average           noMemoryAverage;
+
+    ASSERT_TRUE(noMemoryAverage.Init(failableAllocator, 3).IsNone());
+
+    failableAllocator.SetFail(true);
+
+    EXPECT_TRUE(
+        noMemoryAverage
+            .StartInstanceMonitoring(InstanceIdent {"item", "1.0.0", "subject", 1, UpdateItemTypeEnum::eService})
+            .Is(ErrorEnum::eNoMemory));
+}
+
+TEST_F(AverageTest, UpdateTooManyPartitions)
+{
+    Average average;
+
+    ASSERT_TRUE(average.Init(mAllocator, 3).IsNone());
+
+    NodeMonitoringData data;
+
+    for (size_t i = 0; i < cMaxNumPartitions; i++) {
+        data.mMonitoringData.mPartitions.EmplaceBack();
+        data.mMonitoringData.mPartitions.Back().mName.Format("p%d", static_cast<int>(i));
+    }
+
+    ASSERT_TRUE(average.Update(data).IsNone());
+
+    data.mMonitoringData.mPartitions.Back().mName = "another";
+
+    EXPECT_TRUE(average.Update(data).Is(ErrorEnum::eNoMemory));
+}
+
+TEST_F(AverageTest, UpdateTooManyInstancePartitions)
+{
+    const auto cIdent = InstanceIdent {"item", "1.0.0", "subject", 1, UpdateItemTypeEnum::eService};
+
+    Average average;
+
+    ASSERT_TRUE(average.Init(mAllocator, 3).IsNone());
+    ASSERT_TRUE(average.StartInstanceMonitoring(cIdent).IsNone());
+
+    NodeMonitoringData data;
+
+    data.mInstances.EmplaceBack(cIdent);
+
+    auto& partitions = data.mInstances.Back().mMonitoringData.mPartitions;
+
+    for (size_t i = 0; i < cMaxNumPartitions; i++) {
+        partitions.EmplaceBack();
+        partitions.Back().mName.Format("p%d", static_cast<int>(i));
+    }
+
+    ASSERT_TRUE(average.Update(data).IsNone());
+
+    partitions.Back().mName = "another";
+
+    EXPECT_TRUE(average.Update(data).Is(ErrorEnum::eNoMemory));
 }
 
 } // namespace aos::monitoring

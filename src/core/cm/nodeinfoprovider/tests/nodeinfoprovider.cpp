@@ -12,7 +12,9 @@
 
 #include <gtest/gtest.h>
 
+#include <core/common/tests/mocks/nodeinfoprovidermock.hpp>
 #include <core/common/tests/stubs/nodeinfoproviderstub.hpp>
+#include <core/common/tests/stubs/testallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/heapallocator.hpp>
@@ -22,9 +24,7 @@
 using namespace testing;
 
 namespace aos::cm::nodeinfoprovider {
-
 namespace {
-
 /***********************************************************************************************************************
  * Static
  **********************************************************************************************************************/
@@ -82,6 +82,49 @@ private:
     std::mutex                mMutex;
     std::condition_variable   mCondVar;
     std::vector<UnitNodeInfo> mReceivedInfos;
+};
+
+class CMNodeInfoProviderErrorsTest : public Test {
+protected:
+    void SetUp() override
+    {
+        tests::utils::InitLog();
+
+        auto err = mNodeInfoProvider.Init(mAllocator, Config {Time::cDay}, mIAMNodeInfoProvider);
+        ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    }
+
+    void ExpectNodeIDs(size_t count)
+    {
+        EXPECT_CALL(mIAMNodeInfoProvider, GetAllNodeIDs).WillOnce(Invoke([count](Array<StaticString<cIDLen>>& ids) {
+            for (size_t i = 0; i < count; ++i) {
+                if (auto err = ids.EmplaceBack(("node" + std::to_string(i)).c_str()); !err.IsNone()) {
+                    return err;
+                }
+            }
+
+            return Error(ErrorEnum::eNone);
+        }));
+    }
+
+    void ExpectNodeInfos()
+    {
+        EXPECT_CALL(mIAMNodeInfoProvider, GetNodeInfo)
+            .WillRepeatedly(Invoke([](const String& nodeID, NodeInfo& nodeInfo) {
+                nodeInfo              = NodeInfo {};
+                nodeInfo.mNodeID      = nodeID;
+                nodeInfo.mState       = NodeStateEnum::eProvisioned;
+                nodeInfo.mIsConnected = false;
+
+                return ErrorEnum::eNone;
+            }));
+    }
+
+    tests::TestAllocator mAllocator;
+
+    StrictMock<iamclient::NodeInfoProviderMock> mIAMNodeInfoProvider;
+    NodeInfoListenerStub                        mListener;
+    NodeInfoProvider                            mNodeInfoProvider;
 };
 
 } // namespace
@@ -402,6 +445,150 @@ TEST_F(CMNodeInfoProviderTest, NotifySubscribersOnceSMInfoReceived)
 
     err = mNodeInfoProvider.Stop();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(CMNodeInfoProviderErrorsTest, StartErrors)
+{
+    mAllocator.FailAfter(0);
+
+    auto err = mNodeInfoProvider.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    mAllocator.Reset();
+
+    EXPECT_CALL(mIAMNodeInfoProvider, GetAllNodeIDs).WillOnce(Return(ErrorEnum::eFailed));
+
+    err = mNodeInfoProvider.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    ExpectNodeIDs(1);
+    mAllocator.FailAfter(1);
+
+    err = mNodeInfoProvider.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    mAllocator.Reset();
+
+    ExpectNodeIDs(1);
+    EXPECT_CALL(mIAMNodeInfoProvider, GetNodeInfo).WillOnce(Return(ErrorEnum::eNotFound));
+
+    err = mNodeInfoProvider.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
+
+    // Subscribe error, cache stays filled with all nodes
+
+    iamclient::NodeInfoListenerItf* iamListener = nullptr;
+
+    ExpectNodeIDs(cMaxNumNodes);
+    ExpectNodeInfos();
+    EXPECT_CALL(mIAMNodeInfoProvider, SubscribeListener)
+        .WillOnce(Invoke([&iamListener](iamclient::NodeInfoListenerItf& listener) {
+            iamListener = &listener;
+
+            return ErrorEnum::eTimeout;
+        }));
+
+    err = mNodeInfoProvider.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eTimeout)) << tests::utils::ErrorToStr(err);
+
+    ExpectNodeIDs(1);
+
+    err = mNodeInfoProvider.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    StaticArray<StaticString<cIDLen>, 1> ids;
+
+    err = mNodeInfoProvider.GetAllNodeIDs(ids);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    err = mNodeInfoProvider.SubscribeListener(mListener);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    // Unknown nodes can't be added to the full cache
+
+    mNodeInfoProvider.OnSMConnected("unknown");
+    mNodeInfoProvider.OnSMDisconnected("unknown", ErrorEnum::eNone);
+
+    err = mNodeInfoProvider.OnSMInfoReceived(SMInfo {"unknown", {}, {}});
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    ASSERT_NE(iamListener, nullptr);
+
+    auto unknownNodeInfo = std::make_unique<NodeInfo>();
+
+    unknownNodeInfo->mNodeID = "unknown";
+
+    iamListener->OnNodeInfoChanged(*unknownNodeInfo);
+
+    auto nodeInfo = std::make_unique<UnitNodeInfo>();
+
+    EXPECT_TRUE(mNodeInfoProvider.GetNodeInfo("unknown", *nodeInfo).Is(ErrorEnum::eNotFound));
+    EXPECT_FALSE(mListener.Wait(Time::cMilliseconds, *nodeInfo)) << "No notification expected";
+}
+
+TEST_F(CMNodeInfoProviderErrorsTest, StartStopWrongState)
+{
+    auto err = mNodeInfoProvider.Stop();
+    EXPECT_TRUE(err.Is(ErrorEnum::eWrongState)) << tests::utils::ErrorToStr(err);
+
+    ExpectNodeIDs(0);
+    EXPECT_CALL(mIAMNodeInfoProvider, SubscribeListener).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mNodeInfoProvider.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mNodeInfoProvider.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eWrongState)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mIAMNodeInfoProvider, UnsubscribeListener).WillOnce(Return(ErrorEnum::eFailed));
+
+    err = mNodeInfoProvider.Stop();
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mIAMNodeInfoProvider, UnsubscribeListener).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mNodeInfoProvider.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(CMNodeInfoProviderErrorsTest, SubscribeUnsubscribeListener)
+{
+    auto err = mNodeInfoProvider.SubscribeListener(mListener);
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mNodeInfoProvider.SubscribeListener(mListener);
+    EXPECT_TRUE(err.Is(ErrorEnum::eAlreadyExist)) << tests::utils::ErrorToStr(err);
+
+    err = mNodeInfoProvider.UnsubscribeListener(mListener);
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mNodeInfoProvider.UnsubscribeListener(mListener);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(CMNodeInfoProviderErrorsTest, NotifyNoMemory)
+{
+    auto err = mNodeInfoProvider.SubscribeListener(mListener);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    mNodeInfoProvider.OnSMConnected("node1");
+    mNodeInfoProvider.OnSMConnected("node1");
+
+    auto nodeInfo = std::make_unique<UnitNodeInfo>();
+
+    mAllocator.FailAfter(0);
+
+    mNodeInfoProvider.OnSMDisconnected("node1", ErrorEnum::eNone);
+
+    mAllocator.Reset();
+
+    EXPECT_FALSE(mListener.Wait(Time::cMilliseconds, *nodeInfo)) << "No notification expected without memory";
+
+    mNodeInfoProvider.OnSMDisconnected("node1", ErrorEnum::eNone);
+
+    ASSERT_TRUE(mListener.Wait(Time::cSeconds, *nodeInfo)) << "Notification expected";
+    EXPECT_EQ(nodeInfo->mNodeID, "node1");
+    EXPECT_FALSE(nodeInfo->mIsConnected);
 }
 
 } // namespace aos::cm::nodeinfoprovider

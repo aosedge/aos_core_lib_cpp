@@ -20,9 +20,7 @@
 using namespace testing;
 
 namespace aos::spaceallocator {
-
 namespace {
-
 /***********************************************************************************************************************
  * Consts
  **********************************************************************************************************************/
@@ -73,6 +71,12 @@ private:
     ConditionalVariable mCondVar;
     bool                mEntered {};
     bool                mReleased {};
+};
+
+class NullAllocator : public AllocatorItf {
+public:
+    void* Allocate(size_t) override { return nullptr; }
+    void  Free(void*) override { }
 };
 
 } // namespace
@@ -1426,6 +1430,245 @@ TEST_F(SpaceallocatorTest, OutdatedItemsListIsConsistentDuringEviction)
     ASSERT_TRUE(space->Accept().IsNone());
 
     ASSERT_TRUE(mSpaceAllocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, InitErrors)
+{
+    SpaceAllocator<5> mSpaceAllocator;
+
+    const String filePath = "spaceallocator_file";
+
+    ASSERT_TRUE(fs::WriteStringToFile(filePath, "content", 0600).IsNone());
+
+    EXPECT_FALSE(mSpaceAllocator.Init(mAllocator, fs::JoinPath(filePath, "dir"), mPlatformFS, mLimit).IsNone());
+
+    ASSERT_TRUE(fs::RemoveAll(filePath).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(StaticString<cFilePathLen>(), ErrorEnum::eFailed)));
+
+    EXPECT_EQ(mSpaceAllocator.Init(mAllocator, mPath, mPlatformFS, mLimit), ErrorEnum::eFailed);
+}
+
+TEST_F(SpaceallocatorTest, InitPartitionLimitExceeded)
+{
+    SpaceAllocator<5> allocator1;
+    SpaceAllocator<5> allocator2;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .Times(2)
+        .WillRepeatedly(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(allocator1.Init(mAllocator, mPath, mPlatformFS, 60).IsNone());
+    EXPECT_EQ(allocator2.Init(mAllocator, mPath, mPlatformFS, 60), ErrorEnum::eNoMemory);
+
+    ASSERT_TRUE(allocator1.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, AddOutdatedItemErrors)
+{
+    SpaceAllocator<5> withoutRemover;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(withoutRemover.Init(mAllocator, mPath, mPlatformFS, mLimit).IsNone());
+
+    EXPECT_EQ(withoutRemover.AddOutdatedItem("item", "1.0.0", Time::Now()), ErrorEnum::eNotFound);
+
+    ASSERT_TRUE(withoutRemover.Close().IsNone());
+
+    SpaceAllocator<5> allocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(allocator.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
+
+    const auto version = std::string(cVersionLen + 1, '1');
+
+    EXPECT_FALSE(allocator.AddOutdatedItem("item", version.c_str(), Time::Now()).IsNone());
+
+    ASSERT_TRUE(allocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, AddOutdatedItemRemoveOldestFails)
+{
+    SpaceAllocator<5> allocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(allocator.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
+
+    const Time now = Time::Now();
+
+    for (size_t i = 0; i < Partition::cMaxNumOutdatedItems; i++) {
+        StaticString<cIDLen> id;
+
+        id.Format("item%d", static_cast<int>(i));
+
+        ASSERT_TRUE(
+            allocator.AddOutdatedItem(id, "1.0.0", now.Add(-1 * Time::cHours).Add(i * Time::cSeconds)).IsNone());
+    }
+
+    // The list is full, so the oldest item is removed to add the new one.
+    EXPECT_CALL(mRemover, RemoveItem(String("item0"), String("1.0.0")))
+        .WillOnce(Return(RetWithError<size_t>(0, ErrorEnum::eFailed)));
+
+    EXPECT_EQ(allocator.AddOutdatedItem("new", "1.0.0", now), ErrorEnum::eFailed);
+
+    ASSERT_TRUE(allocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, AllocateSpaceGetAvailableSizeFails)
+{
+    SpaceAllocator<5> allocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(allocator.Init(mAllocator, mPath, mPlatformFS, mLimit).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillOnce(Return(RetWithError<size_t>(0, ErrorEnum::eFailed)));
+
+    auto [space, err] = allocator.AllocateSpace(1 * cKilobyte);
+    EXPECT_EQ(err, ErrorEnum::eFailed);
+    EXPECT_EQ(space.Get(), nullptr);
+
+    ASSERT_TRUE(allocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, AllocateSpaceRemoveOutdatedItemFails)
+{
+    SpaceAllocator<5> allocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(allocator.Init(mAllocator, mPath, mPlatformFS, mLimit, &mRemover).IsNone());
+
+    ASSERT_TRUE(allocator.AddOutdatedItem("item", "1.0.0", Time::Now()).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillOnce(Return(RetWithError<size_t>(10 * cKilobyte, ErrorEnum::eNone)));
+    EXPECT_CALL(mRemover, RemoveItem(String("item"), String("1.0.0")))
+        .WillOnce(Return(RetWithError<size_t>(0, ErrorEnum::eFailed)));
+
+    auto [space, err] = allocator.AllocateSpace(20 * cKilobyte);
+    EXPECT_EQ(err, ErrorEnum::eFailed);
+    EXPECT_EQ(space.Get(), nullptr);
+
+    ASSERT_TRUE(allocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, AllocateSpaceNoMemoryForSpace)
+{
+    NullAllocator     nullAllocator;
+    SpaceAllocator<5> allocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(allocator.Init(nullAllocator, mPath, mPlatformFS, mLimit).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(10 * cKilobyte, ErrorEnum::eNone)));
+
+    // The accounting is rolled back, so the same size is requested twice.
+    for (size_t i = 0; i < 2; i++) {
+        auto [space, err] = allocator.AllocateSpace(8 * cKilobyte);
+        EXPECT_EQ(err, ErrorEnum::eNoMemory);
+        EXPECT_EQ(space.Get(), nullptr);
+    }
+
+    ASSERT_TRUE(allocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, AllocateSpaceUpdateSizesFails)
+{
+    SpaceAllocator<5> allocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(allocator.Init(mAllocator, mPath, mPlatformFS, 50).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
+        .WillOnce(Return(RetWithError<size_t>(0, ErrorEnum::eFailed)))
+        .WillRepeatedly(Return(RetWithError<size_t>(mTotalSize, ErrorEnum::eNone)));
+    EXPECT_CALL(mPlatformFS, GetDirSize(mPath))
+        .WillOnce(Return(RetWithError<size_t>(0, ErrorEnum::eNotFound)))
+        .WillRepeatedly(Return(RetWithError<size_t>(0, ErrorEnum::eNone)));
+
+    auto [space1, err1] = allocator.AllocateSpace(1 * cKilobyte);
+    EXPECT_EQ(err1, ErrorEnum::eFailed);
+    EXPECT_EQ(space1.Get(), nullptr);
+
+    auto [space2, err2] = allocator.AllocateSpace(1 * cKilobyte);
+    EXPECT_EQ(err2, ErrorEnum::eNotFound);
+    EXPECT_EQ(space2.Get(), nullptr);
+
+    ASSERT_TRUE(allocator.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, AllocateSpaceLimitRemoveOutdatedItemFails)
+{
+    SpaceAllocator<5> allocator1;
+    SpaceAllocator<5> allocator2;
+
+    StrictMock<ItemRemoverMock> remover2;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .Times(2)
+        .WillRepeatedly(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(allocator1.Init(mAllocator, mPath, mPlatformFS, 50, &mRemover).IsNone());
+    ASSERT_TRUE(allocator2.Init(mAllocator, mPath, mPlatformFS, mLimit, &remover2).IsNone());
+
+    const Time now = Time::Now();
+
+    // The item of the allocator without limit is not removed to free the limit of the other allocator.
+    ASSERT_TRUE(allocator2.AddOutdatedItem("other", "1.0.0", now.Add(-2 * Time::cHours)).IsNone());
+    ASSERT_TRUE(allocator1.AddOutdatedItem("item", "1.0.0", now.Add(-1 * Time::cHours)).IsNone());
+
+    EXPECT_CALL(mPlatformFS, GetTotalSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(100 * cKilobyte, ErrorEnum::eNone)));
+    EXPECT_CALL(mPlatformFS, GetDirSize(mPath))
+        .WillRepeatedly(Return(RetWithError<size_t>(45 * cKilobyte, ErrorEnum::eNone)));
+    EXPECT_CALL(mPlatformFS, GetAvailableSize(mMountPoint))
+        .WillRepeatedly(Return(RetWithError<size_t>(100 * cKilobyte, ErrorEnum::eNone)));
+
+    EXPECT_CALL(mRemover, RemoveItem(String("item"), String("1.0.0")))
+        .WillOnce(Return(RetWithError<size_t>(0, ErrorEnum::eFailed)))
+        .WillOnce(Return(RetWithError<size_t>(1 * cKilobyte, ErrorEnum::eNone)));
+
+    auto [space, err] = allocator1.AllocateSpace(10 * cKilobyte);
+    EXPECT_EQ(err, ErrorEnum::eFailed);
+    EXPECT_EQ(space.Get(), nullptr);
+
+    // Only the item of the other allocator is left, which is not removed by the allocator with limit.
+    auto [space2, err2] = allocator1.AllocateSpace(10 * cKilobyte);
+    EXPECT_EQ(err2, ErrorEnum::eNoMemory);
+    EXPECT_EQ(space2.Get(), nullptr);
+
+    ASSERT_TRUE(allocator1.Close().IsNone());
+    ASSERT_TRUE(allocator2.Close().IsNone());
+}
+
+TEST_F(SpaceallocatorTest, AllocateDoneWithoutAllocation)
+{
+    SpaceAllocator<5> allocator;
+
+    EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));
+
+    ASSERT_TRUE(allocator.Init(mAllocator, mPath, mPlatformFS, 50).IsNone());
+
+    EXPECT_EQ(allocator.AllocateDone(), ErrorEnum::eNotFound);
+
+    ASSERT_TRUE(allocator.Close().IsNone());
 }
 
 } // namespace aos::spaceallocator

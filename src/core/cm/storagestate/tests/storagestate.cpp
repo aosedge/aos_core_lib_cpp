@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <condition_variable>
 #include <filesystem>
 #include <fstream>
 #include <future>
@@ -16,6 +17,7 @@
 #include <core/cm/storagestate/storagestate.hpp>
 #include <core/common/crypto/cryptoprovider.hpp>
 #include <core/common/tests/mocks/fsmock.hpp>
+#include <core/common/tests/stubs/testallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/heapallocator.hpp>
@@ -23,9 +25,7 @@
 using namespace testing;
 
 namespace aos::cm::storagestate {
-
 namespace {
-
 /***********************************************************************************************************************
  * Constants
  **********************************************************************************************************************/
@@ -45,6 +45,10 @@ public:
     {
         std::lock_guard lock {mMutex};
 
+        if (!mAddErr.IsNone()) {
+            return mAddErr;
+        }
+
         LOG_DBG() << "Add storage state info" << Log::Field("instanceIdent", storageStateInfo.mInstanceIdent);
 
         if (auto it = mStorageStateInfos.find(storageStateInfo.mInstanceIdent); it != mStorageStateInfos.end()) {
@@ -59,6 +63,10 @@ public:
     Error RemoveStorageStateInfo(const InstanceIdent& instanceIdent) override
     {
         std::lock_guard lock {mMutex};
+
+        if (!mRemoveErr.IsNone()) {
+            return mRemoveErr;
+        }
 
         LOG_DBG() << "Remove storage state info" << Log::Field("instanceIdent", instanceIdent);
 
@@ -76,6 +84,10 @@ public:
     {
         std::lock_guard lock {mMutex};
 
+        if (!mGetAllErr.IsNone()) {
+            return mGetAllErr;
+        }
+
         LOG_DBG() << "Get all storage state infos";
 
         for (const auto& [instanceIdent, storageStateInfo] : mStorageStateInfos) {
@@ -90,6 +102,10 @@ public:
     Error GetStorageStateInfo(const InstanceIdent& instanceIdent, InstanceInfo& storageStateInfo) override
     {
         std::lock_guard lock {mMutex};
+
+        if (!mGetErr.IsNone()) {
+            return mGetErr;
+        }
 
         LOG_DBG() << "Get storage state info" << Log::Field("instanceIdent", instanceIdent);
 
@@ -106,6 +122,10 @@ public:
     Error UpdateStorageStateInfo(const InstanceInfo& storageStateInfo) override
     {
         std::lock_guard lock {mMutex};
+
+        if (!mUpdateErr.IsNone()) {
+            return mUpdateErr;
+        }
 
         LOG_DBG() << "Update storage state info" << Log::Field("instanceIdent", storageStateInfo.mInstanceIdent);
 
@@ -129,6 +149,12 @@ public:
             return predicate(pair.second);
         }) != mStorageStateInfos.end();
     }
+
+    Error mAddErr;
+    Error mRemoveErr;
+    Error mGetAllErr;
+    Error mGetErr;
+    Error mUpdateErr;
 
 private:
     std::mutex                            mMutex;
@@ -170,6 +196,90 @@ class SenderMock : public SenderItf {
 public:
     MOCK_METHOD(Error, SendStateRequest, (const StateRequest& request), (override));
     MOCK_METHOD(Error, SendNewState, (const NewState& state), (override));
+};
+
+class HashStub : public crypto::HashItf {
+public:
+    HashStub(const Error& updateErr, const Error& finalizeErr)
+        : mUpdateErr(updateErr)
+        , mFinalizeErr(finalizeErr)
+    {
+    }
+
+    Error Update(const Array<uint8_t>& data) override
+    {
+        (void)data;
+
+        return mUpdateErr;
+    }
+
+    Error Finalize(Array<uint8_t>& hash) override
+    {
+        (void)hash;
+
+        return mFinalizeErr;
+    }
+
+private:
+    Error mUpdateErr;
+    Error mFinalizeErr;
+};
+
+class HasherStub : public crypto::HasherItf {
+public:
+    HasherStub(crypto::HasherItf& hasher, AllocatorItf& allocator)
+        : mHasher(hasher)
+        , mAllocator(allocator)
+    {
+    }
+
+    RetWithError<UniquePtr<crypto::HashItf>> CreateHash(const crypto::Hash& algorithm) override
+    {
+        std::unique_lock lock {mMutex};
+
+        mCalls++;
+        mCondVar.notify_all();
+
+        if (!mCreateErr.IsNone()) {
+            return {{}, mCreateErr};
+        }
+
+        if (mUpdateErr.IsNone() && mFinalizeErr.IsNone()) {
+            return mHasher.CreateHash(algorithm);
+        }
+
+        auto hash = MakeUnique<HashStub>(&mAllocator, mUpdateErr, mFinalizeErr);
+
+        return {UniquePtr<crypto::HashItf>(Move(hash)), ErrorEnum::eNone};
+    }
+
+    void SetErrors(
+        const Error& createErr, const Error& updateErr = ErrorEnum::eNone, const Error& finalizeErr = ErrorEnum::eNone)
+    {
+        std::lock_guard lock {mMutex};
+
+        mCreateErr   = createErr;
+        mUpdateErr   = updateErr;
+        mFinalizeErr = finalizeErr;
+        mCalls       = 0;
+    }
+
+    bool WaitCalls(size_t count)
+    {
+        std::unique_lock lock {mMutex};
+
+        return mCondVar.wait_for(lock, std::chrono::seconds(10), [&] { return mCalls >= count; });
+    }
+
+private:
+    crypto::HasherItf&      mHasher;
+    AllocatorItf&           mAllocator;
+    std::mutex              mMutex;
+    std::condition_variable mCondVar;
+    size_t                  mCalls = 0;
+    Error                   mCreateErr;
+    Error                   mUpdateErr;
+    Error                   mFinalizeErr;
 };
 
 /***********************************************************************************************************************
@@ -256,11 +366,31 @@ protected:
         return ErrorEnum::eNone;
     }
 
+    Error InitWithStubs()
+    {
+        return mStorageState.Init(
+            mTestAllocator, mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mHasherStub);
+    }
+
+    std::unique_ptr<UpdateState> CreateUpdateState(const std::string& content)
+    {
+        auto state = std::make_unique<UpdateState>();
+
+        static_cast<InstanceIdent&>(*state) = cInstanceIdent;
+        state->mState                       = content.c_str();
+
+        EXPECT_TRUE(CalculateChecksum(content, state->mChecksum).IsNone());
+
+        return state;
+    }
+
     // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
     // members are destroyed in reverse declaration order.
-    HeapAllocator mAllocator;
+    HeapAllocator        mAllocator;
+    tests::TestAllocator mTestAllocator;
 
     crypto::DefaultCryptoProvider mCryptoProvider;
+    HasherStub                    mHasherStub {mCryptoProvider, mAllocator};
     StorageStub                   mStorageStub;
     StrictMock<FSPlatformMock>    mFSPlatformMock;
     StrictMock<FSWatcherMock>     mFSWatcherMock;
@@ -841,6 +971,472 @@ TEST_F(StorageStateTests, UpdateAndAcceptStateFlow)
 
     err = mStorageState.Stop();
     EXPECT_TRUE(err.IsNone()) << "Failed to stop storage state: " << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(StorageStateTests, InitFails)
+{
+    std::filesystem::create_directories(cTestDir);
+    std::ofstream(cTestDir / "file") << "not a dir";
+
+    auto config      = mConfig;
+    config.mStateDir = (cTestDir / "file" / "state").c_str();
+
+    auto err = mStorageState.Init(
+        mAllocator, config, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
+    EXPECT_FALSE(err.IsNone()) << "Init should fail on state dir creation";
+
+    config             = mConfig;
+    config.mStorageDir = (cTestDir / "file" / "storage").c_str();
+
+    err = mStorageState.Init(
+        mAllocator, config, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
+    EXPECT_FALSE(err.IsNone()) << "Init should fail on storage dir creation";
+
+    EXPECT_CALL(mFSPlatformMock, GetMountPoint)
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>("", ErrorEnum::eFailed)));
+
+    err = mStorageState.Init(
+        mAllocator, mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mFSPlatformMock, GetMountPoint)
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>("partition")))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>("", ErrorEnum::eNotFound)));
+
+    err = mStorageState.Init(
+        mAllocator, mConfig, mStorageStub, mSenderMock, mFSPlatformMock, mFSWatcherMock, mCryptoProvider);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(StorageStateTests, StartFails)
+{
+    auto err = InitWithStubs();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    mTestAllocator.FailAfter(0);
+
+    err = mStorageState.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    mTestAllocator.Reset();
+    mStorageStub.mGetAllErr = ErrorEnum::eFailed;
+
+    err = mStorageState.Start();
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(StorageStateTests, StartIgnoresSubscribeErrorAndStopIgnoresUnsubscribeError)
+{
+    auto err = AddInstanceIdent(cInstanceIdent);
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = AddInstanceIdent(InstanceIdent {{"itemID"}, "1.0.0", {"subjectID"}, 2, UpdateItemTypeEnum::eService});
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = InitWithStubs();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mFSWatcherMock, Subscribe).WillOnce(Return(ErrorEnum::eFailed)).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mStorageState.Start();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    StaticArray<uint8_t, crypto::cSHA256Size> checksum;
+
+    EXPECT_EQ(mStorageState.GetInstanceCheckSum(cInstanceIdent, checksum).IsNone()
+            + mStorageState
+                  .GetInstanceCheckSum(
+                      InstanceIdent {{"itemID"}, "1.0.0", {"subjectID"}, 2, UpdateItemTypeEnum::eService}, checksum)
+                  .IsNone(),
+        1)
+        << "Only one instance should be watched";
+
+    EXPECT_CALL(mFSWatcherMock, Unsubscribe).WillOnce(Return(ErrorEnum::eFailed));
+
+    err = mStorageState.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(StorageStateTests, TotalSizesAndPartition)
+{
+    auto err = InitWithStubs();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mFSPlatformMock, GetTotalSize(String(cStateDir.c_str()))).WillOnce(Return(RetWithError<size_t>(10)));
+    EXPECT_CALL(mFSPlatformMock, GetTotalSize(String(cStorageDir.c_str()))).WillOnce(Return(RetWithError<size_t>(20)));
+
+    auto stateSize = mStorageState.GetTotalStateSize();
+    EXPECT_TRUE(stateSize.mError.IsNone());
+    EXPECT_EQ(stateSize.mValue, 10);
+
+    auto storageSize = mStorageState.GetTotalStorageSize();
+    EXPECT_TRUE(storageSize.mError.IsNone());
+    EXPECT_EQ(storageSize.mValue, 20);
+
+    EXPECT_TRUE(mStorageState.IsSamePartition());
+}
+
+TEST_F(StorageStateTests, UpdateStateErrors)
+{
+    auto err = AddInstanceIdent(cInstanceIdent, "state");
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = InitWithStubs();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mFSWatcherMock, Subscribe).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mStorageState.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = mStorageState.UpdateState(*CreateUpdateState(std::string(2001, 'a')));
+    EXPECT_TRUE(err.Is(ErrorEnum::eInvalidArgument)) << tests::utils::ErrorToStr(err);
+
+    auto updateState = CreateUpdateState("new state");
+    updateState->mChecksum.Clear();
+
+    err = mStorageState.UpdateState(*updateState);
+    EXPECT_TRUE(err.Is(ErrorEnum::eInvalidChecksum)) << tests::utils::ErrorToStr(err);
+
+    mHasherStub.SetErrors(ErrorEnum::eFailed);
+
+    err = mStorageState.UpdateState(*CreateUpdateState("new state"));
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    mHasherStub.SetErrors(ErrorEnum::eNone);
+
+    mTestAllocator.FailAfter(0);
+
+    err = mStorageState.UpdateState(*CreateUpdateState("new state"));
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    mTestAllocator.Reset();
+
+    mStorageStub.mGetErr = ErrorEnum::eFailed;
+
+    err = mStorageState.UpdateState(*CreateUpdateState("new state"));
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    mStorageStub.mGetErr = ErrorEnum::eNone;
+
+    mStorageStub.mUpdateErr = ErrorEnum::eWrongState;
+
+    err = mStorageState.UpdateState(*CreateUpdateState("new state"));
+    EXPECT_TRUE(err.Is(ErrorEnum::eWrongState)) << tests::utils::ErrorToStr(err);
+
+    mStorageStub.mUpdateErr = ErrorEnum::eNone;
+
+    std::filesystem::remove(ToStatePath(cInstanceIdent));
+    std::filesystem::create_directories(ToStatePath(cInstanceIdent));
+
+    err = mStorageState.UpdateState(*CreateUpdateState("new state"));
+    EXPECT_FALSE(err.IsNone()) << "Writing state to a directory should fail";
+
+    EXPECT_CALL(mFSWatcherMock, Unsubscribe).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mStorageState.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(StorageStateTests, AcceptStateErrors)
+{
+    auto err = AddInstanceIdent(cInstanceIdent, "state");
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = InitWithStubs();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mFSWatcherMock, Subscribe).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mStorageState.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    // State checksum is empty after start, so acceptance with empty checksum matches it.
+    auto acceptState = std::make_unique<StateAcceptance>();
+
+    static_cast<InstanceIdent&>(*acceptState) = cInstanceIdent;
+    acceptState->mResult                      = StateResultEnum::eAccepted;
+
+    mTestAllocator.FailAfter(0);
+
+    err = mStorageState.AcceptState(*acceptState);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    mTestAllocator.Reset();
+    mStorageStub.mGetErr = ErrorEnum::eFailed;
+
+    err = mStorageState.AcceptState(*acceptState);
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    mStorageStub.mGetErr    = ErrorEnum::eNone;
+    mStorageStub.mUpdateErr = ErrorEnum::eWrongState;
+
+    err = mStorageState.AcceptState(*acceptState);
+    EXPECT_TRUE(err.Is(ErrorEnum::eWrongState)) << tests::utils::ErrorToStr(err);
+
+    mStorageStub.mUpdateErr = ErrorEnum::eNone;
+
+    err = mStorageState.AcceptState(*acceptState);
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mFSWatcherMock, Unsubscribe).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mStorageState.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(StorageStateTests, SetupStorageInfoErrors)
+{
+    const auto                 cSetupParams = SetupParams {getuid(), getgid(), 2000, 1000};
+    StaticString<cFilePathLen> storagePath, statePath;
+
+    auto err = InitWithStubs();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    mTestAllocator.FailAfter(0);
+
+    err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    mTestAllocator.FailAfter(1);
+
+    err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    mTestAllocator.Reset();
+    mStorageStub.mGetErr = ErrorEnum::eFailed;
+
+    err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    mStorageStub.mGetErr = ErrorEnum::eNone;
+    mStorageStub.mAddErr = ErrorEnum::eAlreadyExist;
+
+    err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
+    EXPECT_TRUE(err.Is(ErrorEnum::eAlreadyExist)) << tests::utils::ErrorToStr(err);
+
+    mStorageStub.mAddErr    = ErrorEnum::eNone;
+    mStorageStub.mUpdateErr = ErrorEnum::eWrongState;
+
+    EXPECT_CALL(mFSPlatformMock, SetUserQuota).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
+    EXPECT_TRUE(err.Is(ErrorEnum::eWrongState)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(StorageStateTests, SetupPrepareStorageErrors)
+{
+    StaticString<cFilePathLen> storagePath, statePath;
+
+    auto err = InitWithStubs();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mFSPlatformMock, ChangeOwner).WillOnce(Return(ErrorEnum::eFailed));
+
+    err = mStorageState.Setup(cInstanceIdent, SetupParams {getuid(), getgid(), 2000, 1000}, storagePath, statePath);
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    std::ofstream(cStorageDir / "itemID2") << "not a dir";
+
+    err = mStorageState.Setup(InstanceIdent {{"itemID2"}, "1.0.0", {"subjectID"}, 1, UpdateItemTypeEnum::eService},
+        SetupParams {getuid(), getgid(), 2000, 1000}, storagePath, statePath);
+    EXPECT_FALSE(err.IsNone()) << "Storage dir creation should fail";
+}
+
+TEST_F(StorageStateTests, SetupPrepareStateErrors)
+{
+    const auto                 cSetupParams = SetupParams {getuid(), getgid(), 1000, 0};
+    StaticString<cFilePathLen> storagePath, statePath;
+
+    auto err = InitWithStubs();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mFSPlatformMock, SetUserQuota).WillOnce(Return(ErrorEnum::eNone));
+
+    EXPECT_CALL(mFSPlatformMock, ChangeOwner).WillOnce(Return(ErrorEnum::eFailed));
+
+    err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mFSWatcherMock, Subscribe).WillOnce(Return(ErrorEnum::eWrongState));
+
+    err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
+    EXPECT_TRUE(err.Is(ErrorEnum::eWrongState)) << tests::utils::ErrorToStr(err);
+
+    // Send state request error, state watching is stopped with unsubscribe error
+
+    EXPECT_CALL(mFSWatcherMock, Subscribe).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSenderMock, SendStateRequest).WillOnce(Return(ErrorEnum::eTimeout));
+    EXPECT_CALL(mFSWatcherMock, Unsubscribe).WillOnce(Return(ErrorEnum::eFailed));
+
+    err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
+    EXPECT_TRUE(err.Is(ErrorEnum::eTimeout)) << tests::utils::ErrorToStr(err);
+
+    StaticArray<uint8_t, crypto::cSHA256Size> checksum;
+
+    EXPECT_TRUE(mStorageState.GetInstanceCheckSum(cInstanceIdent, checksum).Is(ErrorEnum::eNotFound))
+        << "State watching should be stopped on error";
+
+    for (const auto& [createErr, updateErr, finalizeErr] :
+        std::vector<std::tuple<Error, Error, Error>> {{ErrorEnum::eFailed, ErrorEnum::eNone, ErrorEnum::eNone},
+            {ErrorEnum::eNone, ErrorEnum::eFailed, ErrorEnum::eNone},
+            {ErrorEnum::eNone, ErrorEnum::eNone, ErrorEnum::eFailed}}) {
+        mHasherStub.SetErrors(createErr, updateErr, finalizeErr);
+
+        EXPECT_CALL(mFSWatcherMock, Subscribe).WillOnce(Return(ErrorEnum::eNone));
+        EXPECT_CALL(mFSWatcherMock, Unsubscribe).WillOnce(Return(ErrorEnum::eNone));
+
+        err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
+        EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+    }
+
+    mHasherStub.SetErrors(ErrorEnum::eNone);
+
+    EXPECT_CALL(mFSWatcherMock, Subscribe).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mFSWatcherMock, Unsubscribe).WillOnce(Return(ErrorEnum::eNone));
+
+    mTestAllocator.FailAfter(1);
+
+    err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+
+    mTestAllocator.Reset();
+
+    std::filesystem::remove(ToStatePath(cInstanceIdent));
+    std::filesystem::create_directories(ToStatePath(cInstanceIdent));
+
+    EXPECT_CALL(mFSWatcherMock, Subscribe).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mFSWatcherMock, Unsubscribe).WillOnce(Return(ErrorEnum::eNone));
+
+    err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
+    EXPECT_FALSE(err.IsNone()) << "Reading state from a directory should fail";
+
+    std::filesystem::remove_all(cStateDir / "itemID");
+    std::ofstream(cStateDir / "itemID") << "not a dir";
+
+    err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
+    EXPECT_FALSE(err.IsNone()) << "State dir creation should fail";
+}
+
+TEST_F(StorageStateTests, SetupStopWatchingErrorIsIgnored)
+{
+    const auto                 cSetupParams = SetupParams {getuid(), getgid(), 1000, 0};
+    StaticString<cFilePathLen> storagePath, statePath;
+
+    auto err = InitWithStubs();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mFSPlatformMock, SetUserQuota).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mFSWatcherMock, Subscribe).Times(2).WillRepeatedly(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mSenderMock, SendStateRequest).Times(2).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mFSWatcherMock, Unsubscribe).WillOnce(Return(ErrorEnum::eFailed));
+
+    err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mFSWatcherMock, Unsubscribe).WillOnce(Return(ErrorEnum::eFailed));
+
+    err = mStorageState.Remove(cInstanceIdent);
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(StorageStateTests, SetQuotasOnDifferentPartitionsErrors)
+{
+    const auto                 cSetupParams = SetupParams {getuid(), getgid(), 2000, 1000};
+    StaticString<cFilePathLen> storagePath, statePath;
+
+    EXPECT_CALL(mFSPlatformMock, GetMountPoint)
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>("partition1")))
+        .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>("partition2")));
+
+    auto err = InitWithStubs();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    EXPECT_FALSE(mStorageState.IsSamePartition());
+
+    EXPECT_CALL(mFSPlatformMock, SetUserQuota(String(cStateDir.c_str()), _, _)).WillOnce(Return(ErrorEnum::eFailed));
+
+    err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
+    EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
+
+    EXPECT_CALL(mFSPlatformMock, SetUserQuota(String(cStateDir.c_str()), _, _)).WillOnce(Return(ErrorEnum::eNone));
+    EXPECT_CALL(mFSPlatformMock, SetUserQuota(String(cStorageDir.c_str()), _, _))
+        .WillOnce(Return(ErrorEnum::eNoMemory));
+
+    err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
+    EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
+}
+
+TEST_F(StorageStateTests, FSEventErrors)
+{
+    const InstanceIdent cInstanceIdent2 {{"itemID"}, "1.0.0", {"subjectID"}, 2, UpdateItemTypeEnum::eService};
+
+    auto err = AddInstanceIdent(cInstanceIdent, "state 1");
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = AddInstanceIdent(cInstanceIdent2, "state 2");
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    err = InitWithStubs();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    fs::FSEventSubscriberItf* fsEventSubscriber = nullptr;
+
+    EXPECT_CALL(mFSWatcherMock, Subscribe)
+        .Times(2)
+        .WillRepeatedly(Invoke([&fsEventSubscriber](const String&, fs::FSEventSubscriberItf& subscriber) {
+            fsEventSubscriber = &subscriber;
+
+            return ErrorEnum::eNone;
+        }));
+
+    err = mStorageState.Start();
+    ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+    ASSERT_NE(fsEventSubscriber, nullptr);
+
+    auto& subscriber = *fsEventSubscriber;
+
+    // Unknown path and unreadable state file: no new state is sent. Event for second instance is used as a
+    // barrier as the events are processed in order by a single thread.
+
+    std::filesystem::remove(ToStatePath(cInstanceIdent));
+
+    subscriber.OnFSEvent("unknown/path", {});
+    subscriber.OnFSEvent(ToStatePath(cInstanceIdent).c_str(), {});
+
+    std::promise<void> stateSentPromise;
+
+    EXPECT_CALL(mSenderMock, SendNewState).WillOnce(Invoke([&stateSentPromise](const NewState& state) {
+        EXPECT_EQ(state.mInstance, 2);
+
+        stateSentPromise.set_value();
+
+        return ErrorEnum::eFailed;
+    }));
+
+    subscriber.OnFSEvent(ToStatePath(cInstanceIdent2).c_str(), {});
+
+    EXPECT_EQ(stateSentPromise.get_future().wait_for(std::chrono::seconds(10)), std::future_status::ready)
+        << "State was not sent in time";
+
+    mHasherStub.SetErrors(ErrorEnum::eFailed);
+
+    subscriber.OnFSEvent(ToStatePath(cInstanceIdent2).c_str(), {});
+
+    EXPECT_TRUE(mHasherStub.WaitCalls(1)) << "Checksum was not calculated in time";
+
+    EXPECT_CALL(mFSWatcherMock, Unsubscribe).Times(2).WillRepeatedly(Return(ErrorEnum::eNone));
+
+    err = mStorageState.Stop();
+    EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
+
+    mHasherStub.SetErrors(ErrorEnum::eNone);
+
+    subscriber.OnFSEvent(ToStatePath(cInstanceIdent2).c_str(), {});
 }
 
 } // namespace aos::cm::storagestate

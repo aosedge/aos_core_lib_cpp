@@ -20,6 +20,13 @@ namespace aos::sm::launcher {
  */
 class SenderStub : public SenderItf {
 public:
+    void SetSendError(const Error& err)
+    {
+        std::lock_guard lock {mMutex};
+
+        mSendError = err;
+    }
+
     Error SendNodeInstancesStatuses(const Array<aos::InstanceStatus>& statuses) override
     {
         std::lock_guard lock {mMutex};
@@ -27,7 +34,7 @@ public:
         mStatusesQueue.push(statuses);
         mCondVar.notify_one();
 
-        return ErrorEnum::eNone;
+        return mSendError;
     }
 
     Error SendUpdateInstancesStatuses(const Array<aos::InstanceStatus>& statuses) override
@@ -37,7 +44,7 @@ public:
         mStatusesQueue.push(statuses);
         mCondVar.notify_one();
 
-        return ErrorEnum::eNone;
+        return mSendError;
     }
 
     Error WaitStatuses(Array<InstanceStatus>& statuses, Duration timeout)
@@ -59,6 +66,7 @@ private:
     std::mutex                      mMutex;
     std::condition_variable         mCondVar;
     std::queue<InstanceStatusArray> mStatusesQueue;
+    Error                           mSendError;
 };
 
 } // namespace aos::sm::launcher

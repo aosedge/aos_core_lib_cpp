@@ -210,4 +210,25 @@ TEST_F(FileIdentifierTest, SubscribeUnsubscribeListener)
     EXPECT_TRUE(err.Is(ErrorEnum::eNotFound)) << tests::utils::ErrorToStr(err);
 }
 
+TEST_F(FileIdentifierTest, StartStop)
+{
+    FileIdentifier identifier;
+
+    ASSERT_TRUE(identifier.Init(mConfig).IsNone());
+
+    EXPECT_TRUE(identifier.Start().IsNone());
+    EXPECT_TRUE(identifier.Stop().IsNone());
+}
+
+TEST_F(FileIdentifierTest, GetSubjectsFailsOnSmallArray)
+{
+    FileIdentifier identifier;
+
+    ASSERT_TRUE(identifier.Init(mConfig).IsNone());
+
+    StaticArray<StaticString<cIDLen>, 1> subjects;
+
+    EXPECT_TRUE(identifier.GetSubjects(subjects).Is(ErrorEnum::eNoMemory));
+}
+
 } // namespace aos::iam::identhandler
