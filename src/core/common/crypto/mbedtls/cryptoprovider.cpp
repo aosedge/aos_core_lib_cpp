@@ -689,29 +689,17 @@ static Error ParseIssuerAltName(mbedtls_asn1_buf buf, size_t tagLen, x509::Certi
     return ErrorEnum::eNone;
 }
 
-static Error ParseX509Extension(mbedtls_asn1_buf buf, size_t tagLen, x509::Certificate& cert, bool& keyIdsParsed)
+static Error ParseX509Extension(mbedtls_asn1_buf buf, size_t tagLen, x509::Certificate& cert)
 {
     if (!memcmp(buf.p, MBEDTLS_OID_SUBJECT_KEY_IDENTIFIER, tagLen)) {
         if (auto err = ParseSubjectKeyID(buf, tagLen, cert); !err.IsNone()) {
             return err;
-        }
-
-        if (!cert.mAuthorityKeyId.IsEmpty()) {
-            keyIdsParsed = true;
-
-            return ErrorEnum::eNone;
         }
     }
 
     if (!memcmp(buf.p, MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER, tagLen)) {
         if (auto err = ParseAuthorityKeyID(buf, tagLen, cert); !err.IsNone()) {
             return err;
-        }
-
-        if (!cert.mSubjectKeyId.IsEmpty()) {
-            keyIdsParsed = true;
-
-            return ErrorEnum::eNone;
         }
     }
 
@@ -2335,10 +2323,9 @@ Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, cons
         return ErrorEnum::eNone;
     }
 
-    mbedtls_asn1_sequence* next         = &extns;
-    bool                   keyIdsParsed = false;
+    mbedtls_asn1_sequence* next = &extns;
 
-    while (next != nullptr && !keyIdsParsed) {
+    while (next != nullptr) {
         size_t tagLen {};
 
         auto err = mbedtls_asn1_get_tag(&(next->buf.p), next->buf.p + next->buf.len, &tagLen, MBEDTLS_ASN1_OID);
@@ -2346,7 +2333,7 @@ Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, cons
             return AOS_ERROR_WRAP(err);
         }
 
-        if (auto parseErr = ParseX509Extension(next->buf, tagLen, cert, keyIdsParsed); !parseErr.IsNone()) {
+        if (auto parseErr = ParseX509Extension(next->buf, tagLen, cert); !parseErr.IsNone()) {
             return parseErr;
         }
 

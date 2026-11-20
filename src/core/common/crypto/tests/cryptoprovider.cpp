@@ -1852,6 +1852,21 @@ TEST_P(CryptoProviderTest, PEMToX509CertsSubjectAltNameURIs)
     }
 }
 
+TEST_P(CryptoProviderTest, PEMToX509CertsIssuerAltNameAfterKeyIDs)
+{
+    StaticString<cCertPEMLen> pem;
+    x509::CertificateChain    chain;
+
+    ReadTestFile(CRYPTOHELPER_CERTS_DIR "/onlineIssuerAltNameLast.pem", pem);
+
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(pem, chain).IsNone());
+    ASSERT_EQ(chain.Size(), 1u);
+    EXPECT_FALSE(chain[0].mSubjectKeyId.IsEmpty());
+    EXPECT_FALSE(chain[0].mAuthorityKeyId.IsEmpty());
+    ASSERT_EQ(chain[0].mIssuerURLs.Size(), 1u);
+    EXPECT_EQ(chain[0].mIssuerURLs[0], "https://www.mytest.com");
+}
+
 TEST_P(CryptoProviderTest, CreateClientCert)
 {
     StaticString<cCertPEMLen>    caCert;

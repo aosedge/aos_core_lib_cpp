@@ -169,6 +169,15 @@ keyUsage=digitalSignature,keyEncipherment
 subjectAltName=URI:urn:aos:unit:${SAN_LONG_URI_VALUE}"
     )
 
+    # Issuer alternative name after the key identifiers to check that all extensions are parsed.
+    set(IAN_AFTER_KEY_IDS_EXT
+        "basicConstraints=CA:FALSE
+keyUsage=digitalSignature,keyEncipherment
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid
+issuerAltName=URI:https://www.mytest.com"
+    )
+
     function(write_ext_file NAME CONTENT)
         set(path "${OUTPUT_DIR}/${NAME}.ext")
         file(WRITE "${path}" "${CONTENT}\n")
@@ -344,6 +353,7 @@ subjectAltName=DNS:localhost,DNS:wwwaosum,DNS:*.kyiv.epam.com,DNS:*.aos-dev.test
     make_leaf(onlineTest2 "/C=UA/OU=OEM Test2/CN=test2/L=Kyiv" ${DEFAULT_EXT})
     make_leaf(onlineSanTooManyURIs "/C=UA/O=Test/CN=onlineSanTooManyURIs" ${SAN_TOO_MANY_URIS_EXT})
     make_leaf(onlineSanLongURI "/C=UA/O=Test/CN=onlineSanLongURI" ${SAN_LONG_URI_EXT})
+    make_leaf(onlineIssuerAltNameLast "/C=UA/O=Test/CN=onlineIssuerAltNameLast" ${IAN_AFTER_KEY_IDS_EXT})
 
     message(STATUS "All certificates and keys generated successfully in ${OUTPUT_DIR}")
 
