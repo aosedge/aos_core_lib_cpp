@@ -1867,6 +1867,20 @@ TEST_P(CryptoProviderTest, PEMToX509CertsIssuerAltNameAfterKeyIDs)
     EXPECT_EQ(chain[0].mIssuerURLs[0], "https://www.mytest.com");
 }
 
+TEST_P(CryptoProviderTest, PEMToX509CertsLongKeyIDs)
+{
+    StaticString<cCertPEMLen> pem;
+    x509::CertificateChain    chain;
+
+    for (const auto* name : {"longKeyIdCA", "onlineLongAuthorityKeyId"}) {
+        ReadTestFile(std::string(CRYPTOHELPER_CERTS_DIR "/") + name + ".pem", pem);
+
+        chain.Clear();
+
+        EXPECT_TRUE(mCryptoProvider->PEMToX509Certs(pem, chain).Is(ErrorEnum::eNoMemory)) << name;
+    }
+}
+
 TEST_P(CryptoProviderTest, CreateClientCert)
 {
     StaticString<cCertPEMLen>    caCert;

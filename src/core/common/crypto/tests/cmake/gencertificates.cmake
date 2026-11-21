@@ -178,6 +178,15 @@ authorityKeyIdentifier=keyid
 issuerAltName=URI:https://www.mytest.com"
     )
 
+    # Key identifier longer than cCertKeyIdSize to check key identifier overflow.
+    string(REPEAT "ab" 32 LONG_KEY_ID)
+
+    set(LONG_AUTHORITY_KEY_ID_EXT
+        "basicConstraints=CA:FALSE
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid"
+    )
+
     function(write_ext_file NAME CONTENT)
         set(path "${OUTPUT_DIR}/${NAME}.ext")
         file(WRITE "${path}" "${CONTENT}\n")
@@ -188,6 +197,11 @@ issuerAltName=URI:https://www.mytest.com"
     endfunction()
 
     function(make_leaf NAME SUBJECT EXTENSION)
+        set(CA_NAME intermediateCA)
+        if(ARGC GREATER 3)
+            set(CA_NAME ${ARGV3})
+        endif()
+
         message(STATUS "Generating ${NAME} certificate key and CSR...")
         run_openssl(
             req
@@ -202,7 +216,7 @@ issuerAltName=URI:https://www.mytest.com"
             -subj
             "${SUBJECT}"
         )
-        message(STATUS "Signing ${NAME} CSR with Intermediate CA...")
+        message(STATUS "Signing ${NAME} CSR with ${CA_NAME}...")
         write_ext_file(${NAME} ${EXTENSION})
         run_openssl(
             x509
@@ -210,9 +224,9 @@ issuerAltName=URI:https://www.mytest.com"
             -in
             ${NAME}.csr
             -CA
-            intermediateCA.pem
+            ${CA_NAME}.pem
             -CAkey
-            intermediateCA.key
+            ${CA_NAME}.key
             -CAcreateserial
             -out
             ${NAME}.pem
@@ -354,6 +368,31 @@ subjectAltName=DNS:localhost,DNS:wwwaosum,DNS:*.kyiv.epam.com,DNS:*.aos-dev.test
     make_leaf(onlineSanTooManyURIs "/C=UA/O=Test/CN=onlineSanTooManyURIs" ${SAN_TOO_MANY_URIS_EXT})
     make_leaf(onlineSanLongURI "/C=UA/O=Test/CN=onlineSanLongURI" ${SAN_LONG_URI_EXT})
     make_leaf(onlineIssuerAltNameLast "/C=UA/O=Test/CN=onlineIssuerAltNameLast" ${IAN_AFTER_KEY_IDS_EXT})
+
+    message(STATUS "Generating long key identifier CA...")
+    run_openssl(
+        req
+        -x509
+        -newkey
+        rsa:2048
+        -nodes
+        -keyout
+        longKeyIdCA.key
+        -out
+        longKeyIdCA.pem
+        -sha256
+        -days
+        3650
+        -subj
+        "/C=UA/O=Test/CN=longKeyIdCA"
+        -addext
+        "basicConstraints=CA:TRUE"
+        -addext
+        "subjectKeyIdentifier=${LONG_KEY_ID}"
+    )
+    make_leaf(onlineLongAuthorityKeyId "/C=UA/O=Test/CN=onlineLongAuthorityKeyId" ${LONG_AUTHORITY_KEY_ID_EXT}
+              longKeyIdCA
+    )
 
     message(STATUS "All certificates and keys generated successfully in ${OUTPUT_DIR}")
 

@@ -596,7 +596,10 @@ static Error ParseSubjectKeyID(mbedtls_asn1_buf buf, size_t tagLen, x509::Certif
         return AOS_ERROR_WRAP(err);
     }
 
-    (void)cert.mSubjectKeyId.Resize(len);
+    if (auto resizeErr = cert.mSubjectKeyId.Resize(len); !resizeErr.IsNone()) {
+        return AOS_ERROR_WRAP(resizeErr);
+    }
+
     (void)memcpy(cert.mSubjectKeyId.Get(), p, len);
 
     return ErrorEnum::eNone;
@@ -632,7 +635,10 @@ static Error ParseAuthorityKeyID(mbedtls_asn1_buf buf, size_t tagLen, x509::Cert
         return AOS_ERROR_WRAP(err);
     }
 
-    (void)cert.mAuthorityKeyId.Resize(len);
+    if (auto resizeErr = cert.mAuthorityKeyId.Resize(len); !resizeErr.IsNone()) {
+        return AOS_ERROR_WRAP(resizeErr);
+    }
+
     (void)memcpy(cert.mAuthorityKeyId.Get(), p, len);
 
     return ErrorEnum::eNone;
