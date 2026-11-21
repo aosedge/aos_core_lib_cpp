@@ -181,6 +181,13 @@ issuerAltName=URI:https://www.mytest.com"
     # Key identifier longer than cCertKeyIdSize to check key identifier overflow.
     string(REPEAT "ab" 32 LONG_KEY_ID)
 
+    # Unknown extension with OID starting with the subject key identifier OID to check OID length comparison.
+    set(KEY_ID_LIKE_OID_EXT
+        "basicConstraints=CA:FALSE
+subjectKeyIdentifier=hash
+2.5.29.14.0=DER:0403AABBCC"
+    )
+
     set(LONG_AUTHORITY_KEY_ID_EXT
         "basicConstraints=CA:FALSE
 subjectKeyIdentifier=hash
@@ -368,6 +375,8 @@ subjectAltName=DNS:localhost,DNS:wwwaosum,DNS:*.kyiv.epam.com,DNS:*.aos-dev.test
     make_leaf(onlineSanTooManyURIs "/C=UA/O=Test/CN=onlineSanTooManyURIs" ${SAN_TOO_MANY_URIS_EXT})
     make_leaf(onlineSanLongURI "/C=UA/O=Test/CN=onlineSanLongURI" ${SAN_LONG_URI_EXT})
     make_leaf(onlineIssuerAltNameLast "/C=UA/O=Test/CN=onlineIssuerAltNameLast" ${IAN_AFTER_KEY_IDS_EXT})
+
+    make_leaf(onlineKeyIdLikeOID "/C=UA/O=Test/CN=onlineKeyIdLikeOID" ${KEY_ID_LIKE_OID_EXT})
 
     message(STATUS "Generating long key identifier CA...")
     run_openssl(

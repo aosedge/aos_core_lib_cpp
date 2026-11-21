@@ -1867,6 +1867,18 @@ TEST_P(CryptoProviderTest, PEMToX509CertsIssuerAltNameAfterKeyIDs)
     EXPECT_EQ(chain[0].mIssuerURLs[0], "https://www.mytest.com");
 }
 
+TEST_P(CryptoProviderTest, PEMToX509CertsKeyIDLikeOID)
+{
+    StaticString<cCertPEMLen> pem;
+    x509::CertificateChain    chain;
+
+    ReadTestFile(CRYPTOHELPER_CERTS_DIR "/onlineKeyIdLikeOID.pem", pem);
+
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(pem, chain).IsNone());
+    ASSERT_EQ(chain.Size(), 1u);
+    EXPECT_EQ(chain[0].mSubjectKeyId.Size(), crypto::cSHA1DigestSize);
+}
+
 TEST_P(CryptoProviderTest, PEMToX509CertsLongKeyIDs)
 {
     StaticString<cCertPEMLen> pem;

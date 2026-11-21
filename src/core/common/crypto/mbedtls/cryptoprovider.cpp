@@ -697,19 +697,22 @@ static Error ParseIssuerAltName(mbedtls_asn1_buf buf, size_t tagLen, x509::Certi
 
 static Error ParseX509Extension(mbedtls_asn1_buf buf, size_t tagLen, x509::Certificate& cert)
 {
-    if (!memcmp(buf.p, MBEDTLS_OID_SUBJECT_KEY_IDENTIFIER, tagLen)) {
+    if (tagLen == MBEDTLS_OID_SIZE(MBEDTLS_OID_SUBJECT_KEY_IDENTIFIER)
+        && !memcmp(buf.p, MBEDTLS_OID_SUBJECT_KEY_IDENTIFIER, tagLen)) {
         if (auto err = ParseSubjectKeyID(buf, tagLen, cert); !err.IsNone()) {
             return err;
         }
     }
 
-    if (!memcmp(buf.p, MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER, tagLen)) {
+    if (tagLen == MBEDTLS_OID_SIZE(MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER)
+        && !memcmp(buf.p, MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER, tagLen)) {
         if (auto err = ParseAuthorityKeyID(buf, tagLen, cert); !err.IsNone()) {
             return err;
         }
     }
 
-    if (!memcmp(buf.p, MBEDTLS_OID_ISSUER_ALT_NAME, tagLen)) {
+    if (tagLen == MBEDTLS_OID_SIZE(MBEDTLS_OID_ISSUER_ALT_NAME)
+        && !memcmp(buf.p, MBEDTLS_OID_ISSUER_ALT_NAME, tagLen)) {
         return ParseIssuerAltName(buf, tagLen, cert);
     }
 
