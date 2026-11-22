@@ -157,7 +157,10 @@ private:
     static Error StopThreads(StopMode mode);
 
     static void ProcessTimers(void* arg);
+    static bool CompareWakeupTime(const Timer* left, const Timer* right);
     static void UpdateWakeupTime(const Time& now, Timer* timer);
+    static void InvokeExpiredTimers(const Time& now);
+    static void WaitForNextTimer(UniqueLock<Mutex>& lock);
     static void InvokeTimerCallback(Timer* timer);
 
     static StaticArray<Timer*, cMaxTimersCount> mRegisteredTimers;

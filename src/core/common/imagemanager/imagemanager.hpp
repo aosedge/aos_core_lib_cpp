@@ -359,6 +359,8 @@ private:
         const String& diffID);
     Error InstallItemBlobs(const InstallItemInfo& itemInfo);
     Error InstallManifestBlobs(const InstallItemInfo& itemInfo, const oci::ContentDescriptor& descriptor);
+    Error InstallManifestConfig(const InstallItemInfo& itemInfo, const oci::ImageManifest& manifest, String& path,
+        UniquePtr<oci::ImageConfig>& imageConfig);
     Error StartItemInstall(const InstallItemInfo& itemInfo, DeployableItemInfo& storedInfo);
     Error AddStoredItem(const DeployableItemInfo& item);
     Error AddItemBlob(const String& itemID, const String& version, const oci::ContentDescriptor& descriptor,

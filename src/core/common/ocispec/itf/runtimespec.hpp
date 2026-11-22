@@ -691,21 +691,13 @@ struct RuntimeConfig {
 };
 
 /**
- * Creates example runtime spec.
+ * Creates example runtime spec process.
  *
  * @param config runtime spec.
- * @param isCgroup2UnifiedMode adds croup namespace.
  * @return Error.
  */
-inline Error CreateExampleRuntimeConfig(RuntimeConfig& config, bool isCgroup2UnifiedMode = true)
+inline Error CreateExampleRuntimeConfigProcess(RuntimeConfig& config)
 {
-    config.mOCIVersion = cVersion;
-
-    config.mRoot.EmplaceValue();
-
-    config.mRoot->mPath     = "rootfs";
-    config.mRoot->mReadonly = true;
-
     config.mProcess.EmplaceValue();
 
     config.mProcess->mTerminal = true;
@@ -756,8 +748,17 @@ inline Error CreateExampleRuntimeConfig(RuntimeConfig& config, bool isCgroup2Uni
         return AOS_ERROR_WRAP(err);
     }
 
-    config.mHostname = "runc";
+    return ErrorEnum::eNone;
+}
 
+/**
+ * Creates example runtime spec mounts.
+ *
+ * @param config runtime spec.
+ * @return Error.
+ */
+inline Error CreateExampleRuntimeConfigMounts(RuntimeConfig& config)
+{
     config.mMounts.Clear();
 
     constexpr struct {
@@ -783,6 +784,18 @@ inline Error CreateExampleRuntimeConfig(RuntimeConfig& config, bool isCgroup2Uni
         }
     }
 
+    return ErrorEnum::eNone;
+}
+
+/**
+ * Creates example runtime spec Linux section.
+ *
+ * @param config runtime spec.
+ * @param isCgroup2UnifiedMode adds cgroup namespace.
+ * @return Error.
+ */
+inline Error CreateExampleRuntimeConfigLinux(RuntimeConfig& config, bool isCgroup2UnifiedMode)
+{
     config.mLinux.EmplaceValue();
 
     constexpr const char* cMaskedPaths[] = {
@@ -847,6 +860,35 @@ inline Error CreateExampleRuntimeConfig(RuntimeConfig& config, bool isCgroup2Uni
     }
 
     return ErrorEnum::eNone;
+}
+
+/**
+ * Creates example runtime spec.
+ *
+ * @param config runtime spec.
+ * @param isCgroup2UnifiedMode adds cgroup namespace.
+ * @return Error.
+ */
+inline Error CreateExampleRuntimeConfig(RuntimeConfig& config, bool isCgroup2UnifiedMode = true)
+{
+    config.mOCIVersion = cVersion;
+
+    config.mRoot.EmplaceValue();
+
+    config.mRoot->mPath     = "rootfs";
+    config.mRoot->mReadonly = true;
+
+    if (auto err = CreateExampleRuntimeConfigProcess(config); !err.IsNone()) {
+        return err;
+    }
+
+    config.mHostname = "runc";
+
+    if (auto err = CreateExampleRuntimeConfigMounts(config); !err.IsNone()) {
+        return err;
+    }
+
+    return CreateExampleRuntimeConfigLinux(config, isCgroup2UnifiedMode);
 }
 
 } // namespace aos::oci

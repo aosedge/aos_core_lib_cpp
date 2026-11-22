@@ -1449,32 +1449,8 @@ Error ImageManager::InstallManifestBlobs(const InstallItemInfo& itemInfo, const 
 
     UniquePtr<oci::ImageConfig> imageConfig;
 
-    if (!manifest->mConfig.mDigest.IsEmpty()) {
-        if (auto err = InstallItemBlob(itemInfo, manifest->mConfig, path); !err.IsNone()) {
-            return err;
-        }
-
-        // The empty config, for example of a component, has no diff IDs.
-        if (manifest->mConfig.mMediaType != oci::cMediaTypeEmptyBlob) {
-            imageConfig = MakeUnique<oci::ImageConfig>(mAllocator);
-            if (!imageConfig) {
-                return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
-            }
-
-            if (auto err = mOCISpec->LoadImageConfig(path, *imageConfig); !err.IsNone()) {
-                return AOS_ERROR_WRAP(err);
-            }
-
-            if (!imageConfig->mRootfs.mDiffIDs.IsEmpty()
-                && imageConfig->mRootfs.mDiffIDs.Size() < manifest->mLayers.Size()) {
-                return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "diff ID's size mismatch"));
-            }
-
-            // A component config may have no rootfs: its layers are kept without diff IDs as for the empty config.
-            if (imageConfig->mRootfs.mDiffIDs.IsEmpty()) {
-                imageConfig.Reset();
-            }
-        }
+    if (auto err = InstallManifestConfig(itemInfo, *manifest, path, imageConfig); !err.IsNone()) {
+        return err;
     }
 
     for (size_t i = 0; i < manifest->mLayers.Size(); ++i) {
@@ -1487,6 +1463,43 @@ Error ImageManager::InstallManifestBlobs(const InstallItemInfo& itemInfo, const 
         if (auto err = InstallLayerBlob(itemInfo, manifest->mLayers[i], diffID); !err.IsNone()) {
             return err;
         }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ImageManager::InstallManifestConfig(const InstallItemInfo& itemInfo, const oci::ImageManifest& manifest,
+    String& path, UniquePtr<oci::ImageConfig>& imageConfig)
+{
+    if (manifest.mConfig.mDigest.IsEmpty()) {
+        return ErrorEnum::eNone;
+    }
+
+    if (auto err = InstallItemBlob(itemInfo, manifest.mConfig, path); !err.IsNone()) {
+        return err;
+    }
+
+    // The empty config, for example of a component, has no diff IDs.
+    if (manifest.mConfig.mMediaType == oci::cMediaTypeEmptyBlob) {
+        return ErrorEnum::eNone;
+    }
+
+    imageConfig = MakeUnique<oci::ImageConfig>(mAllocator);
+    if (!imageConfig) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = mOCISpec->LoadImageConfig(path, *imageConfig); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (!imageConfig->mRootfs.mDiffIDs.IsEmpty() && imageConfig->mRootfs.mDiffIDs.Size() < manifest.mLayers.Size()) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "diff ID's size mismatch"));
+    }
+
+    // A component config may have no rootfs: its layers are kept without diff IDs as for the empty config.
+    if (imageConfig->mRootfs.mDiffIDs.IsEmpty()) {
+        imageConfig.Reset();
     }
 
     return ErrorEnum::eNone;

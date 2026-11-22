@@ -193,6 +193,7 @@ private:
 
     StaticString<pkcs11::cLabelLen> GetTokenLabel() const;
     RetWithError<pkcs11::SlotID>    GetSlotID();
+    RetWithError<pkcs11::SlotID>    FindSlotIDByTokenLabel(const Array<pkcs11::SlotID>& slotList);
     RetWithError<bool>              IsOwned() const;
 
     Error PrintInfo(pkcs11::SlotID slotID) const;

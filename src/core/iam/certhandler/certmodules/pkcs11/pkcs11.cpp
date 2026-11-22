@@ -546,8 +546,7 @@ RetWithError<pkcs11::SlotID> PKCS11Module::GetSlotID()
 
     StaticArray<pkcs11::SlotID, pkcs11::cSlotListSize> slotList;
 
-    auto err = mPKCS11->GetSlotList(false, slotList);
-    if (!err.IsNone()) {
+    if (auto err = mPKCS11->GetSlotList(false, slotList); !err.IsNone()) {
         return {0, AOS_ERROR_WRAP(err)};
     }
 
@@ -562,34 +561,39 @@ RetWithError<pkcs11::SlotID> PKCS11Module::GetSlotID()
         return {slotList[slotIndex], ErrorEnum::eNone};
     }
 
+    return FindSlotIDByTokenLabel(slotList);
+}
+
+RetWithError<pkcs11::SlotID> PKCS11Module::FindSlotIDByTokenLabel(const Array<pkcs11::SlotID>& slotList)
+{
     // Find free(not initialized) token by label.
     pkcs11::SlotInfo   slotInfo;
     Optional<uint32_t> freeSlotID;
 
     for (const auto slotID : slotList) {
-        err = mPKCS11->GetSlotInfo(slotID, slotInfo);
-        if (!err.IsNone()) {
+        if (auto err = mPKCS11->GetSlotInfo(slotID, slotInfo); !err.IsNone()) {
             return {0, AOS_ERROR_WRAP(err)};
         }
 
-        if ((slotInfo.mFlags & CKF_TOKEN_PRESENT) != 0) {
-            auto tokenInfo = MakeUnique<pkcs11::TokenInfo>(mAllocator);
-            if (!tokenInfo) {
-                return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
-            }
+        if ((slotInfo.mFlags & CKF_TOKEN_PRESENT) == 0) {
+            continue;
+        }
 
-            err = mPKCS11->GetTokenInfo(slotID, *tokenInfo);
-            if (!err.IsNone()) {
-                return {0, AOS_ERROR_WRAP(err)};
-            }
+        auto tokenInfo = MakeUnique<pkcs11::TokenInfo>(mAllocator);
+        if (!tokenInfo) {
+            return {0, AOS_ERROR_WRAP(ErrorEnum::eNoMemory)};
+        }
 
-            if (tokenInfo->mLabel == mTokenLabel) {
-                return {slotID, ErrorEnum::eNone};
-            }
+        if (auto err = mPKCS11->GetTokenInfo(slotID, *tokenInfo); !err.IsNone()) {
+            return {0, AOS_ERROR_WRAP(err)};
+        }
 
-            if ((tokenInfo->mFlags & CKF_TOKEN_INITIALIZED) == 0 && !freeSlotID.HasValue()) {
-                freeSlotID.SetValue(static_cast<uint32_t>(slotID));
-            }
+        if (tokenInfo->mLabel == mTokenLabel) {
+            return {slotID, ErrorEnum::eNone};
+        }
+
+        if ((tokenInfo->mFlags & CKF_TOKEN_INITIALIZED) == 0 && !freeSlotID.HasValue()) {
+            freeSlotID.SetValue(static_cast<uint32_t>(slotID));
         }
     }
 
