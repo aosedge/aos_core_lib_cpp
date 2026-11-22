@@ -244,6 +244,20 @@ private:
         const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams);
     Error AddInstanceToNetwork(const String& instanceID, const String& networkID,
         const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams);
+    Error ConfigureInstanceNetwork(const String& instanceID, const String& networkID,
+        const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams,
+        const Array<StaticString<cHostNameLen>>& hosts, const String& hostIfName);
+    Error StartInstanceMonitoring(const String& instanceID, const String& networkID,
+        const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams,
+        const Array<StaticString<cHostNameLen>>& hosts, const String& hostIfName);
+    Error AddInstanceFirewall(const String& instanceID, const InstanceNetworkConfig& networkConfig,
+        const aos::InstanceNetworkAllocation& networkParams);
+    Error ApplyInstanceBandwidth(
+        const String& hostIfName, const InstanceNetworkConfig& networkConfig, bool& bandwidthApplied);
+    Error AddInstanceDNSHost(const String& instanceID, const String& networkID,
+        const aos::InstanceNetworkAllocation& networkParams, const Array<StaticString<cHostNameLen>>& hosts,
+        DNSServerItf*& dnsServer);
+    Error StoreInstanceHostIfName(const String& instanceID, const String& hostIfName);
     Error ReapplyInstancePolicy(const BatchEntry& entry);
     void  ReapplyBatchEntries(Array<StaticString<cIDLen>>& failedInstanceIDs);
     void  ClearBatchState();
@@ -261,6 +275,9 @@ private:
     Error UpdateInstanceNetworkCache(
         const String& instanceID, const String& networkID, const Array<StaticString<cHostNameLen>>& hosts);
     Error RemoveInstanceFromCache(const String& instanceID, const String& networkID);
+    Error RemoveInstanceInterfaceConfig(const String& instanceID, const String& networkID, const String& hostIfName,
+        DNSServerItf* dnsServer, bool hasBandwidth);
+    Error ClearInstanceHostIfName(const String& instanceID);
     Error ClearNetwork(const NetworkInfo& networkInfo);
     Error PrepareUpdateItemNetworkParams(const InstanceNetworkConfig& instanceNetworkParameters,
         const String& networkID, UpdateItemNetworkParams& serviceData) const;

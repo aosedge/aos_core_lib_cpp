@@ -1280,32 +1280,11 @@ void Launcher::RecoverItems(
 {
     const auto isBroken = [](const InstanceData& instanceData) { return instanceData.mBrokenItem; };
 
-    const auto findItem = [&recoveredItems](const InstanceInfo& instance) {
-        return recoveredItems.FindIf([&instance](const InstallItem& item) {
-            return item.mID == instance.mItemID && item.mVersion == instance.mVersion;
-        });
-    };
-
     // The instance which can't be recovered fails: the instance of an item which can't be installed fails with the
     // install error, the instance of an item which was recovered by the previous stage of the request and the instance
     // which fails again after the recovery fail with the integrity error.
-    auto failBroken = DeferRelease([this, &instances, &isBroken, &findItem, &recoveredItems]() {
-        LockGuard lock {mMutex};
-
-        for (const auto& instance : instances) {
-            auto instanceData = FindInstanceData(instance);
-            if (!instanceData || !isBroken(*instanceData)) {
-                continue;
-            }
-
-            auto item = findItem(instanceData->mInfo);
-
-            instanceData->mStatus.mState = InstanceStateEnum::eFailed;
-            instanceData->mStatus.mError
-                = item != recoveredItems.end() && !item->mError.IsNone() ? item->mError : ErrorEnum::eIntegrity;
-            instanceData->mBrokenItem = false;
-        }
-    });
+    auto failBroken
+        = DeferRelease([this, &instances, &recoveredItems]() { FailBrokenInstances(instances, recoveredItems); });
 
     // The items recovered by the previous stage of the request are not recovered again.
     const auto firstNewItem = recoveredItems.Size();
@@ -1315,7 +1294,8 @@ void Launcher::RecoverItems(
 
         for (const auto& instance : instances) {
             auto instanceData = FindInstanceData(instance);
-            if (!instanceData || !isBroken(*instanceData) || findItem(instanceData->mInfo) != recoveredItems.end()) {
+            if (!instanceData || !isBroken(*instanceData)
+                || FindInstallItem(recoveredItems, instanceData->mInfo) != nullptr) {
                 continue;
             }
 
@@ -1336,6 +1316,70 @@ void Launcher::RecoverItems(
 
     LOG_INF() << "[profiling] Recover items begin" << Log::Field("itemCount", recoveredItems.Size() - firstNewItem);
 
+    RecoverUpdateItems(recoveredItems, firstNewItem);
+
+    for (const auto& instance : instances) {
+        InstanceData* instanceData = nullptr;
+
+        {
+            LockGuard lock {mMutex};
+
+            instanceData = FindInstanceData(instance);
+            if (!instanceData || !isBroken(*instanceData)) {
+                continue;
+            }
+
+            auto item = FindInstallItem(recoveredItems, instanceData->mInfo);
+            if (item == nullptr || item < recoveredItems.begin() + firstNewItem) {
+                continue;
+            }
+
+            if (!item->mError.IsNone()) {
+                continue;
+            }
+
+            instanceData->mBrokenItem = false;
+        }
+
+        RetryRecoveredInstance(instance, *instanceData, addRetryTask);
+    }
+
+    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
+        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    LOG_INF() << "[profiling] Recover items end";
+}
+
+const Launcher::InstallItem* Launcher::FindInstallItem(const Array<InstallItem>& items, const InstanceInfo& instance)
+{
+    auto item = items.FindIf([&instance](const InstallItem& item) {
+        return item.mID == instance.mItemID && item.mVersion == instance.mVersion;
+    });
+
+    return item != items.end() ? item : nullptr;
+}
+
+void Launcher::FailBrokenInstances(const Array<InstanceIdent>& instances, const Array<InstallItem>& recoveredItems)
+{
+    LockGuard lock {mMutex};
+
+    for (const auto& instance : instances) {
+        auto instanceData = FindInstanceData(instance);
+        if (!instanceData || !instanceData->mBrokenItem) {
+            continue;
+        }
+
+        auto item = FindInstallItem(recoveredItems, instanceData->mInfo);
+
+        instanceData->mStatus.mState = InstanceStateEnum::eFailed;
+        instanceData->mStatus.mError = item != nullptr && !item->mError.IsNone() ? item->mError : ErrorEnum::eIntegrity;
+        instanceData->mBrokenItem    = false;
+    }
+}
+
+void Launcher::RecoverUpdateItems(Array<InstallItem>& recoveredItems, size_t firstNewItem)
+{
     // Each item is recovered once per request.
     for (auto item = recoveredItems.begin() + firstNewItem; item != recoveredItems.end(); ++item) {
         if (auto err = mLaunchPool.AddTask([this, item](void*) {
@@ -1356,43 +1400,16 @@ void Launcher::RecoverItems(
     if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
         LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
     }
+}
 
-    for (const auto& instance : instances) {
-        InstanceData* instanceData = nullptr;
+void Launcher::RetryRecoveredInstance(
+    const InstanceIdent& instance, InstanceData& instanceData, AddInstanceTaskFunc addRetryTask)
+{
+    if (auto err = (this->*addRetryTask)(instanceData); !err.IsNone()) {
+        LOG_ERR() << "Failed to retry instance" << Log::Field("instance", instance) << Log::Field(AOS_ERROR_WRAP(err));
 
-        {
-            LockGuard lock {mMutex};
-
-            instanceData = FindInstanceData(instance);
-            if (!instanceData || !isBroken(*instanceData)) {
-                continue;
-            }
-
-            auto item = findItem(instanceData->mInfo);
-            if (item == recoveredItems.end() || item < recoveredItems.begin() + firstNewItem) {
-                continue;
-            }
-
-            if (!item->mError.IsNone()) {
-                continue;
-            }
-
-            instanceData->mBrokenItem = false;
-        }
-
-        if (auto err = (this->*addRetryTask)(*instanceData); !err.IsNone()) {
-            LOG_ERR() << "Failed to retry instance" << Log::Field("instance", instance)
-                      << Log::Field(AOS_ERROR_WRAP(err));
-
-            SetInstanceState(*instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
-        }
+        SetInstanceState(instanceData, InstanceStateEnum::eFailed, AOS_ERROR_WRAP(err));
     }
-
-    if (auto err = mLaunchPool.Wait(); !err.IsNone()) {
-        LOG_ERR() << "Thread pool wait failed" << Log::Field(AOS_ERROR_WRAP(err));
-    }
-
-    LOG_INF() << "[profiling] Recover items end";
 }
 
 Error Launcher::AddStartInstanceTask(InstanceData& instanceData)

@@ -210,6 +210,10 @@ private:
     void  StartInstances(const Array<InstanceInfo>& startInstances, Array<InstanceIdent>& startedInstances);
     void  RecoverItems(
          const Array<InstanceIdent>& instances, Array<InstallItem>& recoveredItems, AddInstanceTaskFunc addRetryTask);
+    void FailBrokenInstances(const Array<InstanceIdent>& instances, const Array<InstallItem>& recoveredItems);
+    void RecoverUpdateItems(Array<InstallItem>& recoveredItems, size_t firstNewItem);
+    void RetryRecoveredInstance(
+        const InstanceIdent& instance, InstanceData& instanceData, AddInstanceTaskFunc addRetryTask);
     Error AddStartInstanceTask(InstanceData& instanceData);
     Error StartInstance(aos::sm::launcher::RuntimeItf* runtime, InstanceData& instanceData) const;
     Error AppendInstancesWithModifiedParams(
@@ -245,6 +249,8 @@ private:
     void                StopExpiredInstances(UniqueLock<Mutex>& lock);
     void                SendNodeInstancesStatuses();
     Error               InitInstances(const Array<InstanceInfo>& instancesInfo);
+
+    static const InstallItem* FindInstallItem(const Array<InstallItem>& items, const InstanceInfo& instance);
 
     AllocatorItf*                                                         mAllocator {};
     StaticArray<instancestatusprovider::ListenerItf*, cMaxNumSubscribers> mSubscribers;
