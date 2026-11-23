@@ -93,7 +93,7 @@ using RemoveConstType = typename RemoveConst<T>::type;
  * @tparam T object to move.
  */
 template <typename T>
-inline typename RemoveRef<T>::type&& Move(T&& object)
+inline typename RemoveRef<T>::type&& Move(T&& object) // NOSONAR cpp:M23_280 - move implementation
 {
     return static_cast<typename RemoveRef<T>::type&&>(object); // NOSONAR cpp:M23_279
 }

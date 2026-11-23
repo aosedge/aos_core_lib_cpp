@@ -514,7 +514,7 @@ public:
     explicit StaticArray(size_t size)
     {
         Array<T>::SetBuffer(mBuffer);
-        [[maybe_unused]] auto err = Array<T>::Resize(size);
+        [[maybe_unused]] auto err = Array<T>::Resize(size); // NOSONAR cpp:S1699 - begin()/end() are not overridden
         assert(err.IsNone());
     }
 
@@ -527,13 +527,13 @@ public:
         : Array<T>()
     {
         Array<T>::SetBuffer(mBuffer);
-        (void)Array<T>::operator=(array);
+        (void)Array<T>::operator=(array); // NOSONAR cpp:S1699 - begin()/end() are not overridden
     }
 
     /**
      * Destroys static array.
      */
-    ~StaticArray() { Array<T>::Clear(); }
+    ~StaticArray() { Array<T>::Clear(); } // NOSONAR cpp:S1699 - begin()/end() are not overridden
 
     /**
      * Assigns static array from another static array.
@@ -556,7 +556,7 @@ public:
     StaticArray(const Array<T>& array) // NOSONAR cpp:S1709
     {
         Array<T>::SetBuffer(mBuffer);
-        (void)Array<T>::operator=(array);
+        (void)Array<T>::operator=(array); // NOSONAR cpp:S1699 - begin()/end() are not overridden
     }
 
     // cppcheck-suppress duplInheritedMember

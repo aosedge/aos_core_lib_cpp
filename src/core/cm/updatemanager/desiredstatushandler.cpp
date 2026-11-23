@@ -534,7 +534,7 @@ Error DesiredStatusHandler::InstallUpdateItems()
 
         for (const auto& item : mCurrentDesiredStatus.mUpdateItems) {
             const auto* itemStatus = FindItemStatus(item, *itemsStatuses);
-            if (itemStatus != nullptr && !IsItemInstallRequired(*itemStatus)) {
+            if (itemStatus != nullptr && !IsItemInstallRequired(*itemStatus)) { // NOSONAR cpp:S6004
                 LOG_DBG() << "Skip install update item" << Log::Field("id", item.mItemID)
                           << Log::Field("version", item.mVersion) << Log::Field("state", itemStatus->mState);
 
@@ -656,12 +656,12 @@ Error DesiredStatusHandler::GetIntegrityFailedItems(Array<const UpdateItemInfo*>
 
     for (const auto& item : mCurrentDesiredStatus.mUpdateItems) {
         const auto* itemStatus = FindItemStatus(item, *itemsStatuses);
-        if (itemStatus == nullptr || itemStatus->mState != ItemStateEnum::eInstalled) {
+        if (itemStatus == nullptr || itemStatus->mState != ItemStateEnum::eInstalled) { // NOSONAR cpp:S6004
             continue;
         }
 
         const auto* failureCause = FindItemFailureCause(item, *instancesStatuses);
-        if (failureCause == nullptr || !failureCause->mError.Is(ErrorEnum::eIntegrity)) {
+        if (failureCause == nullptr || !failureCause->mError.Is(ErrorEnum::eIntegrity)) { // NOSONAR cpp:S6004
             continue;
         }
 

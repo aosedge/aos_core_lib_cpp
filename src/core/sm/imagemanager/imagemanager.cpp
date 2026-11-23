@@ -563,7 +563,7 @@ RetWithError<size_t> ImageManager::RemoveOrphanLayer(const String& layerPath, co
     StaticString<oci::cDigestLen> hash;
 
     // The file which doesn't match a valid diff ID is not a layer and is removed.
-    if (diffID.IsEmpty() || !ParseDigest(diffID, algorithm, hash).IsNone()) {
+    if (diffID.IsEmpty() || !ParseDigest(diffID, algorithm, hash).IsNone()) { // NOSONAR cpp:S6004
         LOG_WRN() << "Remove invalid layer" << Log::Field("path", layerPath);
 
         return RemoveLayerFiles(layerPath);

@@ -2526,7 +2526,7 @@ Error MbedTLSCryptoProvider::WriteCertificatePem(mbedtls_x509write_cert& cert, S
         return AOS_ERROR_WRAP(ret);
     }
 
-    (void)pemCert.Resize(strlen(pemCert.CStr()));
+    (void)pemCert.Resize(strlen(pemCert.CStr())); // NOSONAR cpp:S5813 - mbedtls guarantees NUL-termination here
 
     return ErrorEnum::eNone;
 }

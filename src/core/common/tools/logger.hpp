@@ -14,9 +14,9 @@
 #define LOG_MODULE "default"
 #endif
 
-#define LOG_DBG() LOG_MODULE_DBG(LOG_MODULE)
-#define LOG_INF() LOG_MODULE_INF(LOG_MODULE)
-#define LOG_WRN() LOG_MODULE_WRN(LOG_MODULE)
-#define LOG_ERR() LOG_MODULE_ERR(LOG_MODULE)
+#define LOG_DBG() LOG_MODULE_DBG(LOG_MODULE) // NOSONAR cpp:M23_042 - expands LOG_MODULE at the call site
+#define LOG_INF() LOG_MODULE_INF(LOG_MODULE) // NOSONAR cpp:M23_042 - expands LOG_MODULE at the call site
+#define LOG_WRN() LOG_MODULE_WRN(LOG_MODULE) // NOSONAR cpp:M23_042 - expands LOG_MODULE at the call site
+#define LOG_ERR() LOG_MODULE_ERR(LOG_MODULE) // NOSONAR cpp:M23_042 - expands LOG_MODULE at the call site
 
 #endif

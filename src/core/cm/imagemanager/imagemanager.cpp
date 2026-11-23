@@ -171,7 +171,7 @@ Error ImageManager::DownloadBlob(CancelContext& ctx, const String& path, const B
     return ProcessDownloadFile(downloadPath, path, blobInfo);
 }
 
-RetWithError<size_t> ImageManager::RemoveDownloadedBlob(const String& digest)
+RetWithError<size_t> ImageManager::RemoveDownloadedBlob(const String& digest) // NOSONAR cpp:S5817 - removes file
 {
     LOG_DBG() << "Remove downloaded blob" << Log::Field("digest", digest);
 

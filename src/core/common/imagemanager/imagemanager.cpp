@@ -984,7 +984,7 @@ RetWithError<size_t> ImageManager::RemoveOrphanBlob(const String& path, const St
     StaticString<oci::cDigestLen> hash;
 
     // The file which doesn't match a valid digest is not a blob and is removed.
-    if (digest.IsEmpty() || !ParseDigest(digest, algorithm, hash).IsNone()) {
+    if (digest.IsEmpty() || !ParseDigest(digest, algorithm, hash).IsNone()) { // NOSONAR cpp:S6004
         LOG_WRN() << "Remove invalid blob file" << Log::Field("path", path);
 
         return RemoveBlob(path, digest);

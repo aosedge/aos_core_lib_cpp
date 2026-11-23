@@ -45,8 +45,8 @@ public:
     String(const char* str) // NOSONAR cpp:S1709
         : Array(const_cast<char*>(str), str ? strlen(str) : 0) // NOSONAR cpp:M23_090
     {
-        if (str && *end()) {
-            *end() = 0;
+        if (str && *end()) { // NOSONAR cpp:S1699 - begin()/end() are not overridden
+            *end() = 0; // NOSONAR cpp:S1699 - begin()/end() are not overridden
         }
     }
 
@@ -58,8 +58,8 @@ public:
     String(const String& str) noexcept
         : Array(str)
     {
-        if (*end()) {
-            *end() = 0;
+        if (*end()) { // NOSONAR cpp:S1699 - begin()/end() are not overridden
+            *end() = 0; // NOSONAR cpp:S1699 - begin()/end() are not overridden
         }
     }
 
@@ -834,7 +834,7 @@ public:
         : String()
     {
         String::SetBuffer(mBuffer, cMaxSize);
-        (void)String::operator=(str);
+        (void)String::operator=(str); // NOSONAR cpp:S1699 - begin()/end() are not overridden
     }
 
     /**
@@ -863,7 +863,7 @@ public:
     StaticString(const String& str) // NOSONAR cpp:S1709
     {
         String::SetBuffer(mBuffer, cMaxSize);
-        (void)String::operator=(str);
+        (void)String::operator=(str); // NOSONAR cpp:S1699 - begin()/end() are not overridden
     }
 
     // cppcheck-suppress duplInheritedMember
@@ -888,7 +888,7 @@ public:
     StaticString(const char* str) // NOSONAR cpp:S1709
     {
         String::SetBuffer(mBuffer, cMaxSize);
-        (void)String::operator=(str);
+        (void)String::operator=(str); // NOSONAR cpp:S1699 - begin()/end() are not overridden
     }
 
     /**
