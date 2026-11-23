@@ -258,7 +258,7 @@ void ImageManager::RegisterDownloadFiles(const String& currentDigest)
             StaticString<oci::cDigestLen> hash;
 
             if (algIt->mPath.Size() + 1 + fileIt->mPath.Size() <= digest.MaxSize()) {
-                digest.Append(algIt->mPath).Append(":").Append(fileIt->mPath);
+                (void)digest.Append(algIt->mPath).Append(":").Append(fileIt->mPath);
             }
 
             if (fileIt->mIsDir || !ParseDigest(digest, algorithm, hash).IsNone()) {
