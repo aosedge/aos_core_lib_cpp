@@ -967,7 +967,7 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
 
     err = mNetns->CreateNetworkNamespace(instanceID);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     auto cleanupNetworkNamespace = DeferRelease(&instanceID, [this, &err](const String* instanceID) {
@@ -1363,7 +1363,7 @@ Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, cons
     }
 
     if (auto errDel = mNetns->DeleteNetworkNamespace(instanceID); !errDel.IsNone() && err.IsNone()) {
-        err = errDel;
+        err = AOS_ERROR_WRAP(errDel);
     }
 
     if (err.IsNone() && !hostIfName.IsEmpty()) {
