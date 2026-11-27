@@ -499,10 +499,12 @@ RetWithError<size_t> ImageManager::RemoveLayerFiles(const String& layerPath)
 void ImageManager::AcceptRemainingSpace(const String& layerPath, spaceallocator::SpaceItf& space)
 {
     auto [size, err] = fs::CalculateSize(*mAllocator, layerPath);
-    if (!err.IsNone()) {
+    if (err.IsNone()) {
+        if (err = space.Resize(size); !err.IsNone()) {
+            LOG_ERR() << "Failed to resize space" << Log::Field("path", layerPath) << Log::Field(AOS_ERROR_WRAP(err));
+        }
+    } else {
         LOG_ERR() << "Failed to calculate layer size" << Log::Field("path", layerPath) << Log::Field(err);
-    } else if (err = space.Resize(size); !err.IsNone()) {
-        LOG_ERR() << "Failed to resize space" << Log::Field("path", layerPath) << Log::Field(AOS_ERROR_WRAP(err));
     }
 
     if (err = space.Accept(); !err.IsNone()) {
@@ -561,7 +563,7 @@ RetWithError<size_t> ImageManager::RemoveOrphanLayer(const String& layerPath, co
     StaticString<oci::cDigestLen> hash;
 
     // The file which doesn't match a valid diff ID is not a layer and is removed.
-    if (diffID.IsEmpty() || !ParseDigest(diffID, algorithm, hash).IsNone()) {
+    if (diffID.IsEmpty() || !ParseDigest(diffID, algorithm, hash).IsNone()) { // NOSONAR cpp:S6004
         LOG_WRN() << "Remove invalid layer" << Log::Field("path", layerPath);
 
         return RemoveLayerFiles(layerPath);

@@ -8,7 +8,7 @@
 #include <gtest/gtest.h>
 
 #include <core/common/tests/mocks/nodeinfoprovidermock.hpp>
-#include <core/common/tests/stubs/testallocator.hpp>
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tools/heapallocator.hpp>
 #include <core/iam/nodemanager/nodemanager.hpp>
@@ -18,7 +18,7 @@
 using namespace aos;
 using namespace aos::iam::nodemanager;
 using namespace testing;
-using aos::tests::TestAllocator;
+using aos::tests::FailingAllocator;
 
 /***********************************************************************************************************************
  * Suite
@@ -228,10 +228,10 @@ TEST_F(NodeManagerTest, NotifyNodeInfoChangeOnSetNodeInfo)
 
 TEST_F(NodeManagerTest, InitErrors)
 {
-    NodeManager   manager;
-    TestAllocator allocator;
+    NodeManager      manager;
+    FailingAllocator allocator;
 
-    allocator.FailAfter(0);
+    allocator.FailAll();
 
     EXPECT_TRUE(manager.Init(allocator, mStorage).Is(ErrorEnum::eNoMemory));
 
@@ -245,7 +245,7 @@ TEST_F(NodeManagerTest, InitErrors)
 
     EXPECT_CALL(mStorage, GetAllNodeIDs(_)).WillOnce(returnNodeIDs);
 
-    allocator.FailAfter(1);
+    allocator.FailAt(1, FailingAllocator::cUnlimited);
 
     EXPECT_TRUE(manager.Init(allocator, mStorage).Is(ErrorEnum::eNoMemory));
 
@@ -314,13 +314,13 @@ TEST_F(NodeManagerTest, SetNodeStateAndConnectedErrors)
 
 TEST_F(NodeManagerTest, NoMemoryErrors)
 {
-    NodeManager   manager;
-    TestAllocator allocator;
+    NodeManager      manager;
+    FailingAllocator allocator;
 
     EXPECT_CALL(mStorage, GetAllNodeIDs(_)).WillOnce(Return(ErrorEnum::eNone));
     ASSERT_TRUE(manager.Init(allocator, mStorage).IsNone());
 
-    allocator.FailAfter(0);
+    allocator.FailAll();
 
     EXPECT_TRUE(manager.SetNodeInfo(CreateNodeInfo("node0")).Is(ErrorEnum::eNoMemory));
 
@@ -329,7 +329,7 @@ TEST_F(NodeManagerTest, NoMemoryErrors)
     EXPECT_CALL(mStorage, SetNodeInfo(_)).WillOnce(Return(ErrorEnum::eNone));
     ASSERT_TRUE(manager.SetNodeInfo(CreateNodeInfo("node0")).IsNone());
 
-    allocator.FailAfter(0);
+    allocator.FailAll();
 
     EXPECT_TRUE(manager.SetNodeState("node0", NodeStateEnum::ePaused).Is(ErrorEnum::eNoMemory));
     EXPECT_TRUE(manager.SetNodeConnected("node0", false).Is(ErrorEnum::eNoMemory));

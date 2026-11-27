@@ -74,6 +74,57 @@ bool IsSameDesiredStatus(const DesiredStatus& lhs, const DesiredStatus& rhs)
         && lhs.mCertificateChains == rhs.mCertificateChains;
 }
 
+bool AreDesiredInstancesPresent(
+    const Array<DesiredInstanceInfo>& desiredInstances, const Array<InstanceStatus>& instancesStatuses)
+{
+    for (const auto& desiredInstance : desiredInstances) {
+        for (size_t i = 0; i < desiredInstance.mNumInstances; ++i) {
+            if (auto it = instancesStatuses.FindIf([&desiredInstance, i](const InstanceStatus& instanceStatus) {
+                    return instanceStatus.mItemID == desiredInstance.mItemID
+                        && instanceStatus.mSubjectID == desiredInstance.mSubjectID && instanceStatus.mInstance == i;
+                });
+                it == instancesStatuses.end()) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool IsServiceInstanceDesired(const InstanceStatus& instanceStatus, const Array<DesiredInstanceInfo>& desiredInstances)
+{
+    auto it = desiredInstances.FindIf([&instanceStatus](const DesiredInstanceInfo& desiredInstance) {
+        return desiredInstance.mItemID == instanceStatus.mItemID
+            && desiredInstance.mSubjectID == instanceStatus.mSubjectID
+            && instanceStatus.mInstance < desiredInstance.mNumInstances;
+    });
+
+    return it != desiredInstances.end();
+}
+
+// Returns false if the desired instance has no desired update item of the instance version or is not active.
+// Instances which are not desired are considered up to date.
+bool IsComponentInstanceUpToDate(const InstanceStatus& instanceStatus, const DesiredStatus& desiredStatus)
+{
+    if (auto it = desiredStatus.mInstances.FindIf([&instanceStatus](const DesiredInstanceInfo& desiredInstance) {
+            return desiredInstance.mItemID == instanceStatus.mItemID
+                && desiredInstance.mSubjectID == instanceStatus.mSubjectID;
+        });
+        it == desiredStatus.mInstances.end()) {
+        return true;
+    }
+
+    if (auto itemIt = desiredStatus.mUpdateItems.FindIf([&instanceStatus](const UpdateItemInfo& item) {
+            return item.mItemID == instanceStatus.mItemID && item.mVersion == instanceStatus.mVersion;
+        });
+        itemIt == desiredStatus.mUpdateItems.end()) {
+        return false;
+    }
+
+    return instanceStatus.mState == InstanceStateEnum::eActive;
+}
+
 } // namespace
 
 /***********************************************************************************************************************
@@ -136,8 +187,11 @@ Error DesiredStatusHandler::Start()
 
         mHasPendingDesiredStatus = true;
         StartUpdate(updateState);
-    } else if (err = mStorage->GetDesiredStatus(mCurrentDesiredStatus);
-               !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+
+        return ErrorEnum::eNone;
+    }
+
+    if (err = mStorage->GetDesiredStatus(mCurrentDesiredStatus); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         LOG_ERR() << "Failed to get desired status" << Log::Field(err);
     }
 
@@ -389,10 +443,6 @@ void DesiredStatusHandler::RunUpdate(UniqueLock<Mutex>& lock)
             break;
         }
 
-        if (!mIsRunning) {
-            break;
-        }
-
         if (stateAction != nullptr) {
             (void)lock.Unlock();
 
@@ -484,7 +534,7 @@ Error DesiredStatusHandler::InstallUpdateItems()
 
         for (const auto& item : mCurrentDesiredStatus.mUpdateItems) {
             const auto* itemStatus = FindItemStatus(item, *itemsStatuses);
-            if (itemStatus != nullptr && !IsItemInstallRequired(*itemStatus)) {
+            if (itemStatus != nullptr && !IsItemInstallRequired(*itemStatus)) { // NOSONAR cpp:S6004
                 LOG_DBG() << "Skip install update item" << Log::Field("id", item.mItemID)
                           << Log::Field("version", item.mVersion) << Log::Field("state", itemStatus->mState);
 
@@ -606,12 +656,12 @@ Error DesiredStatusHandler::GetIntegrityFailedItems(Array<const UpdateItemInfo*>
 
     for (const auto& item : mCurrentDesiredStatus.mUpdateItems) {
         const auto* itemStatus = FindItemStatus(item, *itemsStatuses);
-        if (itemStatus == nullptr || itemStatus->mState != ItemStateEnum::eInstalled) {
+        if (itemStatus == nullptr || itemStatus->mState != ItemStateEnum::eInstalled) { // NOSONAR cpp:S6004
             continue;
         }
 
         const auto* failureCause = FindItemFailureCause(item, *instancesStatuses);
-        if (failureCause == nullptr || !failureCause->mError.Is(ErrorEnum::eIntegrity)) {
+        if (failureCause == nullptr || !failureCause->mError.Is(ErrorEnum::eIntegrity)) { // NOSONAR cpp:S6004
             continue;
         }
 
@@ -647,10 +697,15 @@ void DesiredStatusHandler::InstallItem(const UpdateItemInfo& item)
     LOG_DBG() << "Install update item" << Log::Field("id", item.mItemID) << Log::Field("type", item.mType)
               << Log::Field("version", item.mVersion);
 
-    if (auto err = mImageManager->InstallItem(item); err.Is(ErrorEnum::eCanceled)) {
+    auto err = mImageManager->InstallItem(item);
+    if (err.Is(ErrorEnum::eCanceled)) {
         LOG_INF() << "Install update item canceled" << Log::Field("id", item.mItemID)
                   << Log::Field("version", item.mVersion);
-    } else if (!err.IsNone()) {
+
+        return;
+    }
+
+    if (!err.IsNone()) {
         LOG_ERR() << "Failed to install update item" << Log::Field("id", item.mItemID) << Log::Field("type", item.mType)
                   << Log::Field("version", item.mVersion) << Log::Field(err);
     }
@@ -958,52 +1013,21 @@ bool DesiredStatusHandler::IsUpdateInstancesRequired(const DesiredStatus& desire
         return true;
     }
 
-    for (const auto& desiredInstance : desiredStatus.mInstances) {
-        if (desiredInstance.mNumInstances == 0) {
-            continue;
-        }
-
-        for (size_t i = 0; i < desiredInstance.mNumInstances; ++i) {
-            if (auto it = instancesStatuses->FindIf([&desiredInstance, i](const InstanceStatus& instanceStatus) {
-                    return instanceStatus.mItemID == desiredInstance.mItemID
-                        && instanceStatus.mSubjectID == desiredInstance.mSubjectID && instanceStatus.mInstance == i;
-                });
-                it == instancesStatuses->end()) {
-                return true;
-            }
-        }
+    if (!AreDesiredInstancesPresent(desiredStatus.mInstances, *instancesStatuses)) {
+        return true;
     }
 
     for (const auto& instanceStatus : *instancesStatuses) {
         if (instanceStatus.mType == UpdateItemTypeEnum::eService) {
-            if (auto it
-                = desiredStatus.mInstances.FindIf([&instanceStatus](const DesiredInstanceInfo& desiredInstance) {
-                      return desiredInstance.mItemID == instanceStatus.mItemID
-                          && desiredInstance.mSubjectID == instanceStatus.mSubjectID
-                          && instanceStatus.mInstance < desiredInstance.mNumInstances;
-                  });
-                it == desiredStatus.mInstances.end()) {
+            if (!IsServiceInstanceDesired(instanceStatus, desiredStatus.mInstances)) {
                 return true;
             }
-        } else {
-            if (auto it
-                = desiredStatus.mInstances.FindIf([&instanceStatus](const DesiredInstanceInfo& desiredInstance) {
-                      return desiredInstance.mItemID == instanceStatus.mItemID
-                          && desiredInstance.mSubjectID == instanceStatus.mSubjectID;
-                  });
-                it != desiredStatus.mInstances.end()) {
 
-                if (auto itemIt = desiredStatus.mUpdateItems.FindIf([&instanceStatus](const UpdateItemInfo& item) {
-                        return item.mItemID == instanceStatus.mItemID && item.mVersion == instanceStatus.mVersion;
-                    });
-                    itemIt == desiredStatus.mUpdateItems.end()) {
-                    return true;
-                }
+            continue;
+        }
 
-                if (instanceStatus.mState != InstanceStateEnum::eActive) {
-                    return true;
-                }
-            }
+        if (!IsComponentInstanceUpToDate(instanceStatus, desiredStatus)) {
+            return true;
         }
     }
 

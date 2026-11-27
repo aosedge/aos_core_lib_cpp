@@ -967,7 +967,7 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
 
     err = mNetns->CreateNetworkNamespace(instanceID);
     if (!err.IsNone()) {
-        return err;
+        return AOS_ERROR_WRAP(err);
     }
 
     auto cleanupNetworkNamespace = DeferRelease(&instanceID, [this, &err](const String* instanceID) {
@@ -1027,21 +1027,27 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         }
     });
 
-    auto firewallParams = MakeUnique<InstanceFirewallParams>(mAllocator);
-    if (!firewallParams) {
-        err = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
-
-        return err;
-    }
-
-    err = PrepareInstanceFirewallParams(networkConfig, networkParams, *firewallParams);
+    err = ConfigureInstanceNetwork(
+        instanceID, networkID, networkConfig, networkParams, *hosts, attachResult.mHostIfName);
     if (!err.IsNone()) {
         return err;
     }
 
-    err = mFirewall->AddInstance(instanceID, *firewallParams);
+    LOG_DBG() << "Instance added to network" << Log::Field("instanceID", instanceID)
+              << Log::Field("networkID", networkID);
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::ConfigureInstanceNetwork(const String& instanceID, const String& networkID,
+    const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams,
+    const Array<StaticString<cHostNameLen>>& hosts, const String& hostIfName)
+{
+    Error err;
+
+    err = AddInstanceFirewall(instanceID, networkConfig, networkParams);
     if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
+        return err;
     }
 
     auto cleanupFirewall = DeferRelease(&instanceID, [this, &err](const String* id) {
@@ -1053,64 +1059,26 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         }
     });
 
-    auto bandwidthParams = MakeUnique<BandwidthParams>(mAllocator);
-    if (!bandwidthParams) {
-        err = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    bool bandwidthApplied = false;
 
-        return err;
-    }
-
-    err = PrepareBandwidthParams(networkConfig, *bandwidthParams);
+    err = ApplyInstanceBandwidth(hostIfName, networkConfig, bandwidthApplied);
     if (!err.IsNone()) {
         return err;
     }
 
-    err = mBandwidth->Apply(attachResult.mHostIfName, *bandwidthParams);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
-    }
-
-    const bool bandwidthApplied = bandwidthParams->mIngressRate > 0 || bandwidthParams->mEgressRate > 0;
-
-    auto cleanupBandwidth
-        = DeferRelease(&attachResult.mHostIfName, [this, &err, bandwidthApplied](const String* ifName) {
-              if (!err.IsNone() && bandwidthApplied) {
-                  if (auto errClear = mBandwidth->Clear(*ifName); !errClear.IsNone()) {
-                      LOG_ERR() << "Failed to clear bandwidth" << Log::Field("ifName", *ifName) << Log::Field(errClear);
-                  }
-              }
-          });
+    auto cleanupBandwidth = DeferRelease(&hostIfName, [this, &err, bandwidthApplied](const String* ifName) {
+        if (!err.IsNone() && bandwidthApplied) {
+            if (auto errClear = mBandwidth->Clear(*ifName); !errClear.IsNone()) {
+                LOG_ERR() << "Failed to clear bandwidth" << Log::Field("ifName", *ifName) << Log::Field(errClear);
+            }
+        }
+    });
 
     DNSServerItf* dnsServer = nullptr;
 
-    {
-        LockGuard lock {mMutex};
-
-        auto it = mDNSServers.Find(networkID);
-        if (it == mDNSServers.end()) {
-            err = AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "DNS server not found"));
-
-            return err;
-        }
-
-        dnsServer = it->mSecond;
-    }
-
-    auto dnsParams = MakeUnique<DNSAliasesParams>(mAllocator);
-    if (!dnsParams) {
-        err = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
-
-        return err;
-    }
-
-    err = PrepareDNSAliasesParams(networkParams, *hosts, *dnsParams);
+    err = AddInstanceDNSHost(instanceID, networkID, networkParams, hosts, dnsServer);
     if (!err.IsNone()) {
         return err;
-    }
-
-    err = dnsServer->AddHost(instanceID, *dnsParams);
-    if (!err.IsNone()) {
-        return AOS_ERROR_WRAP(err);
     }
 
     auto cleanupDNSHost = DeferRelease(&instanceID, [dnsServer, &err](const String* id) {
@@ -1121,10 +1089,23 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
         }
     });
 
+    err = StartInstanceMonitoring(instanceID, networkID, networkConfig, networkParams, hosts, hostIfName);
+    if (!err.IsNone()) {
+        return err;
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::StartInstanceMonitoring(const String& instanceID, const String& networkID,
+    const InstanceNetworkConfig& networkConfig, const aos::InstanceNetworkAllocation& networkParams,
+    const Array<StaticString<cHostNameLen>>& hosts, const String& hostIfName)
+{
+    Error err;
+
     err = mNetMonitor->StartInstanceMonitoring(
         instanceID, networkParams.mIP, networkConfig.mDownloadLimit, networkConfig.mUploadLimit);
     if (!err.IsNone()) {
-
         return AOS_ERROR_WRAP(err);
     }
 
@@ -1140,16 +1121,95 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
     // resolv.conf / hosts are no longer written here; the caller fetches the
     // data via GetResolvServers/GetHosts and writes the files at its own paths.
 
-    err = UpdateInstanceNetworkCache(instanceID, networkID, *hosts);
+    err = UpdateInstanceNetworkCache(instanceID, networkID, hosts);
     if (!err.IsNone()) {
         return err;
     }
 
+    err = StoreInstanceHostIfName(instanceID, hostIfName);
+    if (!err.IsNone()) {
+        return err;
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::AddInstanceFirewall(const String& instanceID, const InstanceNetworkConfig& networkConfig,
+    const aos::InstanceNetworkAllocation& networkParams)
+{
+    auto firewallParams = MakeUnique<InstanceFirewallParams>(mAllocator);
+    if (!firewallParams) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = PrepareInstanceFirewallParams(networkConfig, networkParams, *firewallParams); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = mFirewall->AddInstance(instanceID, *firewallParams); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::ApplyInstanceBandwidth(
+    const String& hostIfName, const InstanceNetworkConfig& networkConfig, bool& bandwidthApplied)
+{
+    auto bandwidthParams = MakeUnique<BandwidthParams>(mAllocator);
+    if (!bandwidthParams) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = PrepareBandwidthParams(networkConfig, *bandwidthParams); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = mBandwidth->Apply(hostIfName, *bandwidthParams); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    bandwidthApplied = bandwidthParams->mIngressRate > 0 || bandwidthParams->mEgressRate > 0;
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::AddInstanceDNSHost(const String& instanceID, const String& networkID,
+    const aos::InstanceNetworkAllocation& networkParams, const Array<StaticString<cHostNameLen>>& hosts,
+    DNSServerItf*& dnsServer)
+{
+    {
+        LockGuard lock {mMutex};
+
+        auto it = mDNSServers.Find(networkID);
+        if (it == mDNSServers.end()) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "DNS server not found"));
+        }
+
+        dnsServer = it->mSecond;
+    }
+
+    auto dnsParams = MakeUnique<DNSAliasesParams>(mAllocator);
+    if (!dnsParams) {
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    if (auto err = PrepareDNSAliasesParams(networkParams, hosts, *dnsParams); !err.IsNone()) {
+        return err;
+    }
+
+    if (auto err = dnsServer->AddHost(instanceID, *dnsParams); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error NetworkManager::StoreInstanceHostIfName(const String& instanceID, const String& hostIfName)
+{
     auto info = MakeUnique<InstanceNetworkInfo>(mAllocator);
     if (!info) {
-        err = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
-
-        return err;
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
     }
 
     {
@@ -1157,30 +1217,23 @@ Error NetworkManager::AddInstanceToNetwork(const String& instanceID, const Strin
 
         auto it = mInstanceNetworkInfos.Find(instanceID);
         if (it == mInstanceNetworkInfos.end()) {
-            err = AOS_ERROR_WRAP(ErrorEnum::eNotFound);
-            return err;
+            return AOS_ERROR_WRAP(ErrorEnum::eNotFound);
         }
 
         *info = it->mSecond;
     }
 
-    info->mHostIfName = attachResult.mHostIfName;
+    info->mHostIfName = hostIfName;
 
-    err = mStorage->UpdateInstanceNetworkInfo(*info);
-    if (!err.IsNone()) {
+    if (auto err = mStorage->UpdateInstanceNetworkInfo(*info); !err.IsNone()) {
         return AOS_ERROR_WRAP(err);
     }
 
-    {
-        LockGuard lock {mMutex};
+    LockGuard lock {mMutex};
 
-        if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
-            it->mSecond.mHostIfName = attachResult.mHostIfName;
-        }
+    if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
+        it->mSecond.mHostIfName = hostIfName;
     }
-
-    LOG_DBG() << "Instance added to network" << Log::Field("instanceID", instanceID)
-              << Log::Field("networkID", networkID);
 
     return ErrorEnum::eNone;
 }
@@ -1296,24 +1349,7 @@ Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, cons
     Error err;
 
     if (!hostIfName.IsEmpty()) {
-        if (dnsServer != nullptr) {
-            if (auto errRemove = dnsServer->RemoveHost(instanceID); !errRemove.IsNone() && err.IsNone()) {
-                err = AOS_ERROR_WRAP(errRemove);
-            }
-        } else {
-            LOG_WRN() << "DNS server not found for cleanup" << Log::Field("instanceID", instanceID)
-                      << Log::Field("networkID", networkID);
-        }
-
-        if (hasBandwidth) {
-            if (auto errClear = mBandwidth->Clear(hostIfName); !errClear.IsNone() && err.IsNone()) {
-                err = AOS_ERROR_WRAP(errClear);
-            }
-        }
-
-        if (auto errRemove = mFirewall->RemoveInstance(instanceID); !errRemove.IsNone() && err.IsNone()) {
-            err = AOS_ERROR_WRAP(errRemove);
-        }
+        err = RemoveInstanceInterfaceConfig(instanceID, networkID, hostIfName, dnsServer, hasBandwidth);
 
         // The host veth is intentionally NOT detached here. DeleteNetworkNamespace
         // below drops the instance netns (lazy umount); the kernel then reaps the
@@ -1327,49 +1363,83 @@ Error NetworkManager::DeleteInstanceNetworkConfig(const String& instanceID, cons
     }
 
     if (auto errDel = mNetns->DeleteNetworkNamespace(instanceID); !errDel.IsNone() && err.IsNone()) {
-        err = errDel;
+        err = AOS_ERROR_WRAP(errDel);
     }
 
     if (err.IsNone() && !hostIfName.IsEmpty()) {
-        auto info = MakeUnique<InstanceNetworkInfo>(mAllocator);
-        if (!info) {
-            LOG_ERR() << "Failed to allocate instance network info" << Log::Field("instanceID", instanceID)
-                      << Log::Field(ErrorEnum::eNoMemory);
-
-            err = AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
-
-            return err;
-        }
-
-        bool needPersist = false;
-
-        {
-            LockGuard lock {mMutex};
-
-            if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
-                *info = it->mSecond;
-                info->mHostIfName.Clear();
-                needPersist = true;
-            }
-        }
-
-        if (needPersist) {
-            if (auto errUpd = mStorage->UpdateInstanceNetworkInfo(*info); !errUpd.IsNone()) {
-                LOG_ERR() << "Failed to clear host interface in storage" << Log::Field("instanceID", instanceID)
-                          << Log::Field(errUpd);
-
-                err = AOS_ERROR_WRAP(errUpd);
-            } else {
-                LockGuard lock {mMutex};
-
-                if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
-                    it->mSecond.mHostIfName.Clear();
-                }
-            }
-        }
+        err = ClearInstanceHostIfName(instanceID);
     }
 
     return err;
+}
+
+Error NetworkManager::RemoveInstanceInterfaceConfig(const String& instanceID, const String& networkID,
+    const String& hostIfName, DNSServerItf* dnsServer, bool hasBandwidth)
+{
+    Error err;
+
+    if (dnsServer != nullptr) {
+        if (auto errRemove = dnsServer->RemoveHost(instanceID); !errRemove.IsNone() && err.IsNone()) {
+            err = AOS_ERROR_WRAP(errRemove);
+        }
+    } else {
+        LOG_WRN() << "DNS server not found for cleanup" << Log::Field("instanceID", instanceID)
+                  << Log::Field("networkID", networkID);
+    }
+
+    if (hasBandwidth) {
+        if (auto errClear = mBandwidth->Clear(hostIfName); !errClear.IsNone() && err.IsNone()) {
+            err = AOS_ERROR_WRAP(errClear);
+        }
+    }
+
+    if (auto errRemove = mFirewall->RemoveInstance(instanceID); !errRemove.IsNone() && err.IsNone()) {
+        err = AOS_ERROR_WRAP(errRemove);
+    }
+
+    return err;
+}
+
+Error NetworkManager::ClearInstanceHostIfName(const String& instanceID)
+{
+    auto info = MakeUnique<InstanceNetworkInfo>(mAllocator);
+    if (!info) {
+        LOG_ERR() << "Failed to allocate instance network info" << Log::Field("instanceID", instanceID)
+                  << Log::Field(ErrorEnum::eNoMemory);
+
+        return AOS_ERROR_WRAP(ErrorEnum::eNoMemory);
+    }
+
+    bool needPersist = false;
+
+    {
+        LockGuard lock {mMutex};
+
+        if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
+            *info = it->mSecond;
+            info->mHostIfName.Clear();
+            needPersist = true;
+        }
+    }
+
+    if (!needPersist) {
+        return ErrorEnum::eNone;
+    }
+
+    if (auto errUpd = mStorage->UpdateInstanceNetworkInfo(*info); !errUpd.IsNone()) {
+        LOG_ERR() << "Failed to clear host interface in storage" << Log::Field("instanceID", instanceID)
+                  << Log::Field(errUpd);
+
+        return AOS_ERROR_WRAP(errUpd);
+    }
+
+    LockGuard lock {mMutex};
+
+    if (auto it = mInstanceNetworkInfos.Find(instanceID); it != mInstanceNetworkInfos.end()) {
+        it->mSecond.mHostIfName.Clear();
+    }
+
+    return ErrorEnum::eNone;
 }
 
 Error NetworkManager::IsInstanceInNetwork(const String& instanceID, const String& networkID) const
@@ -1581,10 +1651,10 @@ Error NetworkManager::ReconcileInstances()
                 }
 
                 continue;
-            } else {
-                LOG_WRN() << "Failed to adopt leftover instance, falling back to cleanup"
-                          << Log::Field("instanceID", entry.mInstanceID) << Log::Field(err);
             }
+
+            LOG_WRN() << "Failed to adopt leftover instance, falling back to cleanup"
+                      << Log::Field("instanceID", entry.mInstanceID) << Log::Field(err);
         }
 
         err = EnsureDNSServer(entry.mNetworkID).mError;

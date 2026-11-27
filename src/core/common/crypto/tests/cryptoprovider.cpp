@@ -8,7 +8,7 @@
 
 #include <core/common/crypto/cryptoutils.hpp>
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
-#include <core/common/tests/stubs/testallocator.hpp>
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/fs.hpp>
@@ -30,7 +30,7 @@
 #endif
 
 using namespace testing;
-using aos::tests::TestAllocator;
+using aos::tests::FailingAllocator;
 
 namespace aos::crypto {
 /***********************************************************************************************************************
@@ -55,7 +55,7 @@ public:
 protected:
     // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
     // members are destroyed in reverse declaration order.
-    TestAllocator mAllocator;
+    FailingAllocator mAllocator;
 
     std::shared_ptr<CryptoFactoryItf> mFactory;
     CryptoProviderItf*                mCryptoProvider;
@@ -151,7 +151,7 @@ void CreateCertificate(CryptoFactoryItf& factory, CryptoProviderItf& provider, c
 
     ASSERT_TRUE(provider.PEMToX509Certs(pemCRT, certs).IsNone());
     ASSERT_EQ(certs.Size(), 1);
-    ASSERT_EQ(certs[0].mSubjectKeyId, certs[0].mAuthorityKeyId);
+    ASSERT_EQ(certs[0].mSubjectKeyID, certs[0].mAuthorityKeyID);
 }
 
 /***********************************************************************************************************************
@@ -190,7 +190,7 @@ TEST_P(CryptoProviderTest, DERToX509Certs)
 
     ASSERT_TRUE(mCryptoProvider->DERToX509Cert(tests::utils::ConvertToArray(derCert), cert).IsNone());
 
-    ASSERT_TRUE(cert.mSubjectKeyId == cert.mAuthorityKeyId);
+    ASSERT_TRUE(cert.mSubjectKeyID == cert.mAuthorityKeyID);
 
     StaticString<cCertSubjSize> subject;
     StaticString<cCertSubjSize> issuer;
@@ -230,7 +230,7 @@ TEST_P(CryptoProviderTest, PEMToX509Certs)
 
     ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(pemBlob, certs).IsNone());
     ASSERT_EQ(certs.Size(), 1);
-    ASSERT_EQ(certs[0].mSubjectKeyId, certs[0].mAuthorityKeyId);
+    ASSERT_EQ(certs[0].mSubjectKeyID, certs[0].mAuthorityKeyID);
 
     StaticString<cCertSubjSize> subject;
     StaticString<cCertSubjSize> issuer;
@@ -1121,7 +1121,7 @@ TEST_P(CryptoProviderTest, AES_CreateFailsWithoutMemory)
 
         const auto ivSize = String(mode) == "GCM" ? AESCipherItf::cGCMIVSize : AESCipherItf::cBlockSize;
 
-        mAllocator.FailAfter(0);
+        mAllocator.FailAll();
 
         EXPECT_TRUE(mCryptoProvider->CreateAESEncoder(mode, AsArray(cGCMKey), Array<uint8_t>(iv, ivSize))
                         .mError.Is(ErrorEnum::eNoMemory));
@@ -1240,7 +1240,7 @@ TEST_P(CryptoProviderTest, VerifyCACert)
     ASSERT_TRUE(cert.mKeyUsage.HasValue());
     EXPECT_NE(cert.mKeyUsage.GetValue() & x509::keyusage::cKeyCertSign, 0u);
     EXPECT_NE(cert.mKeyUsage.GetValue() & x509::keyusage::cCRLSign, 0u);
-    EXPECT_FALSE(cert.mSubjectKeyId.IsEmpty());
+    EXPECT_FALSE(cert.mSubjectKeyID.IsEmpty());
     EXPECT_EQ(cert.mIssuer, cert.mSubject);
     ASSERT_TRUE(ValidateCACert(cert).IsNone());
 }
@@ -1852,6 +1852,47 @@ TEST_P(CryptoProviderTest, PEMToX509CertsSubjectAltNameURIs)
     }
 }
 
+TEST_P(CryptoProviderTest, PEMToX509CertsIssuerAltNameAfterKeyIDs)
+{
+    StaticString<cCertPEMLen> pem;
+    x509::CertificateChain    chain;
+
+    ReadTestFile(CRYPTOHELPER_CERTS_DIR "/onlineIssuerAltNameLast.pem", pem);
+
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(pem, chain).IsNone());
+    ASSERT_EQ(chain.Size(), 1u);
+    EXPECT_FALSE(chain[0].mSubjectKeyID.IsEmpty());
+    EXPECT_FALSE(chain[0].mAuthorityKeyID.IsEmpty());
+    ASSERT_EQ(chain[0].mIssuerURLs.Size(), 1u);
+    EXPECT_EQ(chain[0].mIssuerURLs[0], "https://www.mytest.com");
+}
+
+TEST_P(CryptoProviderTest, PEMToX509CertsKeyIDLikeOID)
+{
+    StaticString<cCertPEMLen> pem;
+    x509::CertificateChain    chain;
+
+    ReadTestFile(CRYPTOHELPER_CERTS_DIR "/onlineKeyIdLikeOID.pem", pem);
+
+    ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(pem, chain).IsNone());
+    ASSERT_EQ(chain.Size(), 1u);
+    EXPECT_EQ(chain[0].mSubjectKeyID.Size(), crypto::cSHA1DigestSize);
+}
+
+TEST_P(CryptoProviderTest, PEMToX509CertsLongKeyIDs)
+{
+    StaticString<cCertPEMLen> pem;
+    x509::CertificateChain    chain;
+
+    for (const auto* name : {"longKeyIdCA", "onlineLongAuthorityKeyId"}) {
+        ReadTestFile(std::string(CRYPTOHELPER_CERTS_DIR "/") + name + ".pem", pem);
+
+        chain.Clear();
+
+        EXPECT_TRUE(mCryptoProvider->PEMToX509Certs(pem, chain).Is(ErrorEnum::eNoMemory)) << name;
+    }
+}
+
 TEST_P(CryptoProviderTest, CreateClientCert)
 {
     StaticString<cCertPEMLen>    caCert;
@@ -1959,7 +2000,7 @@ TEST_P(CryptoProviderTest, PEMToX509PrivKeyErrors)
 
     ReadTestFile(TEST_CERTIFICATES_DIR "/client.key", keyPEM);
 
-    mAllocator.FailAfter(0);
+    mAllocator.FailAll();
 
     EXPECT_TRUE(mCryptoProvider->PEMToX509PrivKey(keyPEM).mError.Is(ErrorEnum::eNoMemory));
 
@@ -2013,7 +2054,7 @@ TEST_P(CryptoProviderTest, CreateHashErrors)
 {
     EXPECT_FALSE(mHashProvider->CreateHash(HashEnum::eNone).mError.IsNone());
 
-    mAllocator.FailAfter(0);
+    mAllocator.FailAll();
 
     EXPECT_TRUE(mHashProvider->CreateHash(HashEnum::eSHA256).mError.Is(ErrorEnum::eNoMemory));
 
@@ -2284,7 +2325,7 @@ TEST_P(CryptoProviderTest, CreateCertificateWithTemplateValues)
     const uint8_t skid[]   = {0x04, 0x04, 0x0a, 0x0b, 0x0c, 0x0d};
 
     templ.mSerial       = Array<uint8_t>(serial, sizeof(serial));
-    templ.mSubjectKeyId = Array<uint8_t>(skid, sizeof(skid));
+    templ.mSubjectKeyID = Array<uint8_t>(skid, sizeof(skid));
 
     templ.mIssuerURLs.PushBack("https://issuer.test");
 
@@ -2303,7 +2344,7 @@ TEST_P(CryptoProviderTest, CreateCertificateWithTemplateValues)
     const uint8_t expectedSKID[] = {0x0a, 0x0b, 0x0c, 0x0d};
 
     EXPECT_EQ(certs[0].mSerial, Array<uint8_t>(serial, sizeof(serial)));
-    EXPECT_EQ(certs[0].mSubjectKeyId, Array<uint8_t>(expectedSKID, sizeof(expectedSKID)));
+    EXPECT_EQ(certs[0].mSubjectKeyID, Array<uint8_t>(expectedSKID, sizeof(expectedSKID)));
 
     if (mFactory->GetName() == "OpenSSL") {
         ASSERT_EQ(certs[0].mIssuerURLs.Size(), 1u);
@@ -2855,7 +2896,7 @@ TEST_P(CryptoProviderTest, CreateCertificateWithInvalidTemplate)
     {
         auto invalid = templ;
 
-        invalid.mSubjectKeyId = Array<uint8_t>(notOctetString, sizeof(notOctetString));
+        invalid.mSubjectKeyID = Array<uint8_t>(notOctetString, sizeof(notOctetString));
 
         EXPECT_EQ(mCryptoProvider->CreateCertificate(invalid, x509::Certificate(), *privKey, pem).IsNone(), !isOpenSSL);
     }
@@ -2863,7 +2904,7 @@ TEST_P(CryptoProviderTest, CreateCertificateWithInvalidTemplate)
     {
         auto invalid = templ;
 
-        invalid.mAuthorityKeyId = Array<uint8_t>(notOctetString, sizeof(notOctetString));
+        invalid.mAuthorityKeyID = Array<uint8_t>(notOctetString, sizeof(notOctetString));
 
         EXPECT_EQ(mCryptoProvider->CreateCertificate(invalid, x509::Certificate(), *privKey, pem).IsNone(), !isOpenSSL);
     }

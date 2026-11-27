@@ -17,6 +17,7 @@
 
 #include <gtest/gtest.h>
 
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/heapallocator.hpp>
@@ -1011,15 +1012,7 @@ TEST_F(FSTest, BaseNameParentPathNoMemory)
     EXPECT_STREQ(parent.CStr(), "/");
 }
 
-namespace {
-
-class NullAllocator : public AllocatorItf {
-public:
-    void* Allocate(size_t) override { return nullptr; }
-    void  Free(void*) override { }
-};
-
-} // namespace
+using aos::tests::FailingAllocator;
 
 TEST_F(FSTest, CalculateSizeAllocatorNoMemory)
 {
@@ -1027,7 +1020,9 @@ TEST_F(FSTest, CalculateSizeAllocatorNoMemory)
 
     ASSERT_TRUE(fs::MakeDirAll(root.c_str()).IsNone());
 
-    NullAllocator allocator;
+    FailingAllocator allocator;
+
+    allocator.FailAll();
 
     EXPECT_EQ(fs::CalculateSize(allocator, root.c_str()).mError, ErrorEnum::eNoMemory);
     EXPECT_EQ(fs::CalculateSize(mAllocator, (root / "missing").c_str()).mError, ErrorEnum::eNotFound);

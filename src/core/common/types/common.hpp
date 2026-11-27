@@ -269,18 +269,23 @@ struct UnitModelInfo {
     /**
      * Compares unit model info.
      *
-     * @param rhs unit model info to compare with.
+     * @param lhs left object.
+     * @param rhs right object.
      * @return bool.
      */
-    bool operator==(const UnitModelInfo& rhs) const { return mUnitModel == rhs.mUnitModel && mVersion == rhs.mVersion; }
+    friend bool operator==(const UnitModelInfo& lhs, const UnitModelInfo& rhs)
+    {
+        return lhs.mUnitModel == rhs.mUnitModel && lhs.mVersion == rhs.mVersion;
+    }
 
     /**
      * Compares unit model info.
      *
-     * @param rhs unit model info to compare with.
+     * @param lhs left object.
+     * @param rhs right object.
      * @return bool.
      */
-    bool operator!=(const UnitModelInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const UnitModelInfo& lhs, const UnitModelInfo& rhs) { return !(lhs == rhs); }
 };
 
 /**
@@ -292,22 +297,24 @@ struct SystemInfo : UnitModelInfo {
     /**
      * Compares system info.
      *
-     * @param rhs system info to compare with.
+     * @param lhs left object.
+     * @param rhs right object.
      * @return bool.
      */
-    bool operator==(const SystemInfo& rhs) const
+    friend bool operator==(const SystemInfo& lhs, const SystemInfo& rhs)
     {
-        return mSystemID == rhs.mSystemID
-            && static_cast<const UnitModelInfo&>(*this) == static_cast<const UnitModelInfo&>(rhs);
+        return lhs.mSystemID == rhs.mSystemID
+            && static_cast<const UnitModelInfo&>(lhs) == static_cast<const UnitModelInfo&>(rhs);
     }
 
     /**
      * Compares system info.
      *
-     * @param rhs system info to compare with.
+     * @param lhs left object.
+     * @param rhs right object.
      * @return bool.
      */
-    bool operator!=(const SystemInfo& rhs) const { return !operator==(rhs); }
+    friend bool operator!=(const SystemInfo& lhs, const SystemInfo& rhs) { return !(lhs == rhs); }
 };
 
 /**

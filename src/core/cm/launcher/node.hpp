@@ -120,6 +120,20 @@ public:
         const Array<oci::ResourceInfo>& reqResources) override;
 
     /**
+     * Returns node configuration.
+     *
+     * @return const NodeConfig&
+     */
+    const NodeConfig& GetConfig() const override { return mConfig; }
+
+    /**
+     * Indicates whether node requires rebalancing.
+     *
+     * @return bool.
+     */
+    bool NeedBalancing() const override { return mNeedBalancing; }
+
+    /**
      * Sends scheduled instances to node.
      *
      * @param scheduledInstances scheduled instances.
@@ -170,6 +184,7 @@ private:
     size_t GetSystemCPUUsage(const monitoring::NodeMonitoringData& monitoringData) const;
     // Returns CPU usage without Aos service instances.
     size_t GetSystemRAMUsage(const monitoring::NodeMonitoringData& monitoringData) const;
+    bool   IsUsageAboveMaxThreshold() const;
 
     size_t* GetPtrToAvailableCPU(const String& runtimeID);
     size_t* GetPtrToAvailableRAM(const String& runtimeID);
@@ -181,6 +196,8 @@ private:
     InstanceRunnerItf*                 mInstanceRunner {};
 
     UnitNodeInfo mInfo {};
+    NodeConfig   mConfig {};
+    bool         mNeedBalancing {};
     bool         mIsNodeStatusReceived {};
 
     size_t mTotalCPUUsage {};

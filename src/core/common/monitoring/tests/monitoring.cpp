@@ -14,6 +14,7 @@
 #include <gtest/gtest.h>
 
 #include <core/common/monitoring/monitoring.hpp>
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tools/heapallocator.hpp>
 #include <core/common/tools/logger.hpp>
 
@@ -1168,15 +1169,7 @@ TEST_F(MonitoringTest, InstanceMonitoringNotSupported)
  **********************************************************************************************************************/
 
 namespace {
-class FailableAllocator : public HeapAllocator {
-public:
-    void* Allocate(size_t size) override { return mFail ? nullptr : HeapAllocator::Allocate(size); }
-
-    void SetFail(bool fail) { mFail = fail; }
-
-private:
-    bool mFail {};
-};
+using aos::tests::FailingAllocator;
 
 class FailingNodeConfigProviderStub : public NodeConfigProviderStub {
 public:
@@ -1240,31 +1233,6 @@ public:
     }
 
     Error mErr;
-};
-
-class NoMemoryNotifyingAllocator : public HeapAllocator {
-public:
-    void* Allocate(size_t size) override
-    {
-        if (!mFail) {
-            return HeapAllocator::Allocate(size);
-        }
-
-        if (!mNotified.exchange(true)) {
-            mFailed.set_value();
-        }
-
-        return nullptr;
-    }
-
-    void SetFail(bool fail) { mFail = fail; }
-
-    std::future<void> GetFailedFuture() { return mFailed.get_future(); }
-
-private:
-    std::atomic<bool>  mFail {};
-    std::atomic<bool>  mNotified {};
-    std::promise<void> mFailed;
 };
 
 class FailingCurrentNodeInfoProviderStub : public CurrentNodeInfoProviderItfStub {
@@ -1348,7 +1316,7 @@ protected:
             mAlertSender, mNodeMonitoringProvider, instanceInfoProvider);
     }
 
-    FailableAllocator                  mFailableAllocator;
+    FailingAllocator                   mFailableAllocator;
     FailingNodeConfigProviderStub      mFailingNodeConfigProvider;
     FailingCurrentNodeInfoProviderStub mFailingNodeInfoProvider;
     FailingInstanceInfoProviderStub    mFailingInstanceInfoProvider;
@@ -1427,7 +1395,7 @@ TEST_F(MonitoringErrorsTest, StartNoMemory)
 
         ASSERT_TRUE(Init(monitoring, mFailableAllocator, &mFailingInstanceInfoProvider).IsNone());
 
-        mFailableAllocator.SetFail(true);
+        mFailableAllocator.FailAll();
 
         EXPECT_TRUE(monitoring.Start().Is(ErrorEnum::eNoMemory));
     }
@@ -1503,9 +1471,9 @@ TEST_F(MonitoringErrorsTest, WatchInstanceErrors)
     EXPECT_TRUE(averageData.mInstances.IsEmpty());
 
     // No memory to start average instance monitoring: instance is not watched.
-    mFailableAllocator.SetFail(true);
+    mFailableAllocator.FailAll();
     mFailingInstanceInfoProvider.NotifyStatus(cIdent, InstanceStateEnum::eActive);
-    mFailableAllocator.SetFail(false);
+    mFailableAllocator.Reset();
 
     ASSERT_TRUE(monitoring.GetAverageMonitoringData(averageData).IsNone());
     EXPECT_TRUE(averageData.mInstances.IsEmpty());
@@ -1602,24 +1570,22 @@ TEST_F(MonitoringErrorsTest, NodeMonitoringDataNotAvailable)
 
 TEST_F(MonitoringErrorsTest, ProcessMonitoringNoMemory)
 {
-    NoMemoryNotifyingAllocator allocator;
+    FailingAllocator allocator;
 
     Monitoring monitoring;
 
     ASSERT_TRUE(Init(monitoring, allocator, nullptr).IsNone());
 
     // The monitoring is started with the memory available, then the memory is exhausted for the monitoring data.
-    mFailingNodeConfigProvider.mOnGet = [&allocator] { allocator.SetFail(true); };
-
-    auto failed = allocator.GetFailedFuture();
+    mFailingNodeConfigProvider.mOnGet = [&allocator] { allocator.FailAll(); };
 
     ASSERT_TRUE(monitoring.Start().IsNone());
-    ASSERT_EQ(failed.wait_for(cWaitTimeout), std::future_status::ready);
+    ASSERT_TRUE(allocator.WaitNumFailed(1, cWaitTimeout));
 
     // Stop waits until the timer callback is finished.
     EXPECT_TRUE(monitoring.Stop().IsNone());
 
-    allocator.SetFail(false);
+    allocator.Reset();
 }
 
 TEST_F(MonitoringErrorsTest, PartitionsOverflow)
@@ -1760,12 +1726,12 @@ TEST_F(AverageTest, InstanceMonitoringLimits)
                         InstanceIdent {"item", "1.0.0", "subject", cMaxNumInstances, UpdateItemTypeEnum::eService})
                     .Is(ErrorEnum::eNoMemory));
 
-    FailableAllocator failableAllocator;
-    Average           noMemoryAverage;
+    FailingAllocator failableAllocator;
+    Average          noMemoryAverage;
 
     ASSERT_TRUE(noMemoryAverage.Init(failableAllocator, 3).IsNone());
 
-    failableAllocator.SetFail(true);
+    failableAllocator.FailAll();
 
     EXPECT_TRUE(
         noMemoryAverage

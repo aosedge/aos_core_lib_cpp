@@ -50,32 +50,7 @@ void Node::PrepareForBalancing(bool rebalancing)
     mRuntimeAvailableRAM.Clear();
     mMaxInstances.Clear();
 
-    mNeedBalancing = false;
-
-    if (rebalancing && mConfig.mAlertRules.HasValue()) {
-        const auto& alertRules = mConfig.mAlertRules.GetValue();
-        if (alertRules.mCPU.HasValue() || alertRules.mRAM.HasValue()) {
-            if (alertRules.mCPU.HasValue()) {
-                const auto usedCPU = mTotalCPUUsage;
-                const auto maxTreshold
-                    = static_cast<double>(mInfo.mMaxDMIPS) * alertRules.mCPU.GetValue().mMaxThreshold / 100.0;
-
-                if (static_cast<double>(usedCPU) > maxTreshold) {
-                    mNeedBalancing = true;
-                }
-            }
-
-            if (alertRules.mRAM.HasValue()) {
-                const auto usedRAM = mTotalRAMUsage;
-                const auto maxTreshold
-                    = static_cast<double>(mInfo.mTotalRAM) * alertRules.mRAM.GetValue().mMaxThreshold / 100.0;
-
-                if (static_cast<double>(usedRAM) > maxTreshold) {
-                    mNeedBalancing = true;
-                }
-            }
-        }
-    }
+    mNeedBalancing = rebalancing && IsUsageAboveMaxThreshold();
 
     auto totalCPU = mInfo.mMaxDMIPS;
     auto totalRAM = mInfo.mTotalRAM;
@@ -420,6 +395,37 @@ size_t Node::GetSystemRAMUsage(const monitoring::NodeMonitoringData& monitoringD
     }
 
     return monitoringData.mMonitoringData.mRAM - instanceUsage;
+}
+
+bool Node::IsUsageAboveMaxThreshold() const
+{
+    if (!mConfig.mAlertRules.HasValue()) {
+        return false;
+    }
+
+    const auto& alertRules = mConfig.mAlertRules.GetValue();
+
+    if (alertRules.mCPU.HasValue()) {
+        const auto usedCPU = mTotalCPUUsage;
+        const auto maxTreshold
+            = static_cast<double>(mInfo.mMaxDMIPS) * alertRules.mCPU.GetValue().mMaxThreshold / 100.0;
+
+        if (static_cast<double>(usedCPU) > maxTreshold) {
+            return true;
+        }
+    }
+
+    if (alertRules.mRAM.HasValue()) {
+        const auto usedRAM = mTotalRAMUsage;
+        const auto maxTreshold
+            = static_cast<double>(mInfo.mTotalRAM) * alertRules.mRAM.GetValue().mMaxThreshold / 100.0;
+
+        if (static_cast<double>(usedRAM) > maxTreshold) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 size_t* Node::GetPtrToAvailableCPU(const String& runtimeID)

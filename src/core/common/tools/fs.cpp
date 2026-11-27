@@ -38,7 +38,7 @@ Error FileErrnoToError(int32_t code)
     }
 }
 
-int StatNoFollow(const char* path, struct stat* st)
+int StatNoFollow(const char* path, struct stat* st) // NOSONAR cpp:M23_058 - POSIX lstat result type
 {
 #if defined(__ZEPHYR__)
     // Zephyr doesn't provide lstat, its file systems don't support symlinks.
@@ -541,7 +541,7 @@ Error ReadLine(int32_t fd, size_t pos, String& line, const String& delimiter)
 Error WriteFile(const String& fileName, const Array<uint8_t>& data, uint32_t perm)
 {
     Error err;
-    int   fd = -1;
+    int   fd = -1; // NOSONAR cpp:M23_058 - POSIX file descriptor type
 
 #ifndef __ZEPHYR__
     // Truncate existing file in place to keep its inode, owner and group.
@@ -633,17 +633,19 @@ RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path)
                 return {0, AOS_ERROR_WRAP(FileErrnoToError(errno))};
             }
 
-            if (S_ISDIR(st.st_mode)) {
-                if (auto err = dirIterators->EmplaceBack(fullPath); !err.IsNone()) {
-                    return {0, AOS_ERROR_WRAP(err)};
-                }
+            if (!S_ISDIR(st.st_mode)) {
+                size += st.st_size;
 
-                stepIntoSubdir = true;
-
-                break;
+                continue;
             }
 
-            size += st.st_size;
+            if (auto err = dirIterators->EmplaceBack(fullPath); !err.IsNone()) {
+                return {0, AOS_ERROR_WRAP(err)};
+            }
+
+            stepIntoSubdir = true;
+
+            break;
         }
 
         if (stepIntoSubdir) {

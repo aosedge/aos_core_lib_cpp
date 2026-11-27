@@ -43,7 +43,8 @@ public:
      * @param allocator allocator for temporary objects.
      * @return Error: eInvalidArgument if the image path is too long to hold the longest blob or layer path.
      */
-    Error Init(const common::imagemanager::Config& config, common::imagemanager::BlobInfoProviderItf& blobInfoProvider,
+    Error Init( // NOSONAR cpp:S1242 - same name on purpose
+        const common::imagemanager::Config& config, common::imagemanager::BlobInfoProviderItf& blobInfoProvider,
         StorageItf& storage, spaceallocator::SpaceAllocatorItf& spaceAllocator, downloader::DownloaderItf& downloader,
         ImageHandlerItf& imageHandler, fs::FileInfoProviderItf& fileInfoProvider, oci::OCISpecItf& ociSpec,
         fs::FSPlatformItf& fsPlatform, AllocatorItf& allocator);
@@ -54,7 +55,7 @@ public:
      * @param itemInfo update item info.
      * @return Error.
      */
-    Error InstallItem(const UpdateItemInfo& itemInfo) override;
+    Error InstallItem(const UpdateItemInfo& itemInfo) override; // NOSONAR cpp:S1242 - same name on purpose
 
     /**
      * Removes update item. The item is kept in the cache as an outdated item, so its blobs and unpacked layers are
@@ -64,7 +65,7 @@ public:
      * @param version update item version.
      * @return Error.
      */
-    Error RemoveItem(const String& itemID, const String& version) override;
+    Error RemoveItem(const String& itemID, const String& version) override; // NOSONAR cpp:S1242 - same name on purpose
 
     /**
      * Cancels all items being installed, including the items waiting for a layer processed by another item. Waits
@@ -72,7 +73,7 @@ public:
      *
      * @return Error.
      */
-    Error Cancel() override;
+    Error Cancel() override; // NOSONAR cpp:S1242 - same name on purpose
 
     /**
      * Returns unpacked layer path. It doesn't validate the unpacked layer. The unpacked layer of an item in the

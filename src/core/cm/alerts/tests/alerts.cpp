@@ -14,6 +14,7 @@
 #include <gtest/gtest.h>
 
 #include <core/common/tests/mocks/cloudconnectionmock.hpp>
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/heapallocator.hpp>
@@ -85,51 +86,7 @@ private:
     Error                    mSendErr;
 };
 
-class FailingAllocator : public AllocatorItf {
-public:
-    void* Allocate(size_t size) override
-    {
-        std::lock_guard lock {mMutex};
-
-        if (mFail) {
-            mFailedCount++;
-            mCondVar.notify_all();
-
-            return nullptr;
-        }
-
-        return mHeap.Allocate(size);
-    }
-
-    void Free(void* data) override
-    {
-        std::lock_guard lock {mMutex};
-
-        mHeap.Free(data);
-    }
-
-    void SetFail(bool fail)
-    {
-        std::lock_guard lock {mMutex};
-
-        mFail        = fail;
-        mFailedCount = 0;
-    }
-
-    bool WaitFailedAllocations(size_t count)
-    {
-        std::unique_lock lock {mMutex};
-
-        return mCondVar.wait_for(lock, std::chrono::seconds(5), [&]() { return mFailedCount >= count; });
-    }
-
-private:
-    std::mutex              mMutex;
-    std::condition_variable mCondVar;
-    HeapAllocator           mHeap;
-    bool                    mFail        = false;
-    size_t                  mFailedCount = 0;
-};
+using aos::tests::FailingAllocator;
 
 /***********************************************************************************************************************
  * Mocks
@@ -552,7 +509,7 @@ TEST_F(AlertsTest, NoMemoryAndSendErrors)
 
     // Duplication can't be checked without memory, alerts are cached anyway
 
-    allocator.SetFail(true);
+    allocator.FailAll();
 
     const auto cTime = Time::Now();
 
@@ -565,10 +522,10 @@ TEST_F(AlertsTest, NoMemoryAndSendErrors)
     connectionListener->OnDisconnect();
     connectionListener->OnConnect();
 
-    ASSERT_TRUE(allocator.WaitFailedAllocations(3)) << "Package allocation was not attempted";
+    ASSERT_TRUE(allocator.WaitNumFailed(3, std::chrono::seconds(5))) << "Package allocation was not attempted";
 
     mCommunication.SetSendError(ErrorEnum::eFailed);
-    allocator.SetFail(false);
+    allocator.Reset();
 
     auto msg = std::make_unique<aos::Alerts>();
 

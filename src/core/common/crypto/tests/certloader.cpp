@@ -14,7 +14,7 @@
 #include <core/common/crypto/certloader.hpp>
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
 #include <core/common/tests/crypto/softhsmenv.hpp>
-#include <core/common/tests/stubs/testallocator.hpp>
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/fs.hpp>
@@ -466,8 +466,8 @@ TEST_F(CertloaderTest, LoadFailsOnAnyAllocationFailure)
                            "path=" SOFTHSM2_LIB "&pin-source="
         + std::string(mPINSource);
 
-    tests::TestAllocator allocator;
-    CertLoader           certLoader;
+    tests::FailingAllocator allocator;
+    CertLoader              certLoader;
 
     ASSERT_TRUE(certLoader.Init(allocator, *mCryptoProvider, mSoftHSMEnv.GetManager()).IsNone());
 
@@ -481,7 +481,7 @@ TEST_F(CertloaderTest, LoadFailsOnAnyAllocationFailure)
         for (size_t allocation = 0;; allocation++) {
             SCOPED_TRACE("loader " + std::to_string(i) + " allocation " + std::to_string(allocation));
 
-            allocator.FailAfter(allocation);
+            allocator.FailAt(allocation, tests::FailingAllocator::cUnlimited);
 
             const auto err = loaders[i]();
 

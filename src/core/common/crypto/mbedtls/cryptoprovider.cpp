@@ -306,6 +306,72 @@ Error GetASN1Object(
     return ErrorEnum::eNone;
 }
 
+static asn1::ASN1ParseResult ContainerNotFoundOrError(
+    const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt, const Error& err)
+{
+    if (opt.mOptional) {
+        return {AOS_ERROR_WRAP(ErrorEnum::eNotFound), data};
+    }
+
+    return {err, {}};
+}
+
+static Error ValidateContainerTag(
+    const asn1::ASN1ParseOptions& opt, int32_t tag, int32_t xclass, int32_t expectedUniversalTag)
+{
+    if (opt.mTag.HasValue()) {
+        if (opt.mTag.GetValue() != tag) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "tag doesn't match"));
+        }
+
+        return ErrorEnum::eNone;
+    }
+
+    if (!(xclass == cMbedTLSASN1Universal && tag == expectedUniversalTag)) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "bad tag for container"));
+    }
+
+    return ErrorEnum::eNone;
+}
+
+static Error ReadContainerElements(const uint8_t* elemPtr, size_t bytesLeft, asn1::ASN1ReaderItf& asn1reader)
+{
+    while (bytesLeft > 0) {
+        int64_t elemLength    = 0;
+        int32_t elemTag       = 0;
+        int32_t elemClass     = 0;
+        bool    isConstructed = false;
+
+        const uint8_t* nextPtr = elemPtr;
+        if (auto err
+            = GetASN1Object(&nextPtr, elemLength, elemTag, elemClass, isConstructed, static_cast<int64_t>(bytesLeft));
+            !err.IsNone()) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "failed to parse element"));
+        }
+
+        // Element content
+        Array<uint8_t> elemContent(elemPtr + (nextPtr - elemPtr), static_cast<size_t>(elemLength));
+        bool           elemConstructed = (elemTag & MBEDTLS_ASN1_CONSTRUCTED) != 0;
+
+        // Pass element to ASN1Reader
+        if (auto e = asn1reader.OnASN1Element(asn1::ASN1Value {elemClass, elemTag, elemConstructed, elemContent});
+            !e.IsNone()) {
+            return e;
+        }
+
+        // Advance pointer
+        size_t totalElemSize = static_cast<size_t>(nextPtr - elemPtr) + static_cast<size_t>(elemLength);
+        if (totalElemSize > bytesLeft) {
+            return AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "element size overflow"));
+        }
+
+        elemPtr += totalElemSize;
+        bytesLeft -= totalElemSize;
+    }
+
+    return ErrorEnum::eNone;
+}
+
 asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::ASN1ParseOptions& opt,
     asn1::ASN1ReaderItf& asn1reader,
     int32_t              expectedUniversalTag) // MBEDTLS_ASN1_SEQUENCE or MBEDTLS_ASN1_SET
@@ -323,30 +389,12 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
 
     // Parse ASN.1 header: tag + length, pointer moves to content start
     if (auto err = GetASN1Object(&p, length, tag, xclass, isConstructed, data.Size()); !err.IsNone()) {
-        if (opt.mOptional) {
-            return {AOS_ERROR_WRAP(ErrorEnum::eNotFound), data};
-        }
-
-        return {err, {}};
+        return ContainerNotFoundOrError(data, opt, err);
     }
 
     // Validate tag if specified, otherwise accept expectedUniversalTag
-    if (opt.mTag.HasValue()) {
-        if (opt.mTag.GetValue() != tag) {
-            if (opt.mOptional) {
-                return {AOS_ERROR_WRAP(ErrorEnum::eNotFound), data};
-            }
-
-            return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "tag doesn't match")), {}};
-        }
-    } else {
-        if (!(xclass == cMbedTLSASN1Universal && tag == expectedUniversalTag)) {
-            if (opt.mOptional) {
-                return {AOS_ERROR_WRAP(ErrorEnum::eNotFound), data};
-            }
-
-            return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "bad tag for container")), {}};
-        }
+    if (auto err = ValidateContainerTag(opt, tag, xclass, expectedUniversalTag); !err.IsNone()) {
+        return ContainerNotFoundOrError(data, opt, err);
     }
 
     if (!isConstructed) {
@@ -360,39 +408,8 @@ asn1::ASN1ParseResult ReadASN1Container(const Array<uint8_t>& data, const asn1::
     }
 
     // Iterate over the elements inside the container
-    const uint8_t* elemPtr   = p;
-    auto           bytesLeft = static_cast<size_t>(length);
-
-    while (bytesLeft > 0) {
-        int64_t elemLength = 0;
-        int32_t elemTag    = 0;
-        int32_t elemClass  = 0;
-
-        const uint8_t* nextPtr = elemPtr;
-        if (auto err
-            = GetASN1Object(&nextPtr, elemLength, elemTag, elemClass, isConstructed, static_cast<int64_t>(bytesLeft));
-            !err.IsNone()) {
-            return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "failed to parse element")), {}};
-        }
-
-        // Element content
-        Array<uint8_t> elemContent(elemPtr + (nextPtr - elemPtr), static_cast<size_t>(elemLength));
-        bool           elemConstructed = (elemTag & MBEDTLS_ASN1_CONSTRUCTED) != 0;
-
-        // Pass element to ASN1Reader
-        if (auto e = asn1reader.OnASN1Element(asn1::ASN1Value {elemClass, elemTag, elemConstructed, elemContent});
-            !e.IsNone()) {
-            return {e, {}};
-        }
-
-        // Advance pointer
-        size_t totalElemSize = static_cast<size_t>(nextPtr - elemPtr) + static_cast<size_t>(elemLength);
-        if (totalElemSize > bytesLeft) {
-            return {AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "element size overflow")), {}};
-        }
-
-        elemPtr += totalElemSize;
-        bytesLeft -= totalElemSize;
+    if (auto err = ReadContainerElements(p, static_cast<size_t>(length), asn1reader); !err.IsNone()) {
+        return {err, {}};
     }
 
     // Remaining data
@@ -559,6 +576,144 @@ Error VerifyECDSASignature(const ECDSAPublicKey& pubKey, const Array<uint8_t>& d
     // mbedtls_ecdsa_raw_to_der; verify with mbedtls_ecdsa_read_signature.
     if (mbedtls_ecdsa_verify(&ctx.private_grp, digest.Get(), digest.Size(), &ctx.private_Q, &r, &s) != 0) {
         return AOS_ERROR_WRAP(Error(ErrorEnum::eFailed, "ECDSA verification failed"));
+    }
+
+    return ErrorEnum::eNone;
+}
+
+static Error ParseSubjectKeyID(mbedtls_asn1_buf buf, size_t tagLen, x509::Certificate& cert)
+{
+    uint8_t* p   = buf.p + tagLen;
+    size_t   len = 0;
+
+    auto err = mbedtls_asn1_get_tag(&p, p + buf.len - 2 - tagLen, &len, MBEDTLS_ASN1_OCTET_STRING);
+    if (err != 0) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    err = mbedtls_asn1_get_tag(&p, p + buf.len - 2, &len, MBEDTLS_ASN1_OCTET_STRING);
+    if (err != 0) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto resizeErr = cert.mSubjectKeyID.Resize(len); !resizeErr.IsNone()) {
+        return AOS_ERROR_WRAP(resizeErr);
+    }
+
+    (void)memcpy(cert.mSubjectKeyID.Get(), p, len);
+
+    return ErrorEnum::eNone;
+}
+
+static Error ParseAuthorityKeyID(mbedtls_asn1_buf buf, size_t tagLen, x509::Certificate& cert)
+{
+    uint8_t* p   = buf.p + tagLen;
+    size_t   len = 0;
+
+    auto err = mbedtls_asn1_get_tag(&p, buf.p + buf.len, &len, MBEDTLS_ASN1_OCTET_STRING);
+    if (err != 0) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (*p != (MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE)) {
+        return AOS_ERROR_WRAP(MBEDTLS_ERR_ASN1_UNEXPECTED_TAG);
+    }
+
+    err = mbedtls_asn1_get_tag(&p, buf.p + buf.len, &len, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE);
+    if (err != 0) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    // cppcheck-suppress badBitmaskCheck
+    if (*p != (MBEDTLS_ASN1_CONTEXT_SPECIFIC | 0)) {
+        return AOS_ERROR_WRAP(MBEDTLS_ERR_ASN1_UNEXPECTED_TAG);
+    }
+
+    // cppcheck-suppress badBitmaskCheck
+    err = mbedtls_asn1_get_tag(&p, buf.p + buf.len, &len, MBEDTLS_ASN1_CONTEXT_SPECIFIC | 0);
+    if (err != 0) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto resizeErr = cert.mAuthorityKeyID.Resize(len); !resizeErr.IsNone()) {
+        return AOS_ERROR_WRAP(resizeErr);
+    }
+
+    (void)memcpy(cert.mAuthorityKeyID.Get(), p, len);
+
+    return ErrorEnum::eNone;
+}
+
+static Error ParseIssuerGeneralName(uint8_t*& p, const uint8_t* end, x509::Certificate& cert)
+{
+    size_t gnLen = 0;
+
+    // Parse one GeneralName sequence
+    if (auto ret = mbedtls_asn1_get_tag(&p, end, &gnLen, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE); ret != 0) {
+        return AOS_ERROR_WRAP(ret);
+    }
+
+    const uint8_t* gnEnd = p + gnLen;
+
+    // Parse context-specific tag 6 (GEN_URI)
+    if (auto uriRet = mbedtls_asn1_get_tag(&p, gnEnd, &gnLen, MBEDTLS_ASN1_CONTEXT_SPECIFIC | 6); uriRet == 0) {
+        StaticString<cURLLen> str;
+        if (auto insErr = str.Insert(str.begin(), reinterpret_cast<char*>(p), reinterpret_cast<char*>(p) + gnLen);
+            !insErr.IsNone()) {
+            return AOS_ERROR_WRAP(insErr);
+        }
+
+        if (auto pushErr = cert.mIssuerURLs.PushBack(str); !pushErr.IsNone()) {
+            return AOS_ERROR_WRAP(pushErr);
+        }
+    }
+
+    p += gnLen;
+
+    return ErrorEnum::eNone;
+}
+
+static Error ParseIssuerAltName(mbedtls_asn1_buf buf, size_t tagLen, x509::Certificate& cert)
+{
+    uint8_t* p   = buf.p + tagLen;
+    size_t   len = 0;
+
+    // Get OCTET STRING containing the extension value
+    if (auto ret = mbedtls_asn1_get_tag(&p, buf.p + buf.len, &len, MBEDTLS_ASN1_OCTET_STRING); ret != 0) {
+        return AOS_ERROR_WRAP(ret);
+    }
+
+    const uint8_t* end = p + len;
+
+    // Iterate over GeneralNames sequence
+    while (p < end) {
+        if (auto err = ParseIssuerGeneralName(p, end, cert); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    return ErrorEnum::eNone;
+}
+
+static Error ParseX509Extension(mbedtls_asn1_buf buf, size_t tagLen, x509::Certificate& cert)
+{
+    if (tagLen == MBEDTLS_OID_SIZE(MBEDTLS_OID_SUBJECT_KEY_IDENTIFIER)
+        && !memcmp(buf.p, MBEDTLS_OID_SUBJECT_KEY_IDENTIFIER, tagLen)) {
+        if (auto err = ParseSubjectKeyID(buf, tagLen, cert); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    if (tagLen == MBEDTLS_OID_SIZE(MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER)
+        && !memcmp(buf.p, MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER, tagLen)) {
+        if (auto err = ParseAuthorityKeyID(buf, tagLen, cert); !err.IsNone()) {
+            return err;
+        }
+    }
+
+    if (tagLen == MBEDTLS_OID_SIZE(MBEDTLS_OID_ISSUER_ALT_NAME)
+        && !memcmp(buf.p, MBEDTLS_OID_ISSUER_ALT_NAME, tagLen)) {
+        return ParseIssuerAltName(buf, tagLen, cert);
     }
 
     return ErrorEnum::eNone;
@@ -2187,105 +2342,8 @@ Error MbedTLSCryptoProvider::GetX509CertExtensions(x509::Certificate& cert, cons
             return AOS_ERROR_WRAP(err);
         }
 
-        if (!memcmp(next->buf.p, MBEDTLS_OID_SUBJECT_KEY_IDENTIFIER, tagLen)) {
-            uint8_t* p = next->buf.p + tagLen;
-            err        = mbedtls_asn1_get_tag(&p, p + next->buf.len - 2 - tagLen, &tagLen, MBEDTLS_ASN1_OCTET_STRING);
-            if (err != 0) {
-                return AOS_ERROR_WRAP(err);
-            }
-
-            err = mbedtls_asn1_get_tag(&p, p + next->buf.len - 2, &tagLen, MBEDTLS_ASN1_OCTET_STRING);
-            if (err != 0) {
-                return AOS_ERROR_WRAP(err);
-            }
-
-            (void)cert.mSubjectKeyId.Resize(tagLen);
-            (void)memcpy(cert.mSubjectKeyId.Get(), p, tagLen);
-
-            if (!cert.mAuthorityKeyId.IsEmpty()) {
-                break;
-            }
-        }
-
-        if (!memcmp(next->buf.p, MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER, tagLen)) {
-            uint8_t* p   = next->buf.p + tagLen;
-            size_t   len = 0;
-
-            err = mbedtls_asn1_get_tag(&p, next->buf.p + next->buf.len, &len, MBEDTLS_ASN1_OCTET_STRING);
-            if (err != 0) {
-                return AOS_ERROR_WRAP(err);
-            }
-
-            if (*p != (MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE)) {
-                return AOS_ERROR_WRAP(MBEDTLS_ERR_ASN1_UNEXPECTED_TAG);
-            }
-
-            err = mbedtls_asn1_get_tag(
-                &p, next->buf.p + next->buf.len, &len, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE);
-            if (err != 0) {
-                return AOS_ERROR_WRAP(err);
-            }
-
-            // cppcheck-suppress badBitmaskCheck
-            if (*p != (MBEDTLS_ASN1_CONTEXT_SPECIFIC | 0)) {
-                return AOS_ERROR_WRAP(MBEDTLS_ERR_ASN1_UNEXPECTED_TAG);
-            }
-
-            // cppcheck-suppress badBitmaskCheck
-            err = mbedtls_asn1_get_tag(&p, next->buf.p + next->buf.len, &len, MBEDTLS_ASN1_CONTEXT_SPECIFIC | 0);
-            if (err != 0) {
-                return AOS_ERROR_WRAP(err);
-            }
-
-            (void)cert.mAuthorityKeyId.Resize(len);
-            (void)memcpy(cert.mAuthorityKeyId.Get(), p, len);
-
-            if (!cert.mSubjectKeyId.IsEmpty()) {
-                break;
-            }
-        }
-
-        if (!memcmp(next->buf.p, MBEDTLS_OID_ISSUER_ALT_NAME, tagLen)) {
-            uint8_t* p   = next->buf.p + tagLen;
-            size_t   len = 0;
-
-            // Get OCTET STRING containing the extension value
-            ret = mbedtls_asn1_get_tag(&p, next->buf.p + next->buf.len, &len, MBEDTLS_ASN1_OCTET_STRING);
-            if (ret != 0) {
-                return AOS_ERROR_WRAP(ret);
-            }
-
-            const uint8_t* end = p + len;
-
-            // Iterate over GeneralNames sequence
-            while (p < end) {
-                size_t gnLen = 0;
-
-                // Parse one GeneralName sequence
-                ret = mbedtls_asn1_get_tag(&p, end, &gnLen, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE);
-                if (ret != 0) {
-                    return AOS_ERROR_WRAP(ret);
-                }
-
-                const uint8_t* gnEnd = p + gnLen;
-
-                // Parse context-specific tag 6 (GEN_URI)
-                if (auto uriRet = mbedtls_asn1_get_tag(&p, gnEnd, &gnLen, MBEDTLS_ASN1_CONTEXT_SPECIFIC | 6);
-                    uriRet == 0) {
-                    StaticString<cURLLen> str;
-                    if (auto insErr
-                        = str.Insert(str.begin(), reinterpret_cast<char*>(p), reinterpret_cast<char*>(p) + gnLen);
-                        !insErr.IsNone()) {
-                        return AOS_ERROR_WRAP(insErr);
-                    }
-
-                    if (auto pushErr = cert.mIssuerURLs.PushBack(str); !pushErr.IsNone()) {
-                        return AOS_ERROR_WRAP(pushErr);
-                    }
-                }
-
-                p += gnLen;
-            }
+        if (auto parseErr = ParseX509Extension(next->buf, tagLen, cert); !parseErr.IsNone()) {
+            return parseErr;
         }
 
         next = next->next;
@@ -2468,7 +2526,7 @@ Error MbedTLSCryptoProvider::WriteCertificatePem(mbedtls_x509write_cert& cert, S
         return AOS_ERROR_WRAP(ret);
     }
 
-    (void)pemCert.Resize(strlen(pemCert.CStr()));
+    (void)pemCert.Resize(strlen(pemCert.CStr())); // NOSONAR cpp:S5813 - mbedtls guarantees NUL-termination here
 
     return ErrorEnum::eNone;
 }
@@ -2502,31 +2560,31 @@ Error MbedTLSCryptoProvider::SetCertificateSerialNumber(
 Error MbedTLSCryptoProvider::SetCertificateSubjectKeyIdentifier(
     mbedtls_x509write_cert& cert, const x509::Certificate& templ) const
 {
-    if (templ.mSubjectKeyId.IsEmpty()) {
+    if (templ.mSubjectKeyID.IsEmpty()) {
         return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_subject_key_identifier(&cert));
     }
 
     return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_extension(&cert, MBEDTLS_OID_SUBJECT_KEY_IDENTIFIER,
-        MBEDTLS_OID_SIZE(MBEDTLS_OID_SUBJECT_KEY_IDENTIFIER), 0, templ.mSubjectKeyId.Get(),
-        templ.mSubjectKeyId.Size()));
+        MBEDTLS_OID_SIZE(MBEDTLS_OID_SUBJECT_KEY_IDENTIFIER), 0, templ.mSubjectKeyID.Get(),
+        templ.mSubjectKeyID.Size()));
 }
 
 Error MbedTLSCryptoProvider::SetCertificateAuthorityKeyIdentifier(
     mbedtls_x509write_cert& cert, const x509::Certificate& templ, const x509::Certificate& parent) const
 {
-    if (!parent.mSubjectKeyId.IsEmpty()) {
+    if (!parent.mSubjectKeyID.IsEmpty()) {
         return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_extension(&cert, MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER,
-            MBEDTLS_OID_SIZE(MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER), 0, parent.mSubjectKeyId.Get(),
-            parent.mSubjectKeyId.Size()));
+            MBEDTLS_OID_SIZE(MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER), 0, parent.mSubjectKeyID.Get(),
+            parent.mSubjectKeyID.Size()));
     }
 
-    if (templ.mAuthorityKeyId.IsEmpty()) {
+    if (templ.mAuthorityKeyID.IsEmpty()) {
         return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_authority_key_identifier(&cert));
     }
 
     return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_extension(&cert, MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER,
-        MBEDTLS_OID_SIZE(MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER), 0, templ.mAuthorityKeyId.Get(),
-        templ.mAuthorityKeyId.Size()));
+        MBEDTLS_OID_SIZE(MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER), 0, templ.mAuthorityKeyID.Get(),
+        templ.mAuthorityKeyID.Size()));
 }
 
 Error MbedTLSCryptoProvider::SetCertificateValidityPeriod(

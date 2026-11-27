@@ -11,6 +11,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/heapallocator.hpp>
@@ -38,15 +39,7 @@ constexpr auto cInvalidTestNodeConfig = R"({
      something not valid
  })";
 
-class FailableAllocator : public HeapAllocator {
-public:
-    void* Allocate(size_t size) override { return mFail ? nullptr : HeapAllocator::Allocate(size); }
-
-    void SetFail(bool fail) { mFail = fail; }
-
-private:
-    bool mFail {};
-};
+using aos::tests::FailingAllocator;
 
 class TestListener : public aos::nodeconfig::NodeConfigListenerItf {
 public:
@@ -387,9 +380,9 @@ TEST_F(NodeConfigTest, UnsubscribeListener)
 
 TEST_F(NodeConfigTest, InitNoMemoryForConfig)
 {
-    FailableAllocator allocator;
+    FailingAllocator allocator;
 
-    allocator.SetFail(true);
+    allocator.FailAll();
 
     EXPECT_TRUE(mNodeConfig.Init(allocator, {cTestConfigFile}, mJSONProvider).IsNone());
 }
@@ -434,11 +427,11 @@ TEST_F(NodeConfigTest, CheckNodeConfigInvalidVersion)
 
 TEST_F(NodeConfigTest, UpdateNodeConfigNoMemory)
 {
-    FailableAllocator allocator;
+    FailingAllocator allocator;
 
     ASSERT_TRUE(mNodeConfig.Init(allocator, {cTestConfigFile}, mJSONProvider).IsNone());
 
-    allocator.SetFail(true);
+    allocator.FailAll();
 
     EXPECT_EQ(mNodeConfig.UpdateNodeConfig(CreateTestNodeConfig("1.0.0")), ErrorEnum::eNoMemory);
 }

@@ -14,6 +14,7 @@
 #include <core/common/spaceallocator/spaceallocator.hpp>
 #include <core/common/tests/mocks/fsmock.hpp>
 #include <core/common/tests/mocks/spaceallocatormock.hpp>
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tools/heapallocator.hpp>
 #include <core/common/tools/thread.hpp>
 
@@ -73,11 +74,7 @@ private:
     bool                mReleased {};
 };
 
-class NullAllocator : public AllocatorItf {
-public:
-    void* Allocate(size_t) override { return nullptr; }
-    void  Free(void*) override { }
-};
+using aos::tests::FailingAllocator;
 
 } // namespace
 
@@ -1565,8 +1562,10 @@ TEST_F(SpaceallocatorTest, AllocateSpaceRemoveOutdatedItemFails)
 
 TEST_F(SpaceallocatorTest, AllocateSpaceNoMemoryForSpace)
 {
-    NullAllocator     nullAllocator;
+    FailingAllocator  nullAllocator;
     SpaceAllocator<5> allocator;
+
+    nullAllocator.FailAll();
 
     EXPECT_CALL(mPlatformFS, GetMountPoint(mPath))
         .WillOnce(Return(RetWithError<StaticString<cFilePathLen>>(mMountPoint, ErrorEnum::eNone)));

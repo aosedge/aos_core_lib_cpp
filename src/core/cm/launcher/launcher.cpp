@@ -473,21 +473,7 @@ Error Launcher::BalanceInstances(UniqueLock<Mutex>& lock, bool rebalance)
 void Launcher::ProcessUpdate()
 {
     while (true) {
-        {
-            UniqueLock updateLock {mUpdateMutex};
-
-            auto hasProcessUpdates = [this]() {
-                return (!mUpdatedNodes.IsEmpty() || mNewSubjects.HasValue() || mAlertReceived || !mIsRunning
-                           || mIsNodeInfoChanged || mIsOverrideEnvVarsChanged || mForceRebalance)
-                    && !mDisableProcessUpdates;
-            };
-
-            if (auto err = mProcessUpdatesCondVar.Wait(updateLock, hasProcessUpdates); !err.IsNone()) {
-                LOG_ERR() << "Can't wait for process updates" << Log::Field(AOS_ERROR_WRAP(err));
-            }
-
-            WaitAllNodesConnected(updateLock);
-        }
+        WaitProcessUpdates();
 
         auto notifyStatuses = DeferRelease([this]() { NotifyInstancesStatusesChanged(); });
 
@@ -498,70 +484,107 @@ void Launcher::ProcessUpdate()
             return;
         }
 
-        // Update subjects.
-        Error err;
-        bool  doRebalance = mForceRebalance;
-
-        if (mNewSubjects.HasValue()) {
-            Tie(doRebalance, err) = mInstanceManager.SetSubjects(mNewSubjects.GetValue());
-            if (!err.IsNone()) {
-                LOG_ERR() << "Failed to set subjects" << Log::Field(AOS_ERROR_WRAP(err));
-            }
-
-            mNewSubjects.Reset();
-        }
-
-        // Process received alert
-        if (mAlertReceived) {
-            mAlertReceived = false;
-            doRebalance    = true;
-        }
-
-        // Process node info changed.
-        if (mIsNodeInfoChanged) {
-            mIsNodeInfoChanged = false;
-            doRebalance        = true;
-        }
+        bool doRebalance = ProcessRebalanceRequests();
 
         // On override env vars change resend all nodes;
-        bool forceRestart = false;
-
-        if (mIsOverrideEnvVarsChanged) {
-            mIsOverrideEnvVarsChanged = false;
-            forceRestart              = true;
-
-            for (const auto& node : mNodeManager.GetNodes()) {
-                if (auto pushErr = PushUnique(mUpdatedNodes, node.GetInfo().mNodeID); !pushErr.IsNone()) {
-                    LOG_ERR() << "Failed to add node to updated nodes" << Log::Field(AOS_ERROR_WRAP(pushErr));
-                }
-            }
-        }
+        bool forceRestart = ProcessOverrideEnvVarsChange();
 
         // Resend instances.
-        if (!mUpdatedNodes.IsEmpty()) {
-            if (!doRebalance) {
-                err = mNodeManager.ResendInstances(updateLock, mUpdatedNodes, mInstanceManager.GetActiveInstances(),
-                    mInstanceManager.GetRunningInstances(), forceRestart);
-                if (!err.IsNone()) {
-                    LOG_ERR() << "Failed to resend instances" << Log::Field(AOS_ERROR_WRAP(err));
-                }
-            } else {
-                LOG_DBG() << "Rebalancing will be performed, skip resending instances";
-            }
-
-            mUpdatedNodes.Clear();
-        }
+        ResendUpdatedNodesInstances(updateLock, doRebalance, forceRestart);
 
         // Rebalance.
         if (doRebalance) {
             mForceRebalance = false;
 
-            err = BalanceInstances(updateLock, true);
-            if (!err.IsNone()) {
+            if (auto err = BalanceInstances(updateLock, true); !err.IsNone()) {
                 LOG_ERR() << "Rebalancing failed" << Log::Field(AOS_ERROR_WRAP(err));
             }
         }
     }
+}
+
+void Launcher::WaitProcessUpdates()
+{
+    UniqueLock updateLock {mUpdateMutex};
+
+    auto hasProcessUpdates = [this]() {
+        return (!mUpdatedNodes.IsEmpty() || mNewSubjects.HasValue() || mAlertReceived || !mIsRunning
+                   || mIsNodeInfoChanged || mIsOverrideEnvVarsChanged || mForceRebalance)
+            && !mDisableProcessUpdates;
+    };
+
+    if (auto err = mProcessUpdatesCondVar.Wait(updateLock, hasProcessUpdates); !err.IsNone()) {
+        LOG_ERR() << "Can't wait for process updates" << Log::Field(AOS_ERROR_WRAP(err));
+    }
+
+    WaitAllNodesConnected(updateLock);
+}
+
+bool Launcher::ProcessRebalanceRequests()
+{
+    // Update subjects.
+    bool doRebalance = mForceRebalance;
+
+    if (mNewSubjects.HasValue()) {
+        Error err;
+
+        Tie(doRebalance, err) = mInstanceManager.SetSubjects(mNewSubjects.GetValue());
+        if (!err.IsNone()) {
+            LOG_ERR() << "Failed to set subjects" << Log::Field(AOS_ERROR_WRAP(err));
+        }
+
+        mNewSubjects.Reset();
+    }
+
+    // Process received alert
+    if (mAlertReceived) {
+        mAlertReceived = false;
+        doRebalance    = true;
+    }
+
+    // Process node info changed.
+    if (mIsNodeInfoChanged) {
+        mIsNodeInfoChanged = false;
+        doRebalance        = true;
+    }
+
+    return doRebalance;
+}
+
+bool Launcher::ProcessOverrideEnvVarsChange()
+{
+    if (!mIsOverrideEnvVarsChanged) {
+        return false;
+    }
+
+    mIsOverrideEnvVarsChanged = false;
+
+    for (const auto& node : mNodeManager.GetNodes()) {
+        if (auto pushErr = PushUnique(mUpdatedNodes, node.GetInfo().mNodeID); !pushErr.IsNone()) {
+            LOG_ERR() << "Failed to add node to updated nodes" << Log::Field(AOS_ERROR_WRAP(pushErr));
+        }
+    }
+
+    return true;
+}
+
+void Launcher::ResendUpdatedNodesInstances(UniqueLock<Mutex>& lock, bool doRebalance, bool forceRestart)
+{
+    if (mUpdatedNodes.IsEmpty()) {
+        return;
+    }
+
+    if (!doRebalance) {
+        if (auto err = mNodeManager.ResendInstances(lock, mUpdatedNodes, mInstanceManager.GetActiveInstances(),
+                mInstanceManager.GetRunningInstances(), forceRestart);
+            !err.IsNone()) {
+            LOG_ERR() << "Failed to resend instances" << Log::Field(AOS_ERROR_WRAP(err));
+        }
+    } else {
+        LOG_DBG() << "Rebalancing will be performed, skip resending instances";
+    }
+
+    mUpdatedNodes.Clear();
 }
 
 void Launcher::WaitAllNodesConnected(UniqueLock<Mutex>& lock)

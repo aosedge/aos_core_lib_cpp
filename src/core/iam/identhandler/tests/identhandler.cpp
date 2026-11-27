@@ -10,6 +10,7 @@
 #include <gmock/gmock.h>
 
 #include <core/common/tests/mocks/certprovidermock.hpp>
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/heapallocator.hpp>
@@ -38,11 +39,7 @@ public:
     void SubjectsChanged(const Array<StaticString<cIDLen>>&) override { }
 };
 
-class FailingAllocator : public AllocatorItf {
-public:
-    void* Allocate(size_t) override { return nullptr; }
-    void  Free(void*) override { }
-};
+using aos::tests::FailingAllocator;
 
 } // namespace
 
@@ -420,6 +417,8 @@ TEST_F(IdentHandlerTest, StopFailsOnUnsubscribeError)
 TEST_F(IdentHandlerTest, GetSystemInfoReturnsEmptySystemIDOnNoMemory)
 {
     FailingAllocator allocator;
+
+    allocator.FailAll();
 
     auto err = mIdentHandler.Init(mIdentModule, mCertProvider, mCertLoader, allocator, false);
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);

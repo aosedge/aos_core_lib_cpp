@@ -129,41 +129,43 @@ static aos::Pair<psa_ecc_family_t, size_t> FindPsaECGroupByOID(const aos::Array<
         const char* groupOID     = nullptr;
         size_t      groupOIDSize = 0;
 
-        if (mbedtls_oid_get_oid_by_ec_grp(static_cast<mbedtls_ecp_group_id>(i), &groupOID, &groupOIDSize) == 0) {
-            aos::Array<uint8_t> knownOIDBuf(reinterpret_cast<const uint8_t*>(groupOID), groupOIDSize);
+        if (mbedtls_oid_get_oid_by_ec_grp(static_cast<mbedtls_ecp_group_id>(i), &groupOID, &groupOIDSize) != 0) {
+            continue;
+        }
 
-            if (oid == knownOIDBuf) {
-                switch (i) {
-                case MBEDTLS_ECP_DP_SECP192R1:
-                    return {PSA_ECC_FAMILY_SECP_R1, 192};
-                case MBEDTLS_ECP_DP_SECP224R1:
-                    return {PSA_ECC_FAMILY_SECP_R1, 224};
-                case MBEDTLS_ECP_DP_SECP256R1:
-                    return {PSA_ECC_FAMILY_SECP_R1, 256};
-                case MBEDTLS_ECP_DP_SECP384R1:
-                    return {PSA_ECC_FAMILY_SECP_R1, 384};
-                case MBEDTLS_ECP_DP_SECP521R1:
-                    return {PSA_ECC_FAMILY_SECP_R1, 521};
-                case MBEDTLS_ECP_DP_SECP192K1:
-                    return {PSA_ECC_FAMILY_SECP_K1, 192};
-                case MBEDTLS_ECP_DP_SECP224K1:
-                    return {PSA_ECC_FAMILY_SECP_K1, 224};
-                case MBEDTLS_ECP_DP_SECP256K1:
-                    return {PSA_ECC_FAMILY_SECP_K1, 256};
-                case MBEDTLS_ECP_DP_CURVE25519:
-                    return {PSA_ECC_FAMILY_MONTGOMERY, 255};
-                case MBEDTLS_ECP_DP_CURVE448:
-                    return {PSA_ECC_FAMILY_MONTGOMERY, 448};
-                case MBEDTLS_ECP_DP_BP256R1:
-                    return {PSA_ECC_FAMILY_BRAINPOOL_P_R1, 256};
-                case MBEDTLS_ECP_DP_BP384R1:
-                    return {PSA_ECC_FAMILY_BRAINPOOL_P_R1, 384};
-                case MBEDTLS_ECP_DP_BP512R1:
-                    return {PSA_ECC_FAMILY_BRAINPOOL_P_R1, 512};
+        aos::Array<uint8_t> knownOIDBuf(reinterpret_cast<const uint8_t*>(groupOID), groupOIDSize);
 
-                default:
-                    return {PSA_ECC_FAMILY_SECP_R1, 0};
-                }
+        if (oid == knownOIDBuf) {
+            switch (i) {
+            case MBEDTLS_ECP_DP_SECP192R1:
+                return {PSA_ECC_FAMILY_SECP_R1, 192};
+            case MBEDTLS_ECP_DP_SECP224R1:
+                return {PSA_ECC_FAMILY_SECP_R1, 224};
+            case MBEDTLS_ECP_DP_SECP256R1:
+                return {PSA_ECC_FAMILY_SECP_R1, 256};
+            case MBEDTLS_ECP_DP_SECP384R1:
+                return {PSA_ECC_FAMILY_SECP_R1, 384};
+            case MBEDTLS_ECP_DP_SECP521R1:
+                return {PSA_ECC_FAMILY_SECP_R1, 521};
+            case MBEDTLS_ECP_DP_SECP192K1:
+                return {PSA_ECC_FAMILY_SECP_K1, 192};
+            case MBEDTLS_ECP_DP_SECP224K1:
+                return {PSA_ECC_FAMILY_SECP_K1, 224};
+            case MBEDTLS_ECP_DP_SECP256K1:
+                return {PSA_ECC_FAMILY_SECP_K1, 256};
+            case MBEDTLS_ECP_DP_CURVE25519:
+                return {PSA_ECC_FAMILY_MONTGOMERY, 255};
+            case MBEDTLS_ECP_DP_CURVE448:
+                return {PSA_ECC_FAMILY_MONTGOMERY, 448};
+            case MBEDTLS_ECP_DP_BP256R1:
+                return {PSA_ECC_FAMILY_BRAINPOOL_P_R1, 256};
+            case MBEDTLS_ECP_DP_BP384R1:
+                return {PSA_ECC_FAMILY_BRAINPOOL_P_R1, 384};
+            case MBEDTLS_ECP_DP_BP512R1:
+                return {PSA_ECC_FAMILY_BRAINPOOL_P_R1, 512};
+
+            default:
+                return {PSA_ECC_FAMILY_SECP_R1, 0};
             }
         }
     }
@@ -506,37 +508,38 @@ psa_status_t aos_signature_sign_hash(const psa_key_attributes_t* attributes, con
 
     LOG_DBG() << "Sign hash";
 
-    for (const auto& key : sBuiltinKeys) {
-        if (key.mKeyID == psa_get_key_id(attributes)) {
-            switch (key.mPrivKey->GetPublic().GetKeyType().GetValue()) {
-            case aos::crypto::KeyTypeEnum::eRSA:
-            case aos::crypto::KeyTypeEnum::eECDSA: {
-                aos::crypto::SignOptions options;
-                options.mHash = key.mHashAlg;
+    auto keyID = psa_get_key_id(attributes);
 
-                aos::Array<uint8_t> digest(hash, hash_length);
-                aos::Array<uint8_t> signatureArray(signature, signature_size);
-
-                if (auto err = key.mPrivKey->Sign(digest, options, signatureArray); !err.IsNone()) {
-                    LOG_ERR() << "Sign failed: " << err;
-
-                    return PSA_ERROR_GENERIC_ERROR;
-                }
-
-                *signature_length = signatureArray.Size();
-
-                return PSA_SUCCESS;
-            }
-
-            default:
-                LOG_ERR() << "Not supported key type: keyType = " << key.mPrivKey->GetPublic().GetKeyType();
-
-                return PSA_ERROR_NOT_SUPPORTED;
-            }
-        }
+    auto key = sBuiltinKeys.FindIf([&](const KeyDescription& candidate) { return candidate.mKeyID == keyID; });
+    if (key == sBuiltinKeys.end()) {
+        return PSA_ERROR_NOT_SUPPORTED;
     }
 
-    return PSA_ERROR_NOT_SUPPORTED;
+    switch (key->mPrivKey->GetPublic().GetKeyType().GetValue()) {
+    case aos::crypto::KeyTypeEnum::eRSA:
+    case aos::crypto::KeyTypeEnum::eECDSA: {
+        aos::crypto::SignOptions options;
+        options.mHash = key->mHashAlg;
+
+        aos::Array<uint8_t> digest(hash, hash_length);
+        aos::Array<uint8_t> signatureArray(signature, signature_size);
+
+        if (auto err = key->mPrivKey->Sign(digest, options, signatureArray); !err.IsNone()) {
+            LOG_ERR() << "Sign failed: " << err;
+
+            return PSA_ERROR_GENERIC_ERROR;
+        }
+
+        *signature_length = signatureArray.Size();
+
+        return PSA_SUCCESS;
+    }
+
+    default:
+        LOG_ERR() << "Not supported key type: keyType = " << key->mPrivKey->GetPublic().GetKeyType();
+
+        return PSA_ERROR_NOT_SUPPORTED;
+    }
 }
 
 psa_status_t aos_export_public_key(const psa_key_attributes_t* attributes, const uint8_t* key_buffer,
@@ -547,44 +550,45 @@ psa_status_t aos_export_public_key(const psa_key_attributes_t* attributes, const
 
     LOG_DBG() << "Export public key";
 
-    for (const auto& key : sBuiltinKeys) {
-        if (key.mKeyID == psa_get_key_id(attributes)) {
-            switch (key.mPrivKey->GetPublic().GetKeyType().GetValue()) {
-            case aos::crypto::KeyTypeEnum::eRSA: {
-                if (auto ret
-                    = ExportRSAPublicKeyToDER(static_cast<const aos::crypto::RSAPublicKey&>(key.mPrivKey->GetPublic()),
-                        data, data_size, data_length);
-                    ret != 0) {
-                    LOG_ERR() << "Error exporting RSA public key: " << ret;
+    auto keyID = psa_get_key_id(attributes);
 
-                    return PSA_ERROR_GENERIC_ERROR;
-                }
-
-                return PSA_SUCCESS;
-            }
-
-            case aos::crypto::KeyTypeEnum::eECDSA: {
-                if (auto ret
-                    = ExportECPublicKeyToDER(static_cast<const aos::crypto::ECDSAPublicKey&>(key.mPrivKey->GetPublic()),
-                        data, data_size, data_length);
-                    ret != 0) {
-                    LOG_ERR() << "Error exporting EC public key: " << ret;
-
-                    return PSA_ERROR_GENERIC_ERROR;
-                }
-
-                return PSA_SUCCESS;
-            }
-
-            default:
-                LOG_ERR() << "Not supported key type: keyType = " << key.mPrivKey->GetPublic().GetKeyType();
-
-                return PSA_ERROR_NOT_SUPPORTED;
-            }
-        }
+    auto key = sBuiltinKeys.FindIf([&](const KeyDescription& candidate) { return candidate.mKeyID == keyID; });
+    if (key == sBuiltinKeys.end()) {
+        return PSA_ERROR_NOT_SUPPORTED;
     }
 
-    return PSA_ERROR_NOT_SUPPORTED;
+    switch (key->mPrivKey->GetPublic().GetKeyType().GetValue()) {
+    case aos::crypto::KeyTypeEnum::eRSA: {
+        if (auto ret
+            = ExportRSAPublicKeyToDER(static_cast<const aos::crypto::RSAPublicKey&>(key->mPrivKey->GetPublic()), data,
+                data_size, data_length);
+            ret != 0) {
+            LOG_ERR() << "Error exporting RSA public key: " << ret;
+
+            return PSA_ERROR_GENERIC_ERROR;
+        }
+
+        return PSA_SUCCESS;
+    }
+
+    case aos::crypto::KeyTypeEnum::eECDSA: {
+        if (auto ret
+            = ExportECPublicKeyToDER(static_cast<const aos::crypto::ECDSAPublicKey&>(key->mPrivKey->GetPublic()), data,
+                data_size, data_length);
+            ret != 0) {
+            LOG_ERR() << "Error exporting EC public key: " << ret;
+
+            return PSA_ERROR_GENERIC_ERROR;
+        }
+
+        return PSA_SUCCESS;
+    }
+
+    default:
+        LOG_ERR() << "Not supported key type: keyType = " << key->mPrivKey->GetPublic().GetKeyType();
+
+        return PSA_ERROR_NOT_SUPPORTED;
+    }
 }
 
 psa_status_t aos_get_key_buffer_size(const psa_key_attributes_t* attributes, size_t* key_buffer_size)

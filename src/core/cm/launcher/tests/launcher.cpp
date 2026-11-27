@@ -22,6 +22,7 @@
 #include <core/cm/launcher/launcher.hpp>
 #include <core/cm/tests/mocks/nodeinfoprovidermock.hpp>
 #include <core/common/tests/mocks/identprovidermock.hpp>
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/heapallocator.hpp>
@@ -3096,44 +3097,7 @@ private:
     size_t                  mSaveEnvVarsCount {};
 };
 
-class FailingAllocator : public AllocatorItf {
-public:
-    static constexpr size_t cAnySize = 0;
-
-    void Fail(size_t size, size_t skip = 0, size_t count = 1)
-    {
-        std::lock_guard lock {mMutex};
-
-        mFailSize  = size;
-        mSkip      = skip;
-        mFailCount = count;
-    }
-
-    void* Allocate(size_t size) override
-    {
-        std::lock_guard lock {mMutex};
-
-        if (mFailCount != 0 && (mFailSize == cAnySize || mFailSize == size)) {
-            if (mSkip != 0) {
-                mSkip--;
-            } else {
-                mFailCount--;
-
-                return nullptr;
-            }
-        }
-
-        return std::malloc(size);
-    }
-
-    void Free(void* data) override { std::free(data); }
-
-private:
-    std::mutex mMutex;
-    size_t     mFailSize {};
-    size_t     mSkip {};
-    size_t     mFailCount {};
-};
+using aos::tests::FailingAllocator;
 
 class FaultyImageStoreStub : public imagemanager::ImageStoreStub {
 public:
@@ -3312,8 +3276,14 @@ public:
         return 1;
     }
 
+    const NodeConfig& GetConfig() const override { return mConfig; }
+
+    bool NeedBalancing() const override { return mNeedBalancing; }
+
 private:
-    Error mReserveErr;
+    NodeConfig mConfig {};
+    bool       mNeedBalancing {};
+    Error      mReserveErr;
 };
 
 oci::IndexContentDescriptor CreateImageDescriptor(const std::string& itemID, const std::string& imageID = cImageID1)

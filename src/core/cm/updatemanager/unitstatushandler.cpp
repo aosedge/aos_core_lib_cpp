@@ -258,12 +258,14 @@ void UnitStatusHandler::OnItemStatusChanged(const UpdateItemStatus& status)
     if (auto it = mUnitStatus.mUpdateItems->FindIf([&status](const UpdateItemStatus& itemStatus) {
             return itemStatus.mItemID == status.mItemID && itemStatus.mVersion == status.mVersion;
         });
-        it != mUnitStatus.mUpdateItems->end()) {
-        *it = status;
-    } else if (auto err = mUnitStatus.mUpdateItems->EmplaceBack(status); !err.IsNone()) {
-        LOG_ERR() << "Failed to emplace update item status" << Log::Field(err);
+        it == mUnitStatus.mUpdateItems->end()) {
+        if (auto err = mUnitStatus.mUpdateItems->EmplaceBack(status); !err.IsNone()) {
+            LOG_ERR() << "Failed to emplace update item status" << Log::Field(err);
 
-        return;
+            return;
+        }
+    } else {
+        *it = status;
     }
 
     StartTimer();

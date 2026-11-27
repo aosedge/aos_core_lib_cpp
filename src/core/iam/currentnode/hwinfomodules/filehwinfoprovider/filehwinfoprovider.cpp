@@ -20,7 +20,7 @@ Error FileHWInfoProvider::Init(const FileHWInfoProviderConfig& config)
         return err;
     }
 
-    mHwID.RightTrim(" \t\r\n");
+    (void)mHwID.RightTrim(" \t\r\n");
 
     if (mHwID.IsEmpty()) {
         return Error(ErrorEnum::eInvalidArgument, "Hardware ID is empty");

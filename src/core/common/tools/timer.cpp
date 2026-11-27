@@ -158,21 +158,59 @@ void Timer::InvokeTimerCallback(Timer* timer)
     }
 }
 
+bool Timer::CompareWakeupTime(const Timer* left, const Timer* right)
+{
+    if (left->mWakeupTime.IsZero()) {
+        return false;
+    }
+
+    if (right->mWakeupTime.IsZero()) {
+        return true;
+    }
+
+    return left->mWakeupTime < right->mWakeupTime;
+}
+
+void Timer::UpdateWakeupTime(const Time& now, Timer* timer)
+{
+    if (timer->mOneShot) {
+        timer->mWakeupTime = Time();
+    } else {
+        timer->mWakeupTime = Time(now).Add(timer->mInterval);
+    }
+}
+
+void Timer::InvokeExpiredTimers(const Time& now)
+{
+    auto cbInvokeThreshold = Time(now).Add(cTimerResolution);
+
+    for (const auto& timer : mRegisteredTimers) {
+        if (timer->mWakeupTime.IsZero() || timer->mWakeupTime > cbInvokeThreshold) {
+            break;
+        }
+
+        InvokeTimerCallback(timer);
+        UpdateWakeupTime(now, timer);
+    }
+}
+
+void Timer::WaitForNextTimer(UniqueLock<Mutex>& lock)
+{
+    auto min = mRegisteredTimers.Min(CompareWakeupTime);
+    if (min != mRegisteredTimers.end() && !(*min)->mWakeupTime.IsZero()) {
+        if (auto err = mCommonCondVar.Wait(lock, (*min)->mWakeupTime); !err.IsNone() && err != ErrorEnum::eTimeout) {
+            LOG_ERR() << "Can't wait for timer wakeup" << Log::Field(AOS_ERROR_WRAP(err));
+        }
+    } else {
+        if (auto err = mCommonCondVar.Wait(lock); !err.IsNone()) {
+            LOG_ERR() << "Can't wait for timer" << Log::Field(AOS_ERROR_WRAP(err));
+        }
+    }
+}
+
 void Timer::ProcessTimers(void* arg)
 {
     (void)arg;
-
-    auto cmpWakeupTime = [](const Timer* left, const Timer* right) {
-        if (left->mWakeupTime.IsZero()) {
-            return false;
-        }
-
-        if (right->mWakeupTime.IsZero()) {
-            return true;
-        }
-
-        return left->mWakeupTime < right->mWakeupTime;
-    };
 
     while (true) {
         UniqueLock lock {mCommonMutex};
@@ -181,40 +219,10 @@ void Timer::ProcessTimers(void* arg)
             break;
         }
 
-        mRegisteredTimers.Sort(cmpWakeupTime);
+        mRegisteredTimers.Sort(CompareWakeupTime);
 
-        auto now               = Time::Now();
-        auto cbInvokeThreshold = Time(now).Add(cTimerResolution);
-
-        for (const auto& timer : mRegisteredTimers) {
-            if (timer->mWakeupTime.IsZero()) {
-                break;
-            }
-
-            if (timer->mWakeupTime > cbInvokeThreshold) {
-                break;
-            }
-
-            InvokeTimerCallback(timer);
-
-            if (timer->mOneShot) {
-                timer->mWakeupTime = Time();
-            } else {
-                timer->mWakeupTime = Time(now).Add(timer->mInterval);
-            }
-        }
-
-        auto min = mRegisteredTimers.Min(cmpWakeupTime);
-        if (min != mRegisteredTimers.end() && !(*min)->mWakeupTime.IsZero()) {
-            if (auto err = mCommonCondVar.Wait(lock, (*min)->mWakeupTime);
-                !err.IsNone() && err != ErrorEnum::eTimeout) {
-                LOG_ERR() << "Can't wait for timer wakeup" << Log::Field(AOS_ERROR_WRAP(err));
-            }
-        } else {
-            if (auto err = mCommonCondVar.Wait(lock); !err.IsNone()) {
-                LOG_ERR() << "Can't wait for timer" << Log::Field(AOS_ERROR_WRAP(err));
-            }
-        }
+        InvokeExpiredTimers(Time::Now());
+        WaitForNextTimer(lock);
     }
 }
 

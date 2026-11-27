@@ -213,7 +213,7 @@ x509::Certificate CreateCACert()
     cert.mVersion = x509::cX509Version3;
     cert.mIsCA    = true;
     cert.mKeyUsage.SetValue(x509::keyusage::cKeyCertSign | x509::keyusage::cCRLSign);
-    cert.mSubjectKeyId = Array<uint8_t>(skid, sizeof(skid));
+    cert.mSubjectKeyID = Array<uint8_t>(skid, sizeof(skid));
     cert.mPublicKey.SetValue<RSAPublicKey>(
         tests::utils::ConvertToArray(modulus), Array<uint8_t>(exponent, sizeof(exponent)));
 
@@ -294,7 +294,7 @@ TEST_F(CryptoutilsTest, ValidateCACert)
     {
         auto cert = CreateCACert();
 
-        cert.mSubjectKeyId.Clear();
+        cert.mSubjectKeyID.Clear();
         EXPECT_TRUE(ValidateCACert(cert).Is(ErrorEnum::eFailed));
     }
 

@@ -627,8 +627,8 @@ Error CertModule::CheckCertChain(const Array<crypto::x509::Certificate>& chain)
             }
 
             if (chain[currentCert].mIssuer == chain[i].mSubject
-                || (!chain[currentCert].mAuthorityKeyId.IsEmpty()
-                    && chain[currentCert].mAuthorityKeyId == chain[i].mSubjectKeyId)) {
+                || (!chain[currentCert].mAuthorityKeyID.IsEmpty()
+                    && chain[currentCert].mAuthorityKeyID == chain[i].mSubjectKeyID)) {
                 parentCert  = i;
                 parentFound = true;
 

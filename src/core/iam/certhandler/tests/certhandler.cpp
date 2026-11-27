@@ -12,7 +12,7 @@
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
 #include <core/common/tests/crypto/softhsmenv.hpp>
 #include <core/common/tests/mocks/certprovidermock.hpp>
-#include <core/common/tests/stubs/testallocator.hpp>
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/heapallocator.hpp>
@@ -22,7 +22,7 @@
 
 namespace aos::iam::certhandler {
 using namespace testing;
-using aos::tests::TestAllocator;
+using aos::tests::FailingAllocator;
 
 /***********************************************************************************************************************
  * Suite
@@ -378,14 +378,14 @@ TEST_F(CerthandlerTest, PKCS11InitFindsFreeSlot)
 
 TEST_F(CerthandlerTest, PKCS11InitByTokenLabelFailsNoMemory)
 {
-    TestAllocator alloc;
-    PKCS11Module  module;
-    auto          config = GetPKCS11ModuleConfig();
+    FailingAllocator alloc;
+    PKCS11Module     module;
+    auto             config = GetPKCS11ModuleConfig();
 
     RegisterPKCS11Module("iam");
     ASSERT_TRUE(mCertHandler->SetOwner("iam", cPIN).IsNone());
 
-    alloc.FailAfter(0);
+    alloc.FailAll();
     config.mSlotID.Reset();
     config.mTokenLabel = "aos";
 
@@ -429,20 +429,20 @@ TEST_F(CerthandlerTest, PKCS11InitRejectsInvalidSlotIndex)
 
 TEST_F(CerthandlerTest, PKCS11ClearFailsWithoutMemory)
 {
-    TestAllocator alloc;
-    PKCS11Module  module;
-    bool          hitClearOOM = false;
+    FailingAllocator alloc;
+    PKCS11Module     module;
+    bool             hitClearOOM = false;
 
     ASSERT_TRUE(
         module.Init(alloc, "oom-clear", GetPKCS11ModuleConfig(), mSOFTHSMEnv.GetManager(), *mCryptoProvider).IsNone());
     ASSERT_TRUE(module.SetOwner(cPIN).IsNone());
 
-    alloc.FailAfter(0);
+    alloc.FailAll();
 
     ASSERT_TRUE(module.Clear().Is(ErrorEnum::eNoMemory));
 
     for (size_t n = 1; n <= 4; ++n) {
-        alloc.FailAfter(n);
+        alloc.FailAt(n, FailingAllocator::cUnlimited);
 
         if (module.Clear().Is(ErrorEnum::eNoMemory)) {
             hitClearOOM = true;
@@ -493,7 +493,7 @@ TEST_F(CerthandlerTest, PKCS11AddCertFailsWhenNotOwned)
 
 TEST_F(CerthandlerTest, PKCS11AddCertFailsCreateURLOOM)
 {
-    TestAllocator                             alloc;
+    FailingAllocator                          alloc;
     PKCS11Module                              module;
     StaticString<crypto::cCertPEMLen>         caCertPem;
     StaticArray<crypto::x509::Certificate, 1> certs;
@@ -507,7 +507,7 @@ TEST_F(CerthandlerTest, PKCS11AddCertFailsCreateURLOOM)
     ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(caCertPem, certs).IsNone());
 
     for (size_t n = 0; n <= 8; ++n) {
-        alloc.FailAfter(n);
+        alloc.FailAt(n, FailingAllocator::cUnlimited);
 
         CertInfo info;
         if (module.AddCert(certs[0], "", info).Is(ErrorEnum::eNoMemory)) {
@@ -552,7 +552,7 @@ TEST_F(CerthandlerTest, PKCS11ValidateRootFailsWrongPIN)
 
 TEST_F(CerthandlerTest, PKCS11ValidateRootFailsWithoutMemory)
 {
-    TestAllocator                             alloc;
+    FailingAllocator                          alloc;
     PKCS11Module                              module;
     StaticString<crypto::cCertPEMLen>         caCertPem;
     StaticArray<crypto::x509::Certificate, 1> certs;
@@ -569,7 +569,7 @@ TEST_F(CerthandlerTest, PKCS11ValidateRootFailsWithoutMemory)
     ASSERT_TRUE(module.AddCert(certs[0], "", info).IsNone());
 
     for (size_t n = 0; n <= 8; ++n) {
-        alloc.FailAfter(n);
+        alloc.FailAt(n, FailingAllocator::cUnlimited);
 
         StaticArray<CertInfo, cCertsPerModule> validCerts;
         if (module.ValidateRootCertificates(validCerts).Is(ErrorEnum::eNoMemory)) {
@@ -1453,10 +1453,10 @@ TEST_F(CerthandlerTest, PKCS11ValidateKeysCertificatesResultFull)
 
 TEST_F(CerthandlerTest, PKCS11ValidateKeysCertificatesFailsWithoutMemory)
 {
-    TestAllocator alloc;
-    PKCS11Module  module;
-    CertModule    certModule;
-    bool          hitOOM = false;
+    FailingAllocator alloc;
+    PKCS11Module     module;
+    CertModule       certModule;
+    bool             hitOOM = false;
 
     ASSERT_TRUE(
         module.Init(alloc, "keys-oom", GetPKCS11ModuleConfig(), mSOFTHSMEnv.GetManager(), *mCryptoProvider).IsNone());
@@ -1473,7 +1473,7 @@ TEST_F(CerthandlerTest, PKCS11ValidateKeysCertificatesFailsWithoutMemory)
         StaticArray<StaticString<cURLLen>, cCertsPerModule> invalidCerts, invalidKeys;
         StaticArray<CertInfo, cCertsPerModule>              validCerts;
 
-        alloc.FailAfter(n);
+        alloc.FailAt(n, FailingAllocator::cUnlimited);
 
         auto err = module.ValidateKeysCertificates(invalidCerts, invalidKeys, validCerts);
 

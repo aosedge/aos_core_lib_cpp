@@ -46,7 +46,8 @@ public:
      * @param allocator allocator for temporary objects.
      * @return Error.
      */
-    Error Init(const Config& config, common::imagemanager::BlobInfoProviderItf& cloudBlobInfoProvider,
+    Error Init( // NOSONAR cpp:S1242 - same name on purpose
+        const Config& config, common::imagemanager::BlobInfoProviderItf& cloudBlobInfoProvider,
         common::imagemanager::StorageItf& storage, spaceallocator::SpaceAllocatorItf& spaceAllocator,
         spaceallocator::SpaceAllocatorItf& downloadSpaceAllocator, downloader::DownloaderItf& downloader,
         crypto::CryptoHelperItf& cryptoHelper, fileserver::FileServerItf& fileServer,
@@ -69,7 +70,7 @@ public:
      * @param itemInfo update item info.
      * @return Error.
      */
-    Error InstallItem(const UpdateItemInfo& itemInfo) override;
+    Error InstallItem(const UpdateItemInfo& itemInfo) override; // NOSONAR cpp:S1242 - same name on purpose
 
     /**
      * Removes update item.
@@ -78,14 +79,14 @@ public:
      * @param version item version.
      * @return Error.
      */
-    Error RemoveItem(const String& itemID, const String& version) override;
+    Error RemoveItem(const String& itemID, const String& version) override; // NOSONAR cpp:S1242 - same name on purpose
 
     /**
      * Cancels all items being installed. Waits until all InstallItem and RemoveItem calls in progress return.
      *
      * @return Error.
      */
-    Error Cancel() override;
+    Error Cancel() override; // NOSONAR cpp:S1242 - same name on purpose
 
     /**
      * Returns download info of a blob stored on the CM.

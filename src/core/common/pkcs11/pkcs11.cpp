@@ -1426,112 +1426,11 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
     ObjectHandle privKeyHandle, ObjectHandle pubKeyHandle, CK_KEY_TYPE keyType)
 {
     switch (keyType) {
-    case CKK_RSA: {
-        StaticArray<Array<uint8_t>, cObjectAttributesCount> attrValues;
-        StaticArray<AttributeType, cObjectAttributesCount>  attrTypes;
+    case CKK_RSA:
+        return ExportRSAPrivateKey(privKeyHandle, pubKeyHandle);
 
-        (void)attrTypes.PushBack(CKA_MODULUS);
-        (void)attrTypes.PushBack(CKA_PUBLIC_EXPONENT);
-
-        auto n = MakeUnique<StaticArray<uint8_t, crypto::cRSAModulusSize>>(&mAllocator);
-        if (!n) {
-            return {{}, ErrorEnum::eNoMemory};
-        }
-
-        auto e = MakeUnique<StaticArray<uint8_t, crypto::cRSAPubExponentSize>>(&mAllocator);
-        if (!e) {
-            return {{}, ErrorEnum::eNoMemory};
-        }
-
-        (void)attrValues.PushBack(*n);
-        (void)attrValues.PushBack(*e);
-
-        if (auto err = mSession->GetAttributeValues(pubKeyHandle, attrTypes, attrValues); !err.IsNone()) {
-            return {{}, err};
-        }
-
-        auto pubKey = MakeUnique<crypto::RSAPublicKey>(&mAllocator, attrValues[0], attrValues[1]);
-        if (!pubKey) {
-            return {{}, ErrorEnum::eNoMemory};
-        }
-
-        auto cryptoKey = MakeShared<PKCS11RSAPrivateKey>(&mAllocator, mAllocator, mSession, privKeyHandle, *pubKey);
-        if (!cryptoKey) {
-            return {{}, ErrorEnum::eNoMemory};
-        }
-
-        PrivateKey pkcsKey = {privKeyHandle, pubKeyHandle, cryptoKey};
-
-        return {pkcsKey, ErrorEnum::eNone};
-    }
-
-    case CKK_ECDSA: {
-        StaticArray<Array<uint8_t>, cObjectAttributesCount> attrValues;
-        StaticArray<AttributeType, cObjectAttributesCount>  attrTypes;
-
-        (void)attrTypes.PushBack(CKA_ECDSA_PARAMS);
-        (void)attrTypes.PushBack(CKA_EC_POINT);
-
-        auto derEncodedParams = MakeUnique<StaticArray<uint8_t, crypto::cECDSAParamsOIDSize>>(&mAllocator);
-        if (!derEncodedParams) {
-            return {{}, ErrorEnum::eNoMemory};
-        }
-
-        auto derEncodedPoint = MakeUnique<StaticArray<uint8_t, crypto::cECDSAPointDERSize>>(&mAllocator);
-        if (!derEncodedPoint) {
-            return {{}, ErrorEnum::eNoMemory};
-        }
-
-        (void)attrValues.PushBack(*derEncodedParams);
-        (void)attrValues.PushBack(*derEncodedPoint);
-
-        auto err = mSession->GetAttributeValues(pubKeyHandle, attrTypes, attrValues);
-        if (!err.IsNone()) {
-            return {{}, err};
-        }
-
-        auto params = MakeUnique<StaticArray<uint8_t, crypto::cECDSAParamsOIDSize>>(&mAllocator);
-        if (!params) {
-            return {{}, ErrorEnum::eNoMemory};
-        }
-
-        auto point = MakeUnique<StaticArray<uint8_t, crypto::cECDSAPointDERSize>>(&mAllocator);
-        if (!point) {
-            return {{}, ErrorEnum::eNoMemory};
-        }
-
-        err = mCryptoProvider.ASN1DecodeOID(attrValues[0], *params);
-        if (!err.IsNone()) {
-            return {{}, err};
-        }
-
-        err = mCryptoProvider.ASN1DecodeOctetString(attrValues[1], *point);
-        if (!err.IsNone()) {
-            return {{}, err};
-        }
-
-        if (static constexpr uint8_t cSecp384r1OID[] = {0x2B, 0x81, 0x04, 0x00, 0x22};
-            *params != Array<uint8_t>(cSecp384r1OID, sizeof(cSecp384r1OID))) {
-            LOG_ERR() << "Unsupported elliptic curve, only P384 (secp384r1) is supported";
-
-            return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
-        }
-
-        auto pubKey = MakeUnique<crypto::ECDSAPublicKey>(&mAllocator, *params, *point);
-        if (!pubKey) {
-            return {{}, ErrorEnum::eNoMemory};
-        }
-
-        auto cryptoKey
-            = MakeShared<PKCS11ECDSAPrivateKey>(&mAllocator, mSession, mCryptoProvider, privKeyHandle, *pubKey);
-        if (!cryptoKey) {
-            return {{}, ErrorEnum::eNoMemory};
-        }
-
-        PrivateKey pkcsKey = {privKeyHandle, pubKeyHandle, cryptoKey};
-
-        return {pkcsKey, ErrorEnum::eNone};
-    }
+    case CKK_ECDSA:
+        return ExportECDSAPrivateKey(privKeyHandle, pubKeyHandle);
 
     default:
         break;
@@ -1541,6 +1440,114 @@ RetWithError<PrivateKey> Utils::ExportPrivateKey(
               << ", only RSA and ECDSA (secp384r1) are supported";
 
     return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
+}
+
+RetWithError<PrivateKey> Utils::ExportRSAPrivateKey(ObjectHandle privKeyHandle, ObjectHandle pubKeyHandle)
+{
+    StaticArray<Array<uint8_t>, cObjectAttributesCount> attrValues;
+    StaticArray<AttributeType, cObjectAttributesCount>  attrTypes;
+
+    (void)attrTypes.PushBack(CKA_MODULUS);
+    (void)attrTypes.PushBack(CKA_PUBLIC_EXPONENT);
+
+    auto n = MakeUnique<StaticArray<uint8_t, crypto::cRSAModulusSize>>(&mAllocator);
+    if (!n) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
+
+    auto e = MakeUnique<StaticArray<uint8_t, crypto::cRSAPubExponentSize>>(&mAllocator);
+    if (!e) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
+
+    (void)attrValues.PushBack(*n);
+    (void)attrValues.PushBack(*e);
+
+    if (auto err = mSession->GetAttributeValues(pubKeyHandle, attrTypes, attrValues); !err.IsNone()) {
+        return {{}, err};
+    }
+
+    auto pubKey = MakeUnique<crypto::RSAPublicKey>(&mAllocator, attrValues[0], attrValues[1]);
+    if (!pubKey) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
+
+    auto cryptoKey = MakeShared<PKCS11RSAPrivateKey>(&mAllocator, mAllocator, mSession, privKeyHandle, *pubKey);
+    if (!cryptoKey) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
+
+    PrivateKey pkcsKey = {privKeyHandle, pubKeyHandle, cryptoKey};
+
+    return {pkcsKey, ErrorEnum::eNone};
+}
+
+RetWithError<PrivateKey> Utils::ExportECDSAPrivateKey(ObjectHandle privKeyHandle, ObjectHandle pubKeyHandle)
+{
+    StaticArray<Array<uint8_t>, cObjectAttributesCount> attrValues;
+    StaticArray<AttributeType, cObjectAttributesCount>  attrTypes;
+
+    (void)attrTypes.PushBack(CKA_ECDSA_PARAMS);
+    (void)attrTypes.PushBack(CKA_EC_POINT);
+
+    auto derEncodedParams = MakeUnique<StaticArray<uint8_t, crypto::cECDSAParamsOIDSize>>(&mAllocator);
+    if (!derEncodedParams) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
+
+    auto derEncodedPoint = MakeUnique<StaticArray<uint8_t, crypto::cECDSAPointDERSize>>(&mAllocator);
+    if (!derEncodedPoint) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
+
+    (void)attrValues.PushBack(*derEncodedParams);
+    (void)attrValues.PushBack(*derEncodedPoint);
+
+    auto err = mSession->GetAttributeValues(pubKeyHandle, attrTypes, attrValues);
+    if (!err.IsNone()) {
+        return {{}, err};
+    }
+
+    auto params = MakeUnique<StaticArray<uint8_t, crypto::cECDSAParamsOIDSize>>(&mAllocator);
+    if (!params) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
+
+    auto point = MakeUnique<StaticArray<uint8_t, crypto::cECDSAPointDERSize>>(&mAllocator);
+    if (!point) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
+
+    err = mCryptoProvider.ASN1DecodeOID(attrValues[0], *params);
+    if (!err.IsNone()) {
+        return {{}, err};
+    }
+
+    err = mCryptoProvider.ASN1DecodeOctetString(attrValues[1], *point);
+    if (!err.IsNone()) {
+        return {{}, err};
+    }
+
+    if (static constexpr uint8_t cSecp384r1OID[] = {0x2B, 0x81, 0x04, 0x00, 0x22};
+        *params != Array<uint8_t>(cSecp384r1OID, sizeof(cSecp384r1OID))) {
+        LOG_ERR() << "Unsupported elliptic curve, only P384 (secp384r1) is supported";
+
+        return {{}, AOS_ERROR_WRAP(ErrorEnum::eNotSupported)};
+    }
+
+    auto pubKey = MakeUnique<crypto::ECDSAPublicKey>(&mAllocator, *params, *point);
+    if (!pubKey) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
+
+    auto cryptoKey = MakeShared<PKCS11ECDSAPrivateKey>(&mAllocator, mSession, mCryptoProvider, privKeyHandle, *pubKey);
+    if (!cryptoKey) {
+        return {{}, ErrorEnum::eNoMemory};
+    }
+
+    PrivateKey pkcsKey = {privKeyHandle, pubKeyHandle, cryptoKey};
+
+    return {pkcsKey, ErrorEnum::eNone};
 }
 
 Error Utils::FindCertificates(const Array<uint8_t>& id, const String& label, Array<ObjectHandle>& handles) const
@@ -1565,54 +1572,10 @@ Error Utils::FindCertificateChain(const crypto::x509::Certificate& certificate, 
         return ErrorEnum::eNone;
     }
 
-    CK_OBJECT_CLASS                                      certClass    = CKO_CERTIFICATE;
-    CK_CERTIFICATE_TYPE                                  certTypeX509 = CKC_X_509;
-    StaticArray<ObjectAttribute, cObjectAttributesCount> certTempl;
+    SharedPtr<crypto::x509::Certificate> foundCert;
+    Error                                err;
 
-    // Lookup by subject; CKC_X_509 in the find template. No expected CKA_ID / CKA_LABEL.
-    (void)certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
-    (void)certTempl.PushBack({CKA_CERTIFICATE_TYPE, ConvertToAttributeValue(certTypeX509)});
-    (void)certTempl.PushBack({CKA_SUBJECT, certificate.mIssuer});
-
-    StaticArray<ObjectHandle, cKeysPerToken> handles;
-    SharedPtr<crypto::x509::Certificate>     foundCert;
-
-    auto err = mSession->FindObjects(certTempl, handles);
-    if (err.IsNone()) {
-        if (handles.Size() > 1) {
-            // No working-status event at this layer; warn and match by AKID/SKID.
-            LOG_WRN() << "Multiple PKCS11 issuer certificate objects found" << Log::Field("count", handles.Size());
-        }
-
-        for (auto handle : handles) {
-            SharedPtr<crypto::x509::Certificate> candidate;
-
-            Tie(candidate, err) = GetCertificate(handle);
-            if (!err.IsNone()) {
-                LOG_WRN() << "Skip certificate while searching issuer" << Log::Field(err);
-
-                continue;
-            }
-
-            if (certificate.mAuthorityKeyId.IsEmpty() || candidate->mSubjectKeyId == certificate.mAuthorityKeyId) {
-                foundCert = candidate;
-                break;
-            }
-        }
-
-        if (!foundCert && !certificate.mAuthorityKeyId.IsEmpty()) {
-            Tie(foundCert, err) = FindCertificateByKeyID(certificate.mAuthorityKeyId);
-        } else if (!foundCert) {
-            err = ErrorEnum::eNotFound;
-        } else {
-            // certificate already found, nothing to do
-        }
-    } else if (err == ErrorEnum::eNotFound && !certificate.mAuthorityKeyId.IsEmpty()) {
-        Tie(foundCert, err) = FindCertificateByKeyID(certificate.mAuthorityKeyId);
-    } else {
-        return err;
-    }
-
+    Tie(foundCert, err) = FindIssuerCertificate(certificate);
     if (!err.IsNone()) {
         return err;
     }
@@ -1631,13 +1594,63 @@ Error Utils::FindCertificateChain(const crypto::x509::Certificate& certificate, 
     return FindCertificateChain(*foundCert, chain);
 }
 
+RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::FindIssuerCertificate(
+    const crypto::x509::Certificate& certificate)
+{
+    CK_OBJECT_CLASS                                      certClass    = CKO_CERTIFICATE;
+    CK_CERTIFICATE_TYPE                                  certTypeX509 = CKC_X_509;
+    StaticArray<ObjectAttribute, cObjectAttributesCount> certTempl;
+
+    // Lookup by subject; CKC_X_509 in the find template. No expected CKA_ID / CKA_LABEL.
+    (void)certTempl.PushBack({CKA_CLASS, ConvertToAttributeValue(certClass)});
+    (void)certTempl.PushBack({CKA_CERTIFICATE_TYPE, ConvertToAttributeValue(certTypeX509)});
+    (void)certTempl.PushBack({CKA_SUBJECT, certificate.mIssuer});
+
+    StaticArray<ObjectHandle, cKeysPerToken> handles;
+
+    auto err = mSession->FindObjects(certTempl, handles);
+    if (err == ErrorEnum::eNotFound && !certificate.mAuthorityKeyID.IsEmpty()) {
+        return FindCertificateByKeyID(certificate.mAuthorityKeyID);
+    }
+
+    if (!err.IsNone()) {
+        return {nullptr, err};
+    }
+
+    if (handles.Size() > 1) {
+        // No working-status event at this layer; warn and match by AKID/SKID.
+        LOG_WRN() << "Multiple PKCS11 issuer certificate objects found" << Log::Field("count", handles.Size());
+    }
+
+    for (auto handle : handles) {
+        SharedPtr<crypto::x509::Certificate> candidate;
+
+        Tie(candidate, err) = GetCertificate(handle);
+        if (!err.IsNone()) {
+            LOG_WRN() << "Skip certificate while searching issuer" << Log::Field(err);
+
+            continue;
+        }
+
+        if (certificate.mAuthorityKeyID.IsEmpty() || candidate->mSubjectKeyID == certificate.mAuthorityKeyID) {
+            return {candidate, ErrorEnum::eNone};
+        }
+    }
+
+    if (!certificate.mAuthorityKeyID.IsEmpty()) {
+        return FindCertificateByKeyID(certificate.mAuthorityKeyID);
+    }
+
+    return {nullptr, ErrorEnum::eNotFound};
+}
+
 Error Utils::ValidateCertificateChain(const crypto::x509::CertificateChain& chain)
 {
     for (size_t i = 1; i < chain.Size(); ++i) {
         const auto& child  = chain[i - 1];
         const auto& parent = chain[i];
 
-        if (!child.mAuthorityKeyId.IsEmpty() && child.mAuthorityKeyId != parent.mSubjectKeyId) {
+        if (!child.mAuthorityKeyID.IsEmpty() && child.mAuthorityKeyID != parent.mSubjectKeyID) {
             StaticString<crypto::cCertDNStringSize> subject;
 
             (void)mCryptoProvider.ASN1DecodeDN(parent.mSubject, subject);
@@ -1681,7 +1694,7 @@ RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::FindCertificateByKeyID
             continue;
         }
 
-        if (certificate->mSubjectKeyId == keyID) {
+        if (certificate->mSubjectKeyID == keyID) {
             return {certificate, ErrorEnum::eNone};
         }
     }
