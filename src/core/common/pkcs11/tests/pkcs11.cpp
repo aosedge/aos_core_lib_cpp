@@ -606,10 +606,10 @@ TEST_F(PKCS11Test, FindCertificateChainSelectsIssuerByAKI)
     ASSERT_TRUE(mCryptoProvider->DERToX509Cert(derBlob, clientCert).IsNone());
 
     ASSERT_EQ(caOldCert.mSubject, caNewCert.mSubject);
-    ASSERT_NE(caOldCert.mSubjectKeyId, caNewCert.mSubjectKeyId);
-    ASSERT_FALSE(clientCert.mAuthorityKeyId.IsEmpty());
-    ASSERT_EQ(clientCert.mAuthorityKeyId, caNewCert.mSubjectKeyId);
-    ASSERT_NE(clientCert.mAuthorityKeyId, caOldCert.mSubjectKeyId);
+    ASSERT_NE(caOldCert.mSubjectKeyID, caNewCert.mSubjectKeyID);
+    ASSERT_FALSE(clientCert.mAuthorityKeyID.IsEmpty());
+    ASSERT_EQ(clientCert.mAuthorityKeyID, caNewCert.mSubjectKeyID);
+    ASSERT_NE(clientCert.mAuthorityKeyID, caOldCert.mSubjectKeyID);
 
     // Import old CA first so subject search would prefer it without AKI matching.
     ASSERT_TRUE(Utils(mAllocator, session, *mCryptoProvider).ImportCertificate(caOldId, mLabel, caOldCert).IsNone());
@@ -623,9 +623,9 @@ TEST_F(PKCS11Test, FindCertificateChainSelectsIssuerByAKI)
     ASSERT_TRUE(err.IsNone());
     ASSERT_TRUE(chain);
     ASSERT_EQ(chain->Size(), 2);
-    ASSERT_EQ((*chain)[0].mSubjectKeyId, clientCert.mSubjectKeyId);
-    ASSERT_EQ((*chain)[1].mSubjectKeyId, caNewCert.mSubjectKeyId);
-    ASSERT_EQ((*chain)[0].mAuthorityKeyId, (*chain)[1].mSubjectKeyId);
+    ASSERT_EQ((*chain)[0].mSubjectKeyID, clientCert.mSubjectKeyID);
+    ASSERT_EQ((*chain)[1].mSubjectKeyID, caNewCert.mSubjectKeyID);
+    ASSERT_EQ((*chain)[0].mAuthorityKeyID, (*chain)[1].mSubjectKeyID);
 }
 
 TEST_F(PKCS11Test, PKCS11RSAPrivateKeySign)

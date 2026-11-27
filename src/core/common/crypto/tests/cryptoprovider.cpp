@@ -151,7 +151,7 @@ void CreateCertificate(CryptoFactoryItf& factory, CryptoProviderItf& provider, c
 
     ASSERT_TRUE(provider.PEMToX509Certs(pemCRT, certs).IsNone());
     ASSERT_EQ(certs.Size(), 1);
-    ASSERT_EQ(certs[0].mSubjectKeyId, certs[0].mAuthorityKeyId);
+    ASSERT_EQ(certs[0].mSubjectKeyID, certs[0].mAuthorityKeyID);
 }
 
 /***********************************************************************************************************************
@@ -190,7 +190,7 @@ TEST_P(CryptoProviderTest, DERToX509Certs)
 
     ASSERT_TRUE(mCryptoProvider->DERToX509Cert(tests::utils::ConvertToArray(derCert), cert).IsNone());
 
-    ASSERT_TRUE(cert.mSubjectKeyId == cert.mAuthorityKeyId);
+    ASSERT_TRUE(cert.mSubjectKeyID == cert.mAuthorityKeyID);
 
     StaticString<cCertSubjSize> subject;
     StaticString<cCertSubjSize> issuer;
@@ -230,7 +230,7 @@ TEST_P(CryptoProviderTest, PEMToX509Certs)
 
     ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(pemBlob, certs).IsNone());
     ASSERT_EQ(certs.Size(), 1);
-    ASSERT_EQ(certs[0].mSubjectKeyId, certs[0].mAuthorityKeyId);
+    ASSERT_EQ(certs[0].mSubjectKeyID, certs[0].mAuthorityKeyID);
 
     StaticString<cCertSubjSize> subject;
     StaticString<cCertSubjSize> issuer;
@@ -1240,7 +1240,7 @@ TEST_P(CryptoProviderTest, VerifyCACert)
     ASSERT_TRUE(cert.mKeyUsage.HasValue());
     EXPECT_NE(cert.mKeyUsage.GetValue() & x509::keyusage::cKeyCertSign, 0u);
     EXPECT_NE(cert.mKeyUsage.GetValue() & x509::keyusage::cCRLSign, 0u);
-    EXPECT_FALSE(cert.mSubjectKeyId.IsEmpty());
+    EXPECT_FALSE(cert.mSubjectKeyID.IsEmpty());
     EXPECT_EQ(cert.mIssuer, cert.mSubject);
     ASSERT_TRUE(ValidateCACert(cert).IsNone());
 }
@@ -1861,8 +1861,8 @@ TEST_P(CryptoProviderTest, PEMToX509CertsIssuerAltNameAfterKeyIDs)
 
     ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(pem, chain).IsNone());
     ASSERT_EQ(chain.Size(), 1u);
-    EXPECT_FALSE(chain[0].mSubjectKeyId.IsEmpty());
-    EXPECT_FALSE(chain[0].mAuthorityKeyId.IsEmpty());
+    EXPECT_FALSE(chain[0].mSubjectKeyID.IsEmpty());
+    EXPECT_FALSE(chain[0].mAuthorityKeyID.IsEmpty());
     ASSERT_EQ(chain[0].mIssuerURLs.Size(), 1u);
     EXPECT_EQ(chain[0].mIssuerURLs[0], "https://www.mytest.com");
 }
@@ -1876,7 +1876,7 @@ TEST_P(CryptoProviderTest, PEMToX509CertsKeyIDLikeOID)
 
     ASSERT_TRUE(mCryptoProvider->PEMToX509Certs(pem, chain).IsNone());
     ASSERT_EQ(chain.Size(), 1u);
-    EXPECT_EQ(chain[0].mSubjectKeyId.Size(), crypto::cSHA1DigestSize);
+    EXPECT_EQ(chain[0].mSubjectKeyID.Size(), crypto::cSHA1DigestSize);
 }
 
 TEST_P(CryptoProviderTest, PEMToX509CertsLongKeyIDs)
@@ -2325,7 +2325,7 @@ TEST_P(CryptoProviderTest, CreateCertificateWithTemplateValues)
     const uint8_t skid[]   = {0x04, 0x04, 0x0a, 0x0b, 0x0c, 0x0d};
 
     templ.mSerial       = Array<uint8_t>(serial, sizeof(serial));
-    templ.mSubjectKeyId = Array<uint8_t>(skid, sizeof(skid));
+    templ.mSubjectKeyID = Array<uint8_t>(skid, sizeof(skid));
 
     templ.mIssuerURLs.PushBack("https://issuer.test");
 
@@ -2344,7 +2344,7 @@ TEST_P(CryptoProviderTest, CreateCertificateWithTemplateValues)
     const uint8_t expectedSKID[] = {0x0a, 0x0b, 0x0c, 0x0d};
 
     EXPECT_EQ(certs[0].mSerial, Array<uint8_t>(serial, sizeof(serial)));
-    EXPECT_EQ(certs[0].mSubjectKeyId, Array<uint8_t>(expectedSKID, sizeof(expectedSKID)));
+    EXPECT_EQ(certs[0].mSubjectKeyID, Array<uint8_t>(expectedSKID, sizeof(expectedSKID)));
 
     if (mFactory->GetName() == "OpenSSL") {
         ASSERT_EQ(certs[0].mIssuerURLs.Size(), 1u);
@@ -2896,7 +2896,7 @@ TEST_P(CryptoProviderTest, CreateCertificateWithInvalidTemplate)
     {
         auto invalid = templ;
 
-        invalid.mSubjectKeyId = Array<uint8_t>(notOctetString, sizeof(notOctetString));
+        invalid.mSubjectKeyID = Array<uint8_t>(notOctetString, sizeof(notOctetString));
 
         EXPECT_EQ(mCryptoProvider->CreateCertificate(invalid, x509::Certificate(), *privKey, pem).IsNone(), !isOpenSSL);
     }
@@ -2904,7 +2904,7 @@ TEST_P(CryptoProviderTest, CreateCertificateWithInvalidTemplate)
     {
         auto invalid = templ;
 
-        invalid.mAuthorityKeyId = Array<uint8_t>(notOctetString, sizeof(notOctetString));
+        invalid.mAuthorityKeyID = Array<uint8_t>(notOctetString, sizeof(notOctetString));
 
         EXPECT_EQ(mCryptoProvider->CreateCertificate(invalid, x509::Certificate(), *privKey, pem).IsNone(), !isOpenSSL);
     }

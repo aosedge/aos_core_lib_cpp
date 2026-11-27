@@ -1609,8 +1609,8 @@ RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::FindIssuerCertificate(
     StaticArray<ObjectHandle, cKeysPerToken> handles;
 
     auto err = mSession->FindObjects(certTempl, handles);
-    if (err == ErrorEnum::eNotFound && !certificate.mAuthorityKeyId.IsEmpty()) {
-        return FindCertificateByKeyID(certificate.mAuthorityKeyId);
+    if (err == ErrorEnum::eNotFound && !certificate.mAuthorityKeyID.IsEmpty()) {
+        return FindCertificateByKeyID(certificate.mAuthorityKeyID);
     }
 
     if (!err.IsNone()) {
@@ -1632,13 +1632,13 @@ RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::FindIssuerCertificate(
             continue;
         }
 
-        if (certificate.mAuthorityKeyId.IsEmpty() || candidate->mSubjectKeyId == certificate.mAuthorityKeyId) {
+        if (certificate.mAuthorityKeyID.IsEmpty() || candidate->mSubjectKeyID == certificate.mAuthorityKeyID) {
             return {candidate, ErrorEnum::eNone};
         }
     }
 
-    if (!certificate.mAuthorityKeyId.IsEmpty()) {
-        return FindCertificateByKeyID(certificate.mAuthorityKeyId);
+    if (!certificate.mAuthorityKeyID.IsEmpty()) {
+        return FindCertificateByKeyID(certificate.mAuthorityKeyID);
     }
 
     return {nullptr, ErrorEnum::eNotFound};
@@ -1650,7 +1650,7 @@ Error Utils::ValidateCertificateChain(const crypto::x509::CertificateChain& chai
         const auto& child  = chain[i - 1];
         const auto& parent = chain[i];
 
-        if (!child.mAuthorityKeyId.IsEmpty() && child.mAuthorityKeyId != parent.mSubjectKeyId) {
+        if (!child.mAuthorityKeyID.IsEmpty() && child.mAuthorityKeyID != parent.mSubjectKeyID) {
             StaticString<crypto::cCertDNStringSize> subject;
 
             (void)mCryptoProvider.ASN1DecodeDN(parent.mSubject, subject);
@@ -1694,7 +1694,7 @@ RetWithError<SharedPtr<crypto::x509::Certificate>> Utils::FindCertificateByKeyID
             continue;
         }
 
-        if (certificate->mSubjectKeyId == keyID) {
+        if (certificate->mSubjectKeyID == keyID) {
             return {certificate, ErrorEnum::eNone};
         }
     }

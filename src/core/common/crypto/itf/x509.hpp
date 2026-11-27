@@ -179,11 +179,11 @@ struct Certificate {
     /**
      * Certificate subject key id.
      */
-    StaticArray<uint8_t, cCertKeyIdSize> mSubjectKeyId;
+    StaticArray<uint8_t, cCertKeyIdSize> mSubjectKeyID;
     /**
      * Certificate authority key id.
      */
-    StaticArray<uint8_t, cCertKeyIdSize> mAuthorityKeyId;
+    StaticArray<uint8_t, cCertKeyIdSize> mAuthorityKeyID;
     /**
      * DER encoded certificate subject issuer.
      */

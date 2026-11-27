@@ -219,7 +219,7 @@ Error ValidateCACert(const x509::Certificate& cert)
         LOG_WRN() << "CA certificate key usage extension is missing";
     }
 
-    if (cert.mSubjectKeyId.IsEmpty()) {
+    if (cert.mSubjectKeyID.IsEmpty()) {
         LOG_ERR() << "CA certificate subjectKeyIdentifier is missing";
 
         return AOS_ERROR_WRAP(ErrorEnum::eFailed);

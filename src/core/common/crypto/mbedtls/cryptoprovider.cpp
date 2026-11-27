@@ -596,11 +596,11 @@ static Error ParseSubjectKeyID(mbedtls_asn1_buf buf, size_t tagLen, x509::Certif
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto resizeErr = cert.mSubjectKeyId.Resize(len); !resizeErr.IsNone()) {
+    if (auto resizeErr = cert.mSubjectKeyID.Resize(len); !resizeErr.IsNone()) {
         return AOS_ERROR_WRAP(resizeErr);
     }
 
-    (void)memcpy(cert.mSubjectKeyId.Get(), p, len);
+    (void)memcpy(cert.mSubjectKeyID.Get(), p, len);
 
     return ErrorEnum::eNone;
 }
@@ -635,11 +635,11 @@ static Error ParseAuthorityKeyID(mbedtls_asn1_buf buf, size_t tagLen, x509::Cert
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto resizeErr = cert.mAuthorityKeyId.Resize(len); !resizeErr.IsNone()) {
+    if (auto resizeErr = cert.mAuthorityKeyID.Resize(len); !resizeErr.IsNone()) {
         return AOS_ERROR_WRAP(resizeErr);
     }
 
-    (void)memcpy(cert.mAuthorityKeyId.Get(), p, len);
+    (void)memcpy(cert.mAuthorityKeyID.Get(), p, len);
 
     return ErrorEnum::eNone;
 }
@@ -2560,31 +2560,31 @@ Error MbedTLSCryptoProvider::SetCertificateSerialNumber(
 Error MbedTLSCryptoProvider::SetCertificateSubjectKeyIdentifier(
     mbedtls_x509write_cert& cert, const x509::Certificate& templ) const
 {
-    if (templ.mSubjectKeyId.IsEmpty()) {
+    if (templ.mSubjectKeyID.IsEmpty()) {
         return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_subject_key_identifier(&cert));
     }
 
     return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_extension(&cert, MBEDTLS_OID_SUBJECT_KEY_IDENTIFIER,
-        MBEDTLS_OID_SIZE(MBEDTLS_OID_SUBJECT_KEY_IDENTIFIER), 0, templ.mSubjectKeyId.Get(),
-        templ.mSubjectKeyId.Size()));
+        MBEDTLS_OID_SIZE(MBEDTLS_OID_SUBJECT_KEY_IDENTIFIER), 0, templ.mSubjectKeyID.Get(),
+        templ.mSubjectKeyID.Size()));
 }
 
 Error MbedTLSCryptoProvider::SetCertificateAuthorityKeyIdentifier(
     mbedtls_x509write_cert& cert, const x509::Certificate& templ, const x509::Certificate& parent) const
 {
-    if (!parent.mSubjectKeyId.IsEmpty()) {
+    if (!parent.mSubjectKeyID.IsEmpty()) {
         return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_extension(&cert, MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER,
-            MBEDTLS_OID_SIZE(MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER), 0, parent.mSubjectKeyId.Get(),
-            parent.mSubjectKeyId.Size()));
+            MBEDTLS_OID_SIZE(MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER), 0, parent.mSubjectKeyID.Get(),
+            parent.mSubjectKeyID.Size()));
     }
 
-    if (templ.mAuthorityKeyId.IsEmpty()) {
+    if (templ.mAuthorityKeyID.IsEmpty()) {
         return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_authority_key_identifier(&cert));
     }
 
     return AOS_ERROR_WRAP(mbedtls_x509write_crt_set_extension(&cert, MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER,
-        MBEDTLS_OID_SIZE(MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER), 0, templ.mAuthorityKeyId.Get(),
-        templ.mAuthorityKeyId.Size()));
+        MBEDTLS_OID_SIZE(MBEDTLS_OID_AUTHORITY_KEY_IDENTIFIER), 0, templ.mAuthorityKeyID.Get(),
+        templ.mAuthorityKeyID.Size()));
 }
 
 Error MbedTLSCryptoProvider::SetCertificateValidityPeriod(

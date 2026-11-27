@@ -442,11 +442,11 @@ Error ConvertX509ToAos(X509* cert, x509::Certificate& resultCert)
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = GetSubjectKeyID(cert, resultCert.mSubjectKeyId); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
+    if (auto err = GetSubjectKeyID(cert, resultCert.mSubjectKeyID); !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return AOS_ERROR_WRAP(err);
     }
 
-    if (auto err = GetAuthorityKeyID(cert, resultCert.mAuthorityKeyId);
+    if (auto err = GetAuthorityKeyID(cert, resultCert.mAuthorityKeyID);
         !err.IsNone() && !err.Is(ErrorEnum::eNotFound)) {
         return AOS_ERROR_WRAP(err);
     }
@@ -1387,11 +1387,11 @@ Error OpenSSLCryptoProvider::CreateCertificate(
         return err;
     }
 
-    if (auto err = SetSKID(templ.mSubjectKeyId, cert.Get()); !err.IsNone()) {
+    if (auto err = SetSKID(templ.mSubjectKeyID, cert.Get()); !err.IsNone()) {
         return err;
     }
 
-    const auto& akid = !parent.mSubjectKeyId.IsEmpty() ? parent.mSubjectKeyId : templ.mAuthorityKeyId;
+    const auto& akid = !parent.mSubjectKeyID.IsEmpty() ? parent.mSubjectKeyID : templ.mAuthorityKeyID;
     if (auto err = SetAKID(akid, cert.Get(), parent); !err.IsNone()) {
         return err;
     }
