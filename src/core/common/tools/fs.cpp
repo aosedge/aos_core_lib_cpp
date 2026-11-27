@@ -633,17 +633,19 @@ RetWithError<size_t> CalculateSize(AllocatorItf& allocator, const String& path)
                 return {0, AOS_ERROR_WRAP(FileErrnoToError(errno))};
             }
 
-            if (S_ISDIR(st.st_mode)) {
-                if (auto err = dirIterators->EmplaceBack(fullPath); !err.IsNone()) {
-                    return {0, AOS_ERROR_WRAP(err)};
-                }
+            if (!S_ISDIR(st.st_mode)) {
+                size += st.st_size;
 
-                stepIntoSubdir = true;
-
-                break;
+                continue;
             }
 
-            size += st.st_size;
+            if (auto err = dirIterators->EmplaceBack(fullPath); !err.IsNone()) {
+                return {0, AOS_ERROR_WRAP(err)};
+            }
+
+            stepIntoSubdir = true;
+
+            break;
         }
 
         if (stepIntoSubdir) {
