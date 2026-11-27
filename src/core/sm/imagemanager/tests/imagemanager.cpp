@@ -24,6 +24,7 @@
 #include <core/common/tests/mocks/fsmock.hpp>
 #include <core/common/tests/mocks/ocispecmock.hpp>
 #include <core/common/tests/mocks/spaceallocatormock.hpp>
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/heapallocator.hpp>
@@ -125,22 +126,7 @@ oci::ContentDescriptor Descriptor(const String& mediaType, const String& digest)
     return oci::ContentDescriptor {mediaType, digest, cBlobSize};
 }
 
-class FailableAllocator : public HeapAllocator {
-public:
-    void* Allocate(size_t size) override
-    {
-        if (mFailAll) {
-            return nullptr;
-        }
-
-        return HeapAllocator::Allocate(size);
-    }
-
-    void SetFailAll(bool fail) { mFailAll = fail; }
-
-private:
-    std::atomic<bool> mFailAll {false};
-};
+using aos::tests::FailingAllocator;
 
 class TestStorageStub : public StorageStub {
 public:
@@ -361,7 +347,7 @@ protected:
 
     // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
     // members are destroyed in reverse declaration order.
-    FailableAllocator mAllocator;
+    FailingAllocator mAllocator;
 
     ImageManager                                         mImageManager;
     NiceMock<common::imagemanager::BlobInfoProviderMock> mBlobInfoProvider;
@@ -1109,7 +1095,7 @@ TEST_F(SMImageManagerTest, LayerSizeCalculationFails)
 {
     EXPECT_CALL(mImageHandler, GetUnpackedLayerDigest)
         .WillOnce(Invoke([this](const String& path) -> RetWithError<StaticString<oci::cDigestLen>> {
-            mAllocator.SetFailAll(true);
+            mAllocator.FailAll();
 
             StaticString<oci::cDigestLen> digest;
 
@@ -1120,7 +1106,7 @@ TEST_F(SMImageManagerTest, LayerSizeCalculationFails)
 
     auto err = mImageManager.InstallItem(ServiceInfo("service"));
 
-    mAllocator.SetFailAll(false);
+    mAllocator.Reset();
 
     EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
     EXPECT_FALSE(Exists(LayerPath(cDiffID)));
@@ -1246,13 +1232,13 @@ TEST_F(SMImageManagerTest, ItemRemoverLayerSizeCalculationFails)
     err = mImageManager.RemoveItem("service", "1.0.0");
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    mStorage.SetOnIsLayerUsed([&]() { mAllocator.SetFailAll(true); });
+    mStorage.SetOnIsLayerUsed([&]() { mAllocator.FailAll(); });
 
     size_t size = 0;
 
     Tie(size, err) = mImageManager.GetItemRemover().RemoveItem("service", "1.0.0");
 
-    mAllocator.SetFailAll(false);
+    mAllocator.Reset();
 
     EXPECT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
     EXPECT_EQ(size, 2 * cBlobSize);

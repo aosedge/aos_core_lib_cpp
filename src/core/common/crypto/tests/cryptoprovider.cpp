@@ -8,7 +8,7 @@
 
 #include <core/common/crypto/cryptoutils.hpp>
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
-#include <core/common/tests/stubs/testallocator.hpp>
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/fs.hpp>
@@ -30,7 +30,7 @@
 #endif
 
 using namespace testing;
-using aos::tests::TestAllocator;
+using aos::tests::FailingAllocator;
 
 namespace aos::crypto {
 /***********************************************************************************************************************
@@ -55,7 +55,7 @@ public:
 protected:
     // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
     // members are destroyed in reverse declaration order.
-    TestAllocator mAllocator;
+    FailingAllocator mAllocator;
 
     std::shared_ptr<CryptoFactoryItf> mFactory;
     CryptoProviderItf*                mCryptoProvider;
@@ -1121,7 +1121,7 @@ TEST_P(CryptoProviderTest, AES_CreateFailsWithoutMemory)
 
         const auto ivSize = String(mode) == "GCM" ? AESCipherItf::cGCMIVSize : AESCipherItf::cBlockSize;
 
-        mAllocator.FailAfter(0);
+        mAllocator.FailAll();
 
         EXPECT_TRUE(mCryptoProvider->CreateAESEncoder(mode, AsArray(cGCMKey), Array<uint8_t>(iv, ivSize))
                         .mError.Is(ErrorEnum::eNoMemory));
@@ -2000,7 +2000,7 @@ TEST_P(CryptoProviderTest, PEMToX509PrivKeyErrors)
 
     ReadTestFile(TEST_CERTIFICATES_DIR "/client.key", keyPEM);
 
-    mAllocator.FailAfter(0);
+    mAllocator.FailAll();
 
     EXPECT_TRUE(mCryptoProvider->PEMToX509PrivKey(keyPEM).mError.Is(ErrorEnum::eNoMemory));
 
@@ -2054,7 +2054,7 @@ TEST_P(CryptoProviderTest, CreateHashErrors)
 {
     EXPECT_FALSE(mHashProvider->CreateHash(HashEnum::eNone).mError.IsNone());
 
-    mAllocator.FailAfter(0);
+    mAllocator.FailAll();
 
     EXPECT_TRUE(mHashProvider->CreateHash(HashEnum::eSHA256).mError.Is(ErrorEnum::eNoMemory));
 

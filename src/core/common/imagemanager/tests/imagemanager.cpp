@@ -30,6 +30,7 @@
 #include <core/common/tests/mocks/itemstatuslistenermock.hpp>
 #include <core/common/tests/mocks/ocispecmock.hpp>
 #include <core/common/tests/mocks/spaceallocatormock.hpp>
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/heapallocator.hpp>
@@ -215,24 +216,7 @@ Error DownloadTestBlob(const String& path, const BlobInfo& blobInfo)
     return fs::WriteStringToFile(path, String(blobInfo.mDigest.CStr() + std::strlen("sha256:")), 0600);
 }
 
-class FailableAllocator : public HeapAllocator {
-public:
-    void* Allocate(size_t size) override
-    {
-        if (mFailAll || size == mFailSize) {
-            return nullptr;
-        }
-
-        return HeapAllocator::Allocate(size);
-    }
-
-    void SetFailAll(bool fail) { mFailAll = fail; }
-    void SetFailSize(size_t size) { mFailSize = size; }
-
-private:
-    std::atomic<bool>   mFailAll {false};
-    std::atomic<size_t> mFailSize {0};
-};
+using aos::tests::FailingAllocator;
 
 class TestStorageStub : public StorageStub {
 public:
@@ -427,7 +411,7 @@ protected:
 
     // mAllocator must be declared before any member that allocates from it, so it is destroyed after them, since
     // members are destroyed in reverse declaration order.
-    FailableAllocator                            mAllocator;
+    FailingAllocator                             mAllocator;
     NiceMock<BlobInfoProviderMock>               mBlobInfoProvider;
     TestStorageStub                              mStorage;
     NiceMock<spaceallocator::SpaceAllocatorMock> mSpaceAllocator;
@@ -3795,7 +3779,7 @@ TEST_F(CommonImageManagerTest, StartNoMemory)
 {
     ASSERT_TRUE(InitImageManager().IsNone());
 
-    mAllocator.SetFailAll(true);
+    mAllocator.FailAll();
 
     auto err = mImageManager.Start();
     EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
@@ -3805,7 +3789,7 @@ TEST_F(CommonImageManagerTest, StartNoMemory)
     err = mImageManager.GetItemsStatuses(statuses);
     EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
 
-    mAllocator.SetFailAll(false);
+    mAllocator.Reset();
 }
 
 TEST_F(CommonImageManagerTest, StartGetItemsFails)
@@ -3874,7 +3858,7 @@ TEST_F(CommonImageManagerInstallTest, InstallNoMemory)
     };
 
     for (const auto& testCase : testCases) {
-        mAllocator.SetFailSize(testCase.mSize);
+        mAllocator.Fail(testCase.mSize, 0, FailingAllocator::cUnlimited);
 
         auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest, false, UpdateItemTypeEnum::eService,
             cTestItemID, (std::string(cTestVersion) + testCase.mName).c_str()));
@@ -3882,7 +3866,7 @@ TEST_F(CommonImageManagerInstallTest, InstallNoMemory)
         EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << testCase.mName << ": " << tests::utils::ErrorToStr(err);
     }
 
-    mAllocator.SetFailSize(0);
+    mAllocator.Reset();
 }
 
 TEST_F(CommonImageManagerInstallTest, InstallIndexNoMemory)
@@ -3893,12 +3877,12 @@ TEST_F(CommonImageManagerInstallTest, InstallIndexNoMemory)
     CreateValidBlobs(manifest);
     CreateFile(index.mPath.c_str(), index.mHash.c_str());
 
-    mAllocator.SetFailSize(sizeof(oci::ImageIndex));
+    mAllocator.Fail(sizeof(oci::ImageIndex), 0, FailingAllocator::cUnlimited);
 
     auto err = mImageManager.Install(MakeInstallInfo(index, true));
     EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
 
-    mAllocator.SetFailSize(0);
+    mAllocator.Reset();
 }
 
 TEST_F(CommonImageManagerInstallTest, InstallBlobInfoNoMemory)
@@ -3908,14 +3892,14 @@ TEST_F(CommonImageManagerInstallTest, InstallBlobInfoNoMemory)
     CreateValidBlobs(manifest);
     ASSERT_TRUE(fs::RemoveAll(manifest.mLayers[0].mPath.c_str()).IsNone());
 
-    mAllocator.SetFailSize(sizeof(BlobInfo));
+    mAllocator.Fail(sizeof(BlobInfo), 0, FailingAllocator::cUnlimited);
 
     EXPECT_CALL(mImageManager, DownloadBlob(_, _)).Times(0);
 
     auto err = mImageManager.Install(MakeInstallInfo(manifest.mManifest));
     EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
 
-    mAllocator.SetFailSize(0);
+    mAllocator.Reset();
 }
 
 TEST_F(CommonImageManagerInstallTest, InstallLoadIndexFails)
@@ -4066,13 +4050,13 @@ TEST_F(CommonImageManagerRemoveOutdatedTest, RemoveOutdatedStorageErrors)
     EXPECT_EQ(size, 0);
 
     mStorage.SetFailGetItemBlobs(false);
-    mAllocator.SetFailSize(sizeof(StaticArray<ItemBlobInfo, cMaxNumItemBlobs>));
+    mAllocator.Fail(sizeof(StaticArray<ItemBlobInfo, cMaxNumItemBlobs>), 0, FailingAllocator::cUnlimited);
 
     Tie(size, err) = RemoveOutdated();
     EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
     EXPECT_EQ(size, 0);
 
-    mAllocator.SetFailSize(0);
+    mAllocator.Reset();
 
     EXPECT_TRUE(GetStoredItem(cTestItemID, cTestVersion).has_value());
 }
@@ -4387,7 +4371,7 @@ TEST_F(CommonImageManagerOrphanTest, ReadExpiredItemsNoMemory)
     // The items are read with the allocator by Start and then by the cleanup.
     EXPECT_CALL(mSpaceAllocator, AddOutdatedItem(String(cTestItemID), String(cTestVersion), _))
         .WillOnce(Invoke([this](const String&, const String&, const Time&) {
-            mAllocator.SetFailAll(true);
+            mAllocator.FailAll();
 
             return ErrorEnum::eNone;
         }));
@@ -4397,7 +4381,7 @@ TEST_F(CommonImageManagerOrphanTest, ReadExpiredItemsNoMemory)
     ASSERT_TRUE(mImageManager.Start().IsNone());
     ASSERT_EQ(finished.wait_for(cWaitTimeout), std::future_status::ready);
 
-    mAllocator.SetFailAll(false);
+    mAllocator.Reset();
 
     ASSERT_TRUE(mImageManager.Stop().IsNone());
 

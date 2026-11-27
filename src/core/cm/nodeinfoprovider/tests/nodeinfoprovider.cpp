@@ -13,8 +13,8 @@
 #include <gtest/gtest.h>
 
 #include <core/common/tests/mocks/nodeinfoprovidermock.hpp>
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tests/stubs/nodeinfoproviderstub.hpp>
-#include <core/common/tests/stubs/testallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/heapallocator.hpp>
@@ -120,7 +120,7 @@ protected:
             }));
     }
 
-    tests::TestAllocator mAllocator;
+    tests::FailingAllocator mAllocator;
 
     StrictMock<iamclient::NodeInfoProviderMock> mIAMNodeInfoProvider;
     NodeInfoListenerStub                        mListener;
@@ -449,7 +449,7 @@ TEST_F(CMNodeInfoProviderTest, NotifySubscribersOnceSMInfoReceived)
 
 TEST_F(CMNodeInfoProviderErrorsTest, StartErrors)
 {
-    mAllocator.FailAfter(0);
+    mAllocator.FailAll();
 
     auto err = mNodeInfoProvider.Start();
     EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
@@ -462,7 +462,7 @@ TEST_F(CMNodeInfoProviderErrorsTest, StartErrors)
     EXPECT_TRUE(err.Is(ErrorEnum::eFailed)) << tests::utils::ErrorToStr(err);
 
     ExpectNodeIDs(1);
-    mAllocator.FailAfter(1);
+    mAllocator.FailAt(1, tests::FailingAllocator::cUnlimited);
 
     err = mNodeInfoProvider.Start();
     EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
@@ -576,7 +576,7 @@ TEST_F(CMNodeInfoProviderErrorsTest, NotifyNoMemory)
 
     auto nodeInfo = std::make_unique<UnitNodeInfo>();
 
-    mAllocator.FailAfter(0);
+    mAllocator.FailAll();
 
     mNodeInfoProvider.OnSMDisconnected("node1", ErrorEnum::eNone);
 

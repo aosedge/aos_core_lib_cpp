@@ -20,6 +20,7 @@
 
 #include <core/common/crypto/certloader.hpp>
 #include <core/common/crypto/cryptohelper.hpp>
+#include <core/common/tests/stubs/failingallocator.hpp>
 #if defined(WITH_MBEDTLS)
 #include <core/common/crypto/mbedtls/cryptoprovider.hpp>
 #else
@@ -27,7 +28,6 @@
 #endif
 #include <core/common/tests/crypto/providers/cryptofactory.hpp>
 #include <core/common/tests/crypto/softhsmenv.hpp>
-#include <core/common/tests/stubs/testallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/fs.hpp>
@@ -39,7 +39,7 @@
 
 using namespace testing;
 using namespace aos::tests::utils;
-using aos::tests::TestAllocator;
+using aos::tests::FailingAllocator;
 
 namespace aos::crypto {
 /***********************************************************************************************************************
@@ -665,7 +665,7 @@ protected:
 
     const uint8_t mZeroIV[cCBCIVSize] = {};
 
-    TestAllocator        mTestAllocator;
+    FailingAllocator     mTestAllocator;
     FaultyCryptoProvider mFaultyProvider;
     CryptoHelper         mFaultyHelper;
 };
@@ -814,7 +814,7 @@ TEST_F(CryptoHelperDecryptFaultTest, DecryptFailsWhenInputCantBeRead)
 
 TEST_F(CryptoHelperDecryptFaultTest, DecryptFailsWithoutMemory)
 {
-    mTestAllocator.FailAfter(0);
+    mTestAllocator.FailAll();
 
     EXPECT_TRUE(Decrypt().Is(ErrorEnum::eNoMemory));
     EXPECT_FALSE(std::filesystem::exists(mDecryptedPath));
@@ -1054,7 +1054,7 @@ TEST_F(CryptoHelperTest, ValidateSignsRejectsUnknownChain)
 
 TEST_F(CryptoHelperTest, ValidateSignsFailsWithoutMemory)
 {
-    TestAllocator                        testAllocator;
+    FailingAllocator                     testAllocator;
     CryptoHelper                         helper;
     constexpr auto                       cDecryptedFile = CRYPTOHELPER_CERTS_DIR "/hello-world.txt";
     auto                                 offline1       = CreateCert(*mCryptoProvider, "offline1");
@@ -1068,14 +1068,14 @@ TEST_F(CryptoHelperTest, ValidateSignsFailsWithoutMemory)
     ASSERT_TRUE(certs.PushBack(offline1).IsNone());
     ASSERT_TRUE(chains.PushBack(CreateCertChain("offline1", {"offline1"})).IsNone());
 
-    testAllocator.FailAfter(0);
+    testAllocator.FailAll();
 
     EXPECT_TRUE(helper.ValidateSigns(cDecryptedFile, signs, chains, certs).Is(ErrorEnum::eNoMemory));
 }
 
 TEST_F(CryptoHelperTest, DecryptMetadataFailsWithoutMemory)
 {
-    TestAllocator                            testAllocator;
+    FailingAllocator                         testAllocator;
     CryptoHelper                             helper;
     StaticArray<uint8_t, cCloudMetadataSize> output;
     auto                                     inputData = ReadFileFromCrtDir("hello-world-cms.txt.offline1.cms");
@@ -1086,7 +1086,7 @@ TEST_F(CryptoHelperTest, DecryptMetadataFailsWithoutMemory)
 
     mCertProvider.AddCert("offline", "offline1");
 
-    testAllocator.FailAfter(0);
+    testAllocator.FailAll();
 
     EXPECT_TRUE(helper.DecryptMetadata(input, output).Is(ErrorEnum::eNoMemory));
 }
@@ -1135,13 +1135,13 @@ TEST_F(CryptoHelperTest, InitFailsWhenRootCertIsNotCA)
 
 TEST_F(CryptoHelperTest, InitFailsWithoutMemory)
 {
-    TestAllocator    alloc;
+    FailingAllocator alloc;
     CertProviderStub provider;
     CryptoHelper     helper;
 
     provider.AddRootCert("rootCA");
 
-    alloc.FailAfter(0);
+    alloc.FailAll();
 
     ASSERT_TRUE(helper.Init(alloc, provider, *mCryptoProvider, mCertLoader, cDefaultServiceDiscoveryURL)
                     .Is(ErrorEnum::eNoMemory));
@@ -1445,7 +1445,7 @@ protected:
         return {CreateCertChain("offline1", {"offline1", "intermediateCA", "secondaryCA"})};
     }
 
-    TestAllocator                            mTestAllocator;
+    FailingAllocator                         mTestAllocator;
     InjectingCryptoProvider                  mProvider;
     CryptoHelper                             mHelper;
     std::vector<uint8_t>                     mCMS;
@@ -1574,7 +1574,7 @@ TEST_F(CryptoHelperInjectTest, DecryptMetadataFailsOnAnyAllocationFailure)
     for (size_t allocation = 0;; allocation++) {
         SCOPED_TRACE(allocation);
 
-        mTestAllocator.FailAfter(allocation);
+        mTestAllocator.FailAt(allocation, FailingAllocator::cUnlimited);
 
         const auto err = DecryptMetadata();
         if (err.IsNone()) {
@@ -1597,7 +1597,7 @@ TEST_F(CryptoHelperInjectTest, GetServiceDiscoveryURLsOnAnyAllocationFailure)
 
         StaticArray<StaticString<cURLLen>, cMaxNumURLs> urls;
 
-        mTestAllocator.FailAfter(allocation);
+        mTestAllocator.FailAt(allocation, FailingAllocator::cUnlimited);
 
         const auto err = mHelper.GetServiceDiscoveryURLs(urls);
         if (err.IsNone() && urls == ConvertToArray({StaticString<cURLLen>("https://Test1:9000")})) {
@@ -1786,7 +1786,7 @@ TEST_F(CryptoHelperInjectTest, ValidateSignsFailsOnAnyAllocationFailure)
     for (size_t allocation = 0;; allocation++) {
         SCOPED_TRACE(allocation);
 
-        mTestAllocator.FailAfter(allocation);
+        mTestAllocator.FailAt(allocation, FailingAllocator::cUnlimited);
 
         const auto err = ValidateSigns(signs, certs, chains);
         if (err.IsNone()) {

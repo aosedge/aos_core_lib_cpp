@@ -23,6 +23,7 @@
 #include <core/common/tests/mocks/iteminfoprovidermock.hpp>
 #include <core/common/tests/mocks/itemstatusprovidermock.hpp>
 #include <core/common/tests/mocks/ocispecmock.hpp>
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/heapallocator.hpp>
@@ -35,7 +36,6 @@
 
 #include "mocks/imagemanagermock.hpp"
 #include "mocks/runtimemock.hpp"
-#include "stubs/failingallocator.hpp"
 #include "stubs/senderstub.hpp"
 #include "stubs/storagestub.hpp"
 
@@ -71,6 +71,9 @@ std::ostream& operator<<(std::ostream& os, const InstanceStatus& status)
 
 namespace aos::sm::launcher {
 namespace {
+
+using aos::tests::FailingAllocator;
+
 /***********************************************************************************************************************
  * Static
  **********************************************************************************************************************/

@@ -17,7 +17,7 @@
 #include <core/cm/storagestate/storagestate.hpp>
 #include <core/common/crypto/cryptoprovider.hpp>
 #include <core/common/tests/mocks/fsmock.hpp>
-#include <core/common/tests/stubs/testallocator.hpp>
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/heapallocator.hpp>
@@ -386,8 +386,8 @@ protected:
 
     // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
     // members are destroyed in reverse declaration order.
-    HeapAllocator        mAllocator;
-    tests::TestAllocator mTestAllocator;
+    HeapAllocator           mAllocator;
+    tests::FailingAllocator mTestAllocator;
 
     crypto::DefaultCryptoProvider mCryptoProvider;
     HasherStub                    mHasherStub {mCryptoProvider, mAllocator};
@@ -1013,7 +1013,7 @@ TEST_F(StorageStateTests, StartFails)
     auto err = InitWithStubs();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    mTestAllocator.FailAfter(0);
+    mTestAllocator.FailAll();
 
     err = mStorageState.Start();
     EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
@@ -1105,7 +1105,7 @@ TEST_F(StorageStateTests, UpdateStateErrors)
 
     mHasherStub.SetErrors(ErrorEnum::eNone);
 
-    mTestAllocator.FailAfter(0);
+    mTestAllocator.FailAll();
 
     err = mStorageState.UpdateState(*CreateUpdateState("new state"));
     EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
@@ -1157,7 +1157,7 @@ TEST_F(StorageStateTests, AcceptStateErrors)
     static_cast<InstanceIdent&>(*acceptState) = cInstanceIdent;
     acceptState->mResult                      = StateResultEnum::eAccepted;
 
-    mTestAllocator.FailAfter(0);
+    mTestAllocator.FailAll();
 
     err = mStorageState.AcceptState(*acceptState);
     EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
@@ -1193,12 +1193,12 @@ TEST_F(StorageStateTests, SetupStorageInfoErrors)
     auto err = InitWithStubs();
     ASSERT_TRUE(err.IsNone()) << tests::utils::ErrorToStr(err);
 
-    mTestAllocator.FailAfter(0);
+    mTestAllocator.FailAll();
 
     err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
     EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
 
-    mTestAllocator.FailAfter(1);
+    mTestAllocator.FailAt(1, tests::FailingAllocator::cUnlimited);
 
     err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
     EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);
@@ -1295,7 +1295,7 @@ TEST_F(StorageStateTests, SetupPrepareStateErrors)
     EXPECT_CALL(mFSWatcherMock, Subscribe).WillOnce(Return(ErrorEnum::eNone));
     EXPECT_CALL(mFSWatcherMock, Unsubscribe).WillOnce(Return(ErrorEnum::eNone));
 
-    mTestAllocator.FailAfter(1);
+    mTestAllocator.FailAt(1, tests::FailingAllocator::cUnlimited);
 
     err = mStorageState.Setup(cInstanceIdent, cSetupParams, storagePath, statePath);
     EXPECT_TRUE(err.Is(ErrorEnum::eNoMemory)) << tests::utils::ErrorToStr(err);

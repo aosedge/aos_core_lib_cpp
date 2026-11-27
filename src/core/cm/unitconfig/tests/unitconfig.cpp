@@ -11,7 +11,7 @@
 #include <core/cm/tests/mocks/nodeinfoprovidermock.hpp>
 #include <core/cm/unitconfig/tests/mocks/jsonprovidermock.hpp>
 #include <core/cm/unitconfig/unitconfig.hpp>
-#include <core/common/tests/stubs/testallocator.hpp>
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/heapallocator.hpp>
@@ -157,8 +157,8 @@ protected:
 
     // mAllocator must be declared (and therefore destroyed) after any member that allocates from it, since
     // members are destroyed in reverse declaration order.
-    HeapAllocator        mAllocator;
-    tests::TestAllocator mTestAllocator;
+    HeapAllocator           mAllocator;
+    tests::FailingAllocator mTestAllocator;
 
     StrictMock<cm::nodeinfoprovider::NodeInfoProviderMock> mNodeInfoProvider;
     StrictMock<NodeConfigHandlerMock>                      mNodeConfigHandler;
@@ -613,7 +613,7 @@ TEST_F(UnitConfigTest, InitNoMemory)
 {
     CreateTestConfigFile(cValidTestUnitConfig);
 
-    mTestAllocator.FailAfter(0);
+    mTestAllocator.FailAll();
 
     auto err
         = mUnitConfig.Init(mTestAllocator, {cTestConfigFile}, mNodeInfoProvider, mNodeConfigHandler, mJSONProvider);
@@ -651,7 +651,7 @@ TEST_F(UnitConfigTest, CheckUnitConfigErrors)
     EXPECT_EQ(mUnitConfig.CheckUnitConfig(newConfig), ErrorEnum::eFailed);
 
     ExpectNodeIDs({cTestNodeID});
-    mTestAllocator.FailAfter(0);
+    mTestAllocator.FailAll();
     EXPECT_EQ(mUnitConfig.CheckUnitConfig(newConfig), ErrorEnum::eNoMemory);
     mTestAllocator.Reset();
 
@@ -680,7 +680,7 @@ TEST_F(UnitConfigTest, CheckUnitConfigErrors)
         .WillOnce(DoAll(SetArgReferee<1>(CreateTestNodeInfo()), Return(ErrorEnum::eNone)));
     EXPECT_CALL(mNodeConfigHandler, GetNodeConfigStatus(String(cTestNodeID), _))
         .WillOnce(DoAll(SetArgReferee<1>(oldStatus), Return(ErrorEnum::eNone)));
-    mTestAllocator.FailAfter(1);
+    mTestAllocator.FailAt(1, tests::FailingAllocator::cUnlimited);
     EXPECT_EQ(mUnitConfig.CheckUnitConfig(newConfig), ErrorEnum::eNoMemory);
     mTestAllocator.Reset();
 
@@ -717,7 +717,7 @@ TEST_F(UnitConfigTest, UpdateUnitConfigErrors)
 
     EXPECT_EQ(mUnitConfig.UpdateUnitConfig(CreateTestUnitConfig("0.5.0")), ErrorEnum::eWrongState);
 
-    mTestAllocator.FailAfter(0);
+    mTestAllocator.FailAll();
     EXPECT_EQ(mUnitConfig.UpdateUnitConfig(CreateTestUnitConfig("2.0.0")), ErrorEnum::eNoMemory);
     mTestAllocator.Reset();
 
@@ -730,11 +730,11 @@ TEST_F(UnitConfigTest, UpdateUnitConfigErrors)
     EXPECT_EQ(mUnitConfig.UpdateUnitConfig(CreateTestUnitConfig("4.0.0")), ErrorEnum::eFailed);
 
     ExpectNodeIDs({cTestNodeID});
-    mTestAllocator.FailAfter(1);
+    mTestAllocator.FailAt(1, tests::FailingAllocator::cUnlimited);
     EXPECT_EQ(mUnitConfig.UpdateUnitConfig(CreateTestUnitConfig("5.0.0")), ErrorEnum::eNoMemory);
 
     ExpectNodeIDs({cTestNodeID});
-    mTestAllocator.FailAfter(2);
+    mTestAllocator.FailAt(2, tests::FailingAllocator::cUnlimited);
     EXPECT_EQ(mUnitConfig.UpdateUnitConfig(CreateTestUnitConfig("6.0.0")), ErrorEnum::eNoMemory);
     mTestAllocator.Reset();
 
@@ -810,7 +810,7 @@ TEST_F(UnitConfigTest, OnNodeInfoChangedErrors)
     EXPECT_CALL(mNodeConfigHandler, GetNodeConfigStatus(String(cTestNodeID), _))
         .WillOnce(DoAll(SetArgReferee<1>(oldStatus), Return(ErrorEnum::eNone)));
 
-    mTestAllocator.FailAfter(0);
+    mTestAllocator.FailAll();
     mUnitConfig.OnNodeInfoChanged(CreateTestNodeInfo());
     mTestAllocator.Reset();
 

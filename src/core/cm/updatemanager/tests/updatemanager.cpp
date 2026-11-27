@@ -23,6 +23,7 @@
 #include <core/common/tests/mocks/instancestatusprovidermock.hpp>
 #include <core/common/tests/mocks/itemstatusprovidermock.hpp>
 #include <core/common/tests/mocks/nodehandlermock.hpp>
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/common/tools/heapallocator.hpp>
@@ -2774,47 +2775,7 @@ bool WaitForCondition(const std::function<bool()>& condition)
     return condition();
 }
 
-class ControlledAllocator : public AllocatorItf {
-public:
-    void* Allocate(size_t size) override
-    {
-        auto index = mCount++;
-
-        if (mFailAll || index == mFailIndex) {
-            return nullptr;
-        }
-
-        return std::malloc(size);
-    }
-
-    void Free(void* data) override { std::free(data); }
-
-    void FailAt(int index)
-    {
-        mCount     = 0;
-        mFailIndex = index;
-        mFailAll   = false;
-    }
-
-    void FailAll()
-    {
-        mCount     = 0;
-        mFailIndex = -1;
-        mFailAll   = true;
-    }
-
-    void Reset()
-    {
-        mCount     = 0;
-        mFailIndex = -1;
-        mFailAll   = false;
-    }
-
-private:
-    std::atomic_int  mCount {0};
-    std::atomic_int  mFailIndex {-1};
-    std::atomic_bool mFailAll {false};
-};
+using aos::tests::FailingAllocator;
 
 class ControlledStorage : public StorageItf {
 public:
@@ -3023,7 +2984,7 @@ protected:
 
     static constexpr Duration cStatusSendTimeout = 100 * Time::cMilliseconds;
 
-    ControlledAllocator                                    mAllocator;
+    FailingAllocator                                       mAllocator;
     NiceMock<iamclient::IdentProviderMock>                 mIdentProviderMock;
     NiceMock<iamclient::NodeHandlerMock>                   mNodeHandlerMock;
     NiceMock<unitconfig::UnitConfigMock>                   mUnitConfigMock;

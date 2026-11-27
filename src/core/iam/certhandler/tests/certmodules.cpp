@@ -8,7 +8,7 @@
 #include <gtest/gtest.h>
 
 #include <core/common/tests/mocks/cryptomock.hpp>
-#include <core/common/tests/stubs/testallocator.hpp>
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tests/utils/utils.hpp>
 #include <core/iam/certhandler/certmodule.hpp>
@@ -19,7 +19,7 @@ using namespace aos;
 using namespace aos::iam::certhandler;
 using namespace aos::tests::utils;
 using namespace testing;
-using aos::tests::TestAllocator;
+using aos::tests::FailingAllocator;
 
 /***********************************************************************************************************************
  * Test helpers
@@ -134,7 +134,7 @@ protected:
     }
 
     // cppcheck-suppress unusedStructMember
-    TestAllocator mAllocator;
+    FailingAllocator mAllocator;
 
     CertInfo mCertInfo;
 
@@ -818,7 +818,7 @@ TEST_F(CertModuleTest, InitFailsNoMemoryAllocatingValidCerts)
     CertModule certModule;
 
     mModuleConfig.mSkipValidation = false;
-    mAllocator.FailAfter(0);
+    mAllocator.FailAll();
     EXPECT_CALL(mHSM, ValidateKeysCertificates).Times(0);
     EXPECT_CALL(mHSM, ValidateRootCertificates).Times(0);
 
@@ -834,7 +834,7 @@ TEST_F(CertModuleTest, GetCertificateFailsNoMemory)
     mModuleConfig.mSkipValidation = true;
     ASSERT_TRUE(certModule.Init(mAllocator, cStorageID, mModuleConfig, mX509Provider, mHSM, mStorage).IsNone());
 
-    mAllocator.FailAfter(0);
+    mAllocator.FailAll();
 
     ASSERT_TRUE(certModule.GetCertificate(Array<uint8_t>(), Array<uint8_t>(), resCert).Is(ErrorEnum::eNoMemory));
 }
@@ -849,7 +849,7 @@ TEST_F(CertModuleTest, GetCertificateFailsNoMemoryAllocatingClearCertInfo)
 
     ASSERT_TRUE(mStorage.AddCertInfo(cStorageID, mCertInfo).IsNone());
 
-    mAllocator.FailAfter(1);
+    mAllocator.FailAt(1, FailingAllocator::cUnlimited);
 
     ASSERT_TRUE(certModule.GetCertificate(Array<uint8_t>(), Array<uint8_t>(), resCert).Is(ErrorEnum::eNoMemory));
 }
@@ -862,7 +862,7 @@ TEST_F(CertModuleTest, ApplyCertFailsNoMemory)
     mModuleConfig.mSkipValidation = true;
     ASSERT_TRUE(certModule.Init(mAllocator, cStorageID, mModuleConfig, mX509Provider, mHSM, mStorage).IsNone());
 
-    mAllocator.FailAfter(0);
+    mAllocator.FailAll();
 
     ASSERT_TRUE(certModule.ApplyCert(pemCert, mCertInfo).Is(ErrorEnum::eNoMemory));
 }
@@ -876,7 +876,7 @@ TEST_F(CertModuleTest, CreateCSRFailsNoMemory)
     mModuleConfig.mSkipValidation = true;
     ASSERT_TRUE(certModule.Init(mAllocator, cStorageID, mModuleConfig, mX509Provider, mHSM, mStorage).IsNone());
 
-    mAllocator.FailAfter(0);
+    mAllocator.FailAll();
 
     ASSERT_TRUE(certModule.CreateCSR("subject", key, pemCSR).Is(ErrorEnum::eNoMemory));
 }
@@ -892,7 +892,7 @@ TEST_F(CertModuleTest, UpdateCertsFailsNoMemory)
 
     ASSERT_TRUE(pemCerts.EmplaceBack("pem-cert").IsNone());
 
-    mAllocator.FailAfter(0);
+    mAllocator.FailAll();
 
     ASSERT_TRUE(certModule.UpdateCerts(pemCerts, "password", infos).Is(ErrorEnum::eNoMemory));
 }
@@ -910,7 +910,7 @@ TEST_F(CertModuleTest, CreateSelfSignedCertFailsNoMemory)
     EXPECT_CALL(mHSM, CreateKey)
         .WillOnce(Return(RetWithError<SharedPtr<crypto::PrivateKeyItf>> {key, ErrorEnum::eNone}));
 
-    mAllocator.FailAfter(0);
+    mAllocator.FailAll();
 
     ASSERT_TRUE(certModule.CreateSelfSignedCert("password").Is(ErrorEnum::eNoMemory));
 }
@@ -939,7 +939,7 @@ TEST_F(CertModuleTest, InitSyncValidCertsErrors)
 
         EXPECT_CALL(mHSM, ValidateKeysCertificates).WillOnce(Return(ErrorEnum::eNone));
 
-        mAllocator.FailAfter(1);
+        mAllocator.FailAt(1, FailingAllocator::cUnlimited);
 
         ASSERT_TRUE(certModule.Init(mAllocator, cStorageID, mModuleConfig, mX509Provider, mHSM, mStorage)
                         .Is(ErrorEnum::eNoMemory));
@@ -1179,7 +1179,7 @@ TEST_F(CertModuleTest, ApplyCertHSMAndStorageErrors)
 
     EXPECT_TRUE(certModule.ApplyCert(pemCert, mCertInfo).Is(ErrorEnum::eFailed));
 
-    mAllocator.FailAfter(1);
+    mAllocator.FailAt(1, FailingAllocator::cUnlimited);
 
     EXPECT_TRUE(certModule.ApplyCert(pemCert, mCertInfo).Is(ErrorEnum::eNoMemory));
 }
@@ -1262,7 +1262,7 @@ TEST_F(CertModuleTest, UpdateCertsFailsNoMemoryOnEachAllocation)
 
         ASSERT_TRUE(certModule.Init(mAllocator, cStorageID, mModuleConfig, mX509Provider, mHSM, mStorage).IsNone());
 
-        mAllocator.FailAfter(n);
+        mAllocator.FailAt(n, FailingAllocator::cUnlimited);
 
         EXPECT_TRUE(certModule.UpdateCerts(pemCerts, "password", infos).Is(ErrorEnum::eNoMemory)) << n;
 
@@ -1319,7 +1319,7 @@ TEST_F(CertModuleTest, CreateSelfSignedCertErrors)
     EXPECT_CALL(mX509Provider, ASN1EncodeDN).WillRepeatedly(Return(ErrorEnum::eNone));
 
     for (size_t n = 1; n <= 2; ++n) {
-        mAllocator.FailAfter(n);
+        mAllocator.FailAt(n, FailingAllocator::cUnlimited);
 
         EXPECT_TRUE(certModule.CreateSelfSignedCert("password").Is(ErrorEnum::eNoMemory)) << n;
 

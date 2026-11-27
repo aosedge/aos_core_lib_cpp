@@ -13,6 +13,7 @@
 
 #include <gtest/gtest.h>
 
+#include <core/common/tests/stubs/failingallocator.hpp>
 #include <core/common/tests/utils/log.hpp>
 #include <core/common/tools/fs.hpp>
 #include <core/common/tools/heapallocator.hpp>
@@ -4557,41 +4558,7 @@ TEST_F(NetworkManagerTest, OnConnect_SkipsStoppedInstancesAndIgnoresSyncError)
  * Allocation failure tests
  **********************************************************************************************************************/
 
-namespace {
-class FailingAllocator : public aos::AllocatorItf {
-public:
-    void Arm(size_t failAt)
-    {
-        mFailAt    = failAt;
-        mCount     = 0;
-        mTriggered = false;
-    }
-
-    void Disarm() { mFailAt = SIZE_MAX; }
-
-    bool IsTriggered() const { return mTriggered; }
-
-    void* Allocate(size_t size) override
-    {
-        if (mCount++ == mFailAt) {
-            mTriggered = true;
-
-            return nullptr;
-        }
-
-        return mHeap.Allocate(size);
-    }
-
-    void Free(void* data) override { mHeap.Free(data); }
-
-private:
-    aos::HeapAllocator mHeap;
-    size_t             mFailAt {SIZE_MAX};
-    size_t             mCount {};
-    bool               mTriggered {};
-};
-
-} // namespace
+using aos::tests::FailingAllocator;
 
 class NetworkManagerAllocFailureTest : public Test {
 protected:
@@ -4680,10 +4647,10 @@ protected:
     {
         auto manager = std::make_unique<NetworkManager>();
 
-        mAllocator.Disarm();
+        mAllocator.Reset();
 
         if (arm) {
-            mAllocator.Arm(failAt);
+            mAllocator.FailAt(failAt);
         }
 
         auto err = manager->Init(mAllocator, mStorage, mBridgeNetwork, mFirewall, mBandwidth, mDNSName, mTrafficMonitor,
@@ -4721,11 +4688,11 @@ protected:
         size_t failures = 0;
 
         for (size_t failAt = 0; failAt < 64; ++failAt) {
-            mAllocator.Disarm();
+            mAllocator.Reset();
 
             aos::Error err = scenario(failAt);
 
-            if (!mAllocator.IsTriggered()) {
+            if (mAllocator.NumFailed() == 0) {
                 EXPECT_TRUE(err.IsNone()) << "failAt=" << failAt << " err=" << err.Message();
 
                 break;
@@ -4762,7 +4729,7 @@ TEST_F(NetworkManagerAllocFailureTest, Init_FailsOnAllocationError)
     ExpectNoMemoryForEachAllocation(2, [this](size_t failAt) {
         auto manager = std::make_unique<NetworkManager>();
 
-        mAllocator.Arm(failAt);
+        mAllocator.FailAt(failAt);
 
         return manager->Init(mAllocator, mStorage, mBridgeNetwork, mFirewall, mBandwidth, mDNSName, mTrafficMonitor,
             mNetns, mNetIf, mRandom, mNetIfFactory, mNetworkProvider, "test-node");
@@ -4774,7 +4741,7 @@ TEST_F(NetworkManagerAllocFailureTest, Start_FailsOnAllocationError)
     ExpectNoMemoryForEachAllocation(7, [this](size_t failAt) {
         auto manager = InitManager();
 
-        mAllocator.Arm(failAt);
+        mAllocator.FailAt(failAt);
 
         return manager->Start();
     });
@@ -4785,7 +4752,7 @@ TEST_F(NetworkManagerAllocFailureTest, CreateInstanceNetwork_FailsOnAllocationEr
     ExpectNoMemoryForEachAllocation(3, [this](size_t failAt) {
         auto manager = StartManager();
 
-        mAllocator.Arm(failAt);
+        mAllocator.FailAt(failAt);
 
         return manager->CreateInstanceNetwork(cTestInstanceID, cTestNetworkID, CreateConfig());
     });
@@ -4798,7 +4765,7 @@ TEST_F(NetworkManagerAllocFailureTest, StartInstanceNetwork_FailsOnAllocationErr
 
         CreateInstance(*manager, false);
 
-        mAllocator.Arm(failAt);
+        mAllocator.FailAt(failAt);
 
         return manager->StartInstanceNetwork(cTestInstanceID, cTestNetworkID);
     });
@@ -4811,7 +4778,7 @@ TEST_F(NetworkManagerAllocFailureTest, StopInstanceNetwork_FailsOnAllocationErro
 
         CreateInstance(*manager, true);
 
-        mAllocator.Arm(failAt);
+        mAllocator.FailAt(failAt);
 
         return manager->StopInstanceNetwork(cTestInstanceID, cTestNetworkID);
     });
@@ -4826,7 +4793,7 @@ TEST_F(NetworkManagerAllocFailureTest, GetResolvServers_FailsOnAllocationError)
 
         aos::StaticArray<aos::StaticString<aos::cIPLen>, 4> servers;
 
-        mAllocator.Arm(failAt);
+        mAllocator.FailAt(failAt);
 
         return manager->GetResolvServers(cTestInstanceID, servers);
     });
@@ -4841,7 +4808,7 @@ TEST_F(NetworkManagerAllocFailureTest, GetHosts_FailsOnAllocationError)
 
         aos::StaticArray<aos::Host, 8> hosts;
 
-        mAllocator.Arm(failAt);
+        mAllocator.FailAt(failAt);
 
         return manager->GetHosts(cTestInstanceID, hosts);
     });
@@ -4859,12 +4826,12 @@ TEST_F(NetworkManagerAllocFailureTest, FlushBatch_ReportsInstanceFailedOnAllocat
 
         ON_CALL(mFirewall, FlushBatch()).WillByDefault(Return(aos::ErrorEnum::eFailed));
 
-        mAllocator.Arm(failAt);
+        mAllocator.FailAt(failAt);
 
         aos::StaticArray<aos::StaticString<aos::cIDLen>, 4> failed;
 
         EXPECT_EQ(manager->FlushBatch(failed), aos::ErrorEnum::eNone);
-        EXPECT_TRUE(mAllocator.IsTriggered());
+        EXPECT_EQ(mAllocator.NumFailed(), 1);
         ASSERT_EQ(failed.Size(), 1u) << "failAt=" << failAt;
         EXPECT_EQ(failed[0], aos::String(cTestInstanceID));
 
@@ -4924,10 +4891,10 @@ TEST_F(NetworkManagerAllocFailureTest, Start_FallsBackToCleanupWhenAdoptingInsta
 
         ASSERT_TRUE(manager);
 
-        mAllocator.Arm(failAt);
+        mAllocator.FailAt(failAt);
 
         EXPECT_EQ(manager->Start(), aos::ErrorEnum::eNone);
-        EXPECT_TRUE(mAllocator.IsTriggered()) << "failAt=" << failAt;
+        EXPECT_EQ(mAllocator.NumFailed(), 1) << "failAt=" << failAt;
         EXPECT_EQ(cleaned, 1u) << "failAt=" << failAt;
     }
 
@@ -4969,11 +4936,11 @@ TEST_F(NetworkManagerAllocFailureTest, OnPendingFirewallUpdate_SkipsRunningInsta
             return aos::ErrorEnum::eNone;
         }));
 
-        mAllocator.Arm(failAt);
+        mAllocator.FailAt(failAt);
 
         manager->OnPendingFirewallUpdate("test-node", update);
 
-        EXPECT_EQ(mAllocator.IsTriggered(), failAt < 3) << "failAt=" << failAt;
+        EXPECT_EQ(mAllocator.NumFailed(), failAt < 3 ? 1U : 0U) << "failAt=" << failAt;
         EXPECT_EQ(updated, failAt < 3 ? 0u : 1u) << "failAt=" << failAt;
     }
 }
@@ -4991,14 +4958,14 @@ TEST_F(NetworkManagerAllocFailureTest, OnConnect_SkipsSyncOnAllocationError)
             return aos::ErrorEnum::eNone;
         }));
 
-    mAllocator.Arm(0);
+    mAllocator.FailAt(0);
 
     manager->OnConnect();
 
-    EXPECT_TRUE(mAllocator.IsTriggered());
+    EXPECT_EQ(mAllocator.NumFailed(), 1);
     EXPECT_EQ(synced, 0u);
 
-    mAllocator.Disarm();
+    mAllocator.Reset();
 
     manager->OnConnect();
 
